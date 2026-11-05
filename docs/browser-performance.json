@@ -1,0 +1,92 @@
+{
+  "recordedAt": "2026-11-05T22:52:11.491Z",
+  "environment": {
+    "node": "v24.22.1",
+    "os": "linux",
+    "arch": "x64",
+    "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logicalCPUs": 9,
+    "memoryGiB": 9.73,
+    "server": "Vite development server, separate port 4180",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "browser": "141.0.7390.37"
+  },
+  "fixture": {
+    "loads": 1000,
+    "ratingKW": 1,
+    "hoursPerDay": 24,
+    "timezone": "Europe/Berlin",
+    "phaseDistribution": "L1/L2/L3 round-robin",
+    "source": "Explicit analytical fixture imported through native JSON UI",
+    "renderedTableRows": 75
+  },
+  "edits": {
+    "samples": [
+      92,
+      145.8,
+      105.4,
+      106.5,
+      89.1,
+      234.4,
+      104.2,
+      100.3,
+      136.5,
+      93.6,
+      82.4,
+      134.3,
+      90.1,
+      121.3,
+      106.5,
+      183.1,
+      74.4,
+      76,
+      161.5,
+      85.9,
+      93.9,
+      184.3,
+      79.6,
+      99.2,
+      169.4,
+      107,
+      61.4,
+      86.3,
+      145.4,
+      93.3
+    ],
+    "count": 30,
+    "p50Ms": 100.3,
+    "p95Ms": 184.3,
+    "minMs": 61.4,
+    "maxMs": 234.4,
+    "method": "Real editor Save DOM click to two animation frames; 30 successive 1.01–1.30 kW values independently checked in table. Editor fill and async save excluded."
+  },
+  "annual": {
+    "status": "completed",
+    "elapsedMs": 3910,
+    "intervals": 35040,
+    "expectedIntervals": 35040,
+    "headers": [
+      "\"timestamp_utc\"",
+      "\"local_time\"",
+      "\"kW\"",
+      "\"kWh\"",
+      "\"elapsed_hours\"",
+      "\"import_rate\""
+    ],
+    "expectedEnergyKWh": 8760000,
+    "csvEnergyKWh": 8759999.999999998,
+    "visibleMetrics": "Energy\n8,760,000 kWh\nPeak demand\n1,000 kW\nCost\n€2,628,000.00",
+    "energyPassed": true
+  },
+  "limitations": [
+    "Development build; shared environment with concurrent test tasks.",
+    "No hardware throttling. Headless Chromium result is not field latency or target certification.",
+    "Edit measure includes full application recomputation and DOM update through two animation frames; excludes time to open/fill editor and background IndexedDB save.",
+    "Annual measurement includes UI command, worker startup, compute, result transfer and visible render."
+  ],
+  "status": "completed",
+  "pageErrors": []
+}

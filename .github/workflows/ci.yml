@@ -22,6 +22,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - run: node scripts/offline-smoke.mjs
+      - run: POWERLAB_BASE_PATH=/AdigunPowerLab/ node scripts/offline-smoke.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: AdigunPowerLab

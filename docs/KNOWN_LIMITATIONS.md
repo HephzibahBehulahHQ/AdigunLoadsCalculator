@@ -15,7 +15,7 @@ This initial product is a real, local engineering workspace. The original specif
 
 - The single-line diagram is a real view of circuit/load relationships with selections, flow and SVG export. Manual coordinate editing, arbitrary symbol insertion, editable feeder routing and optional 3D are not implemented.
 - A paged load schedule handles large projects; general multi-select bulk editing, clipboard paste mapping, split-pane resizing and the full expanded menu inventory need further work.
-- Native JSON and supported CSV have preview and validation. Structured legacy import and measurement parsers are tracked separately in the migration/acceptance documents.
+- Native JSON and supported CSV have preview and validation. Recognized legacy V1/V2 import and validated measurement import, persistence and comparison are implemented within documented format limits; see the migration/acceptance documents.
 - Engineering projects, billing drafts and measurement datasets use separate stores and explicit backups; a project export is not a unified backup. A bill is user-authored; the software does not invent legal/tax details or claim jurisdiction-specific invoice compliance.
 - Core navigation/forms and billing have four-language dictionaries. Detailed equation narratives, some engine errors and technical source prose still require full translation and professional review. Yoruba/Pidgin translations are drafts; no native-speaker review is claimed.
 - The local BOT is deterministic. It runs real project tools and checked proposals; it is not a remote generative model. General OCR, document retrieval and external tool execution require actual integrations.

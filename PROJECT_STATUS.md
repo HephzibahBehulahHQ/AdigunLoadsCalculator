@@ -12,9 +12,9 @@ Implemented: empty projects, deterministic electrical engine, all 51 tools, circ
 
 - All 215 unit/reference/parser/report tests passed in the final numerical run.
 - Final combined browser gate: **15/15 passed** across workspace, planning, recovery, measurements and billing flows.
-- Earlier production offline checks passed; the latest offline reload rerun is under investigation before integration.
+- Production offline checks passed at `/` and `/AdigunPowerLab/`: reopen, saved-project recovery, tool calculation, lazy billing and PDF export; no failed requests or page errors.
 - Direct customer PDF and browser print each produced a verified one-page €53.53 estimate; analytical multipage PDF samples were rendered and inspected.
-- Node 1,000-load/year performance evidence is in `docs/PERFORMANCE.md`; this is not browser input-latency evidence.
+- Actual development-browser performance: 1,000 loads, 30 UI edits, p95 184.3 ms; annual worker simulation 3,910 ms with 35,040 correct intervals. Node and browser methods/limits are separately recorded in `docs/PERFORMANCE.md`.
 
 ## Remaining scope
 

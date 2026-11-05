@@ -1,7 +1,10 @@
 import { preview } from "vite";
 import { chromium } from "@playwright/test";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
+const basePath = process.env.POWERLAB_BASE_PATH || "/";
+const appURL = "http://127.0.0.1:4178" + basePath;
 const server = await preview({
+  base: basePath,
   preview: { host: "127.0.0.1", port: 4178, strictPort: true },
 });
 let browser;
@@ -28,7 +31,7 @@ try {
     if (m.type() === "error") console.log("browser-error", m.text());
   });
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("http://127.0.0.1:4178/");
+  await page.goto(appURL);
   await page.locator(".overview-banner").waitFor();
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
@@ -69,7 +72,6 @@ try {
       JSON.stringify({
         url: page.url(),
         body: (await page.locator("body").innerText()).slice(0, 1400),
-        html: (await page.content()).slice(0, 1600),
         networkFailures,
         cacheState: await page.evaluate(async () => ({
           keys: await caches.keys(),
@@ -102,10 +104,44 @@ try {
     .getByRole("button", { name: "Calculate", exact: true })
     .click();
   await page.locator(".tool-result").waitFor();
+  await page.screenshot({
+    path: "docs/screenshots/offline-tool.png",
+    fullPage: true,
+  });
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: "Reports & Estimates", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Customer bill", exact: true })
+    .click();
+  await page
+    .getByLabel("Document number", { exact: true })
+    .fill("OFFLINE-ANALYTICAL");
+  await page
+    .getByLabel("Supplier", { exact: true })
+    .fill("Analytical test supplier");
+  await page
+    .getByLabel("Customer", { exact: true })
+    .fill("Offline analytical fixture");
+  await page.getByRole("button", { name: "Add line", exact: false }).click();
+  await page
+    .getByLabel("Description 1", { exact: true })
+    .fill("Offline cable calculation");
+  await page.getByLabel("Qty 1", { exact: true }).fill("2");
+  await page.getByLabel("Unit price 1", { exact: true }).fill("10");
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+  const pdf = await readFile(await (await downloaded).path());
+  if (pdf.subarray(0, 5).toString("ascii") !== "%PDF-")
+    throw new Error("Offline PDF is invalid");
   const evidence = {
+    basePath,
     offlineReload: true,
     savedProjectRecovered: true,
     toolCalculationOffline: true,
+    lazyBillingOffline: true,
+    pdfExportOffline: true,
     serviceWorkerControlled: await page.evaluate(
       () => !!navigator.serviceWorker.controller,
     ),
@@ -114,18 +150,19 @@ try {
       .first()
       .evaluate((e) => getComputedStyle(e).fontFamily),
     errors,
+    networkFailures,
   };
   await mkdir("docs/screenshots", { recursive: true });
-  await page.screenshot({
-    path: "docs/screenshots/offline-tool.png",
-    fullPage: true,
-  });
   await writeFile(
     "docs/offline-verification.json",
     JSON.stringify(evidence, null, 2),
   );
   console.log(JSON.stringify(evidence));
   if (errors.length) throw new Error("Page errors: " + errors.join("; "));
+  if (networkFailures.length)
+    throw new Error(
+      "Offline requests failed: " + JSON.stringify(networkFailures),
+    );
 } finally {
   if (browser) await browser.close();
   await new Promise((resolve) => server.httpServer.close(resolve));

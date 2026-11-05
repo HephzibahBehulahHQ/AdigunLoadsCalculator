@@ -33,7 +33,9 @@ The first full browser run exposed test-harness lifecycle/selector defects. Thos
 - `npm test`: 215/215 passed across eight test files.
 - `npm run build`: passed; 2,291 modules, scoped service worker and lazy feature chunks.
 - Combined browser gate: **15/15 tests passed in 1.2 minutes**, covering billing, measurements, planning, recovery and workspace flows.
-- Final offline candidate rerun and fresh-checkout verification are in progress. The final source SHA and integration outcome will replace this pending statement.
+- Production offline candidate checks passed at both `/` and `/AdigunPowerLab/`, including lazy billing and actual PDF export, with zero page errors and zero failed requests. The rerun exposed `Vary: Origin` differing between precache fetches and module requests; the fix matches only the dedicated static-asset cache while ignoring that header and isolates cache cleanup by scope.
+- Actual development-browser benchmark: 1,000 loads, 30 real editor saves, p95 184.3 ms; annual UI worker simulation 3,910 ms, 35,040 rows, 8,760,000 kWh within floating-point tolerance. See `browser-performance.json` and `PERFORMANCE.md` for method and limits.
+- Fresh-checkout verification and final remote CI are in progress; their exact candidate and outcome are recorded below after observation.
 
 ## Not claimed
 
