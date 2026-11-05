@@ -163,6 +163,8 @@ export interface Project {
   billing: BillingSettings;
   notes: string;
   referenceCase?: string;
+  scenarioOf?: string;
+  baselineRevision?: number;
 }
 export interface Issue {
   id: string;
