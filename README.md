@@ -11,7 +11,7 @@ Requires a compatible Node.js release (tested with Node 24.22.1) and npm.
 ```sh
 npm ci
 npm run dev -- --host 127.0.0.1
-npm run typecheck
+npm run lint
 npm test
 npm run build
 npm run preview -- --host 127.0.0.1
@@ -22,6 +22,7 @@ Browser verification:
 ```sh
 npx playwright install chromium
 npm run test:browser
+npm run test:offline
 ```
 
 Dependencies are pinned in `package-lock.json`. The application is a client-side static build; there is no account service, secret API key, paid dependency or background customer-data transfer.
@@ -47,7 +48,7 @@ The durable product specification is `AdigunPowerLab  Pursuing Goal prompt.txt`.
 
 ## Data and offline use
 
-Engineering projects and local history use IndexedDB. Customer bills have their own IndexedDB drafts and explicit JSON backup/import. Export engineering projects and billing drafts for backups; browser storage is not remote backup. Imports are reviewed before changing a project, and unsupported/malformed files preserve the current work. The production build caches its scoped application assets for offline reopening after a successful first load. Development mode does not register an offline worker.
+Engineering projects and local history use IndexedDB. Customer bills have their own IndexedDB drafts and explicit JSON backup/import. Measured-data CSV imports and their validated backups use a separate local store. Export engineering projects and billing drafts for backups; browser storage is not remote backup. Imports are reviewed before changing a project, and unsupported/malformed files preserve the current work. The production build caches its scoped application assets for offline reopening after a successful first load. Development mode does not register an offline worker.
 
 ## Deployment
 

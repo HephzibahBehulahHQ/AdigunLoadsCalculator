@@ -3,11 +3,11 @@ export interface ToolInput {
   key: string;
   label: string;
   unit?: string;
-  type?: 'number' | 'select' | 'text';
+  type?: "number" | "select" | "text";
   default?: number | string;
   min?: number;
   max?: number;
-  step?: number | 'any';
+  step?: number | "any";
   required?: boolean;
   options?: Array<{ value: string; label: string }>;
   hint?: string;
@@ -17,7 +17,7 @@ export interface ToolResult {
   formula: string;
   notes: string[];
   warnings: string[];
-  status: 'calculated' | 'incomplete' | 'unsupported';
+  status: "calculated" | "incomplete" | "unsupported";
   sources: string[];
   series?: Array<Record<string, number | string>>;
 }

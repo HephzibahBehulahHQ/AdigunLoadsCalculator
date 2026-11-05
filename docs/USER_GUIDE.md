@@ -49,6 +49,12 @@ Customer bills have their own **Save draft locally**, **Export draft JSON** and 
 
 Use **Move to trash** and **Restore** in the project switcher to recover deleted projects. A separate device needs the exported file; local history is not remote backup.
 
+## Import measured intervals
+
+Open **Schedules & Simulation → Measured intervals**. Upload a CSV, choose the timestamp and power columns, select W or kW, and enter the actual elapsed interval in minutes. Timestamps mark the start of each interval and require `Z` or an explicit UTC offset. Preview validates the inputs. Gaps remain missing; the energy totals cover observed intervals only. Negative power represents export.
+
+**Save measured data** stores the validated dataset separately for the current project and browser. **Reopen saved measurements** restores and revalidates it. Export the **measurement backup** alongside the engineering project for recovery on another device. The cleaned CSV normalizes power and interval energy to kW and kWh. An invalid replacement leaves the previous validated display and saved dataset intact.
+
 ## Print a bill for a customer
 
 1. Open **Reports & Estimates → Customer bill**.
@@ -74,7 +80,7 @@ load: Workshop heater; 2.3 kW; 230 V; PF 1; 8 h
 
 The assistant previews the proposed load and the affected demand. Review the proposal and explicitly apply it; it enters the same undoable project workflow. Editing the project invalidates a stale proposal. A generative AI backend, OCR, telemetry and account service are not implied by the local assistant.
 
-The assistant window supports close/minimize and retained session context. Refer to the actual controls for resize/restore behavior. Chat text is local session content unless a separate persistence feature explicitly says otherwise.
+The assistant window supports close, minimize, maximize and restore, with retained context for each project during the session. Chat text is local session content; it is not included in the engineering project backup.
 
 ## Keyboard, language and display
 

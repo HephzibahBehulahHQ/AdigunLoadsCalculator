@@ -1,12 +1,19 @@
 export const SCHEMA_VERSION = 1 as const;
-export const ENGINE_VERSION = '1.0.0';
-export type Phase = 'L1' | 'L2' | 'L3';
-export type Connection = 'single' | 'three' | 'line-line' | 'dc';
-export type EntryMode = 'kw' | 'kva' | 'amps' | 'motor' | 'complex';
-export type Assessment = 'passed' | 'failed' | 'warning' | 'incomplete' | 'not-applicable' | 'unsupported';
-export type Origin = 'entered' | 'measured' | 'calculated' | 'simulated' | 'assumed';
+export const ENGINE_VERSION = "1.0.0";
+export type Phase = "L1" | "L2" | "L3";
+export type Connection = "single" | "three" | "line-line" | "dc";
+export type EntryMode = "kw" | "kva" | "amps" | "motor" | "complex";
+export type Assessment =
+  | "passed"
+  | "failed"
+  | "warning"
+  | "incomplete"
+  | "not-applicable"
+  | "unsupported";
+export type Origin =
+  "entered" | "measured" | "calculated" | "simulated" | "assumed";
 export interface SourceEvidence {
-  kind: 'nameplate' | 'measured' | 'datasheet' | 'estimate' | 'user';
+  kind: "nameplate" | "measured" | "datasheet" | "estimate" | "user";
   reference: string;
   date?: string;
 }
@@ -22,8 +29,8 @@ export interface Load {
   voltage: number;
   connection: Connection;
   pf: number;
-  pfKind?: 'displacement' | 'true';
-  reactive: 'lagging' | 'leading';
+  pfKind?: "displacement" | "true";
+  reactive: "lagging" | "leading";
   /** Per-unit signed kvar for explicit complex entry. */
   reactiveKvar?: number;
   efficiency: number;
@@ -127,8 +134,20 @@ export interface EVSession {
   siteLimitKW: number;
   phase?: Phase;
 }
-export interface ContactDetails { name: string; address: string; email: string; phone?: string; taxId?: string }
-export interface EstimateLine { id: string; description: string; quantity: number; unit: string; unitPrice: number }
+export interface ContactDetails {
+  name: string;
+  address: string;
+  email: string;
+  phone?: string;
+  taxId?: string;
+}
+export interface EstimateLine {
+  id: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+}
 export interface BillingSettings {
   seller: ContactDetails;
   customer: ContactDetails;
@@ -151,7 +170,12 @@ export interface Project {
   timezone: string;
   currency: string;
   jurisdiction: string;
-  supply: { voltageLN: number; voltageLL: number; frequency: number; limitA: number };
+  supply: {
+    voltageLN: number;
+    voltageLL: number;
+    frequency: number;
+    limitA: number;
+  };
   coincidence: number;
   growthPercent: number;
   loads: Load[];
@@ -168,7 +192,7 @@ export interface Project {
 }
 export interface Issue {
   id: string;
-  severity: 'error' | 'warning' | 'info';
+  severity: "error" | "warning" | "info";
   assessment: Assessment;
   message: string;
   entityId?: string;
@@ -186,7 +210,10 @@ export interface Trace {
   /** Supplied project timestamp; the pure engine does not read a clock. */
   inputTimestamp: string;
 }
-export interface Complex { re: number; im: number }
+export interface Complex {
+  re: number;
+  im: number;
+}
 export interface NormalizedLoad {
   id: string;
   installedKW: number;
