@@ -104,7 +104,7 @@ export function validateProjectImport(input: unknown): { valid: boolean; project
     if (finite(load.quantity) && (!Number.isInteger(load.quantity) || load.quantity < 1 || load.quantity > 1000000)) errors.push(`${prefix}: quantity must be a positive integer.`);
     if (finite(load.rating) && load.rating < 0) errors.push(`${prefix}: negative appliance ratings are not supported.`);
     if (finite(load.voltage) && load.voltage <= 0) errors.push(`${prefix}: voltage must be positive.`);
-    if (finite(load.pf) && (load.pf <= 0 || load.pf > 1) && load.entryMode !== 'complex') errors.push(`${prefix}: PF must be greater than 0 and at most 1.`);
+    if (finite(load.pf) && (load.pf <= 0 || load.pf > 1) && load.entryMode !== 'complex' && load.connection !== 'dc') errors.push(`${prefix}: PF must be greater than 0 and at most 1.`);
     if (finite(load.efficiency) && (load.efficiency <= 0 || load.efficiency > 1)) errors.push(`${prefix}: efficiency must be greater than 0 and at most 1.`);
     for (const field of ['duty', 'utilization']) if (finite(load[field]) && (load[field] < 0 || load[field] > 1)) errors.push(`${prefix}: ${field} must be between 0 and 1.`);
     if (finite(load.hoursPerDay) && (load.hoursPerDay < 0 || load.hoursPerDay > 24)) errors.push(`${prefix}: operating hours must be between 0 and 24.`);
@@ -122,6 +122,7 @@ export function validateProjectImport(input: unknown): { valid: boolean; project
   });
   if (Array.isArray(candidate.boards)) candidate.boards.forEach((board, index) => {
     if (!record(board) || !text(board.name) || !finite(board.ratedA) || board.ratedA <= 0 || !finite(board.ways) || !Number.isInteger(board.ways) || board.ways < 1) errors.push(`Board ${index + 1}: invalid rating, ways or name.`);
+    if (record(board) && board.parentId !== undefined && (!text(board.parentId) || !board.parentId)) errors.push(`Board ${index + 1}: invalid upstream reference.`);
   });
   if (Array.isArray(candidate.circuits)) candidate.circuits.forEach((circuit, index) => {
     if (!record(circuit) || !text(circuit.name) || !text(circuit.boardId) || !['L1', 'L2', 'L3'].includes(String(circuit.phase)) || typeof circuit.locked !== 'boolean') errors.push(`Circuit ${index + 1}: invalid circuit fields.`);
@@ -176,6 +177,29 @@ export function validateProjectImport(input: unknown): { valid: boolean; project
     candidate.billing.lines.forEach((line, index) => {
       if (!record(line) || !text(line.description) || !text(line.unit) || !finite(line.quantity) || line.quantity < 0 || !finite(line.unitPrice) || line.unitPrice < 0) errors.push(`Estimate line ${index + 1}: invalid item.`);
     });
+  }
+  if (errors.length) return { valid: false, errors: errors.slice(0, 100) };
+  const typed = candidate as unknown as Project;
+  const boardIds = new Set(typed.boards.map((board) => board.id));
+  const circuitMap = new Map(typed.circuits.map((circuit) => [circuit.id, circuit]));
+  const globalIds = [...typed.loads, ...typed.boards, ...typed.circuits, ...typed.evSessions].map((entity) => entity.id);
+  if (new Set(globalIds).size !== globalIds.length) errors.push('Entity IDs must be unique across loads, circuits, boards and EV sessions.');
+  for (const board of typed.boards) {
+    const seen = new Set([board.id]); let upstream = board.parentId;
+    while (upstream) {
+      if (!boardIds.has(upstream)) { errors.push(`Board ${board.name}: missing upstream board.`); break; }
+      if (seen.has(upstream)) { errors.push(`Board ${board.name}: hierarchy contains a cycle.`); break; }
+      seen.add(upstream); upstream = typed.boards.find((item) => item.id === upstream)?.parentId;
+    }
+  }
+  for (const circuit of typed.circuits) if (!boardIds.has(circuit.boardId)) errors.push(`Circuit ${circuit.name}: missing board.`);
+  for (const load of typed.loads) {
+    if (load.boardId && !boardIds.has(load.boardId)) errors.push(`Load ${load.name}: missing board.`);
+    if (load.circuitId) {
+      const circuit = circuitMap.get(load.circuitId);
+      if (!circuit) errors.push(`Load ${load.name}: missing circuit.`);
+      else if (load.boardId && load.boardId !== circuit.boardId) errors.push(`Load ${load.name}: board and circuit references conflict.`);
+    }
   }
   if (errors.length) return { valid: false, errors: errors.slice(0, 100) };
   // JSON round-trip detaches caller-owned data and removes prototypes without executing content.

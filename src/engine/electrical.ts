@@ -31,6 +31,8 @@ export function validateLoad(load: Load): Issue[] {
   if (!['kw', 'kva', 'amps', 'motor', 'complex'].includes(load.entryMode)) issues.push(issue(load, 'entryMode', 'Unsupported rating entry mode.'));
   if (!['single', 'three', 'line-line', 'dc'].includes(load.connection)) issues.push(issue(load, 'connection', 'Unsupported connection.'));
   if (!PHASES.includes(load.phase)) issues.push(issue(load, 'phase', 'Select a valid phase.'));
+  if (!['lagging', 'leading'].includes(load.reactive)) issues.push(issue(load, 'reactive', 'Select lagging or leading reactive behavior.'));
+  if (load.pfKind !== undefined && !['displacement', 'true'].includes(load.pfKind)) issues.push(issue(load, 'pfKind', 'Select the PF interpretation.'));
   if (load.connection === 'line-line' && (!load.phasePair || load.phasePair.length !== 2 || load.phasePair[0] === load.phasePair[1] || load.phasePair.some((p) => !PHASES.includes(p)))) issues.push(issue(load, 'phasePair', 'Select two distinct line phases.'));
   if (load.weekdays && (load.weekdays.length === 0 || load.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6))) issues.push(issue(load, 'weekdays', 'Operating weekdays must use 0 (Sunday) through 6 (Saturday).'));
   if (load.connection === 'dc' && load.entryMode === 'complex' && load.reactiveKvar !== 0) issues.push(issue(load, 'reactiveKvar', 'DC reactive power is not supported.', 'unsupported'));
@@ -175,6 +177,8 @@ export function calculateProject(project: Project): CalculationResult {
   const loads = project.loads.map(normalizeLoad);
   const valid = loads.filter((load) => load.valid);
   const issues = [...loads.flatMap((load) => load.issues), ...validateTopology(project)];
+  for (const key of ['voltageLN', 'voltageLL', 'frequency', 'limitA'] as const) if (!Number.isFinite(project.supply[key]) || project.supply[key] <= 0) issues.push({ id: `supply-input-${key}`, severity: 'error', assessment: 'incomplete', field: key, message: `Enter a positive finite supply ${key}.` });
+  for (const key of ['importRate', 'exportRate', 'standingPerDay', 'demandPerKW', 'taxPercent'] as const) if (!Number.isFinite(project.tariff[key])) issues.push({ id: `tariff-input-${key}`, severity: 'error', assessment: 'incomplete', field: key, message: `Enter a finite tariff ${key}.` });
   let factor = project.coincidence * (1 + project.growthPercent / 100);
   if (!Number.isFinite(project.coincidence) || project.coincidence < 0 || project.coincidence > 1 || !Number.isFinite(project.growthPercent) || project.growthPercent < 0) {
     issues.push({ id: 'design-factors', severity: 'error', assessment: 'incomplete', message: 'Coincidence must be 0–1 and growth must be nonnegative.' }); factor = NaN;

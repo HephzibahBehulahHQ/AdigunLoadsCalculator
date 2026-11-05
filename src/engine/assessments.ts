@@ -1,5 +1,5 @@
 import { type Assessment, type Project } from '../domain/types';
-import { addComplex, magnitude, normalizeLoad, zeroPhases, PHASES } from './electrical';
+import { addComplex, magnitude, normalizeLoad, validateTopology, zeroPhases, PHASES } from './electrical';
 
 export interface EngineeringCheck {
   id: string;
@@ -27,7 +27,9 @@ export function assessCircuit(project: Project, circuitId: string): CircuitAsses
   for (const load of normalized.filter((item) => item.valid)) for (const phase of PHASES) currents[phase] = addComplex(currents[phase], load.phaseCurrents[phase]);
   // Conservative running envelope: energy duty and project-level diversity do not derate cable current.
   const designCurrentA = Math.max(0, ...PHASES.map((phase) => magnitude(currents[phase])));
-  const completeLoads = normalized.every((load) => load.valid && load.reactiveKvar !== null) && loads.length > 0;
+  const relatedIds = new Set([circuit.id, circuit.boardId, ...loads.map((load) => load.id)]);
+  const topologyIncomplete = validateTopology(project).some((issue) => issue.entityId && relatedIds.has(issue.entityId));
+  const completeLoads = normalized.every((load) => load.valid && load.reactiveKvar !== null) && loads.length > 0 && !topologyIncomplete;
   if (!completeLoads) checks.push({ id: 'load-data', label: 'Load inputs', assessment: 'incomplete', detail: loads.length ? 'Correct invalid loads or supply displacement-PF/complex-power data before circuit assessment.' : 'Assign at least one load to the circuit.' });
   const cable = circuit.cable;
   let correctedAmpacity: number | undefined;
@@ -41,7 +43,7 @@ export function assessCircuit(project: Project, circuitId: string): CircuitAsses
   else checks.push({ id: 'protection-rating', label: 'Device rating coordination', assessment: designCurrentA <= circuit.protectiveA! && circuit.protectiveA! <= correctedAmpacity ? 'passed' : 'failed', value: circuit.protectiveA, unit: 'A', detail: `Entered-current relationship only: ${designCurrentA.toFixed(2)} ≤ ${circuit.protectiveA} ≤ ${correctedAmpacity.toFixed(2)} A. Operating characteristics still require separate verification.`, formula: 'Ib ≤ In ≤ Iz', source: cable?.source });
   checks.push({ id: 'device-characteristic', label: 'Operating characteristic / disconnection', assessment: 'incomplete', detail: 'Record the applicable device curve, conventional operating current, earthing arrangement and disconnection criterion. A current rating alone cannot establish this check.' });
   const connection = loads[0]?.connection;
-  const sameConnection = loads.every((load) => load.connection === connection && load.voltage === loads[0]?.voltage);
+  const sameConnection = loads.every((load) => load.connection === connection && load.voltage === loads[0]?.voltage && (connection !== 'line-line' || [...(load.phasePair ?? [])].sort().join() === [...(loads[0].phasePair ?? [])].sort().join()));
   if (!completeLoads || !cable || !nonnegative(cable.lengthM) || !nonnegative(cable.resistanceOhmPerKm) || !sameConnection || connection === 'dc') {
     checks.push({ id: 'voltage-drop', label: 'Circuit voltage drop', assessment: connection === 'dc' ? 'unsupported' : 'incomplete', detail: 'Enter route length and per-conductor resistance, and use compatible AC load connections. The standalone DC loop worksheet accepts complete loop resistance.' });
   } else {
@@ -53,7 +55,7 @@ export function assessCircuit(project: Project, circuitId: string): CircuitAsses
       const factor = connection === 'three' ? Math.sqrt(3) : 2;
       const volts = factor * designCurrentA * cable.lengthM / 1000 * (cable.resistanceOhmPerKm! * cos + (cable.reactanceOhmPerKm ?? 0) * sin);
       const percent = volts / loads[0].voltage * 100;
-      checks.push({ id: 'voltage-drop', label: 'Circuit voltage drop', assessment: !positive(cable.voltageDropLimitPercent) ? 'incomplete' : Math.abs(percent) <= cable.voltageDropLimitPercent! ? 'passed' : 'failed', value: percent, limit: cable.voltageDropLimitPercent, unit: '%', detail: `${volts.toFixed(3)} V on this branch under the entered impedance model. ${positive(cable.voltageDropLimitPercent) ? 'Checks the entered design limit.' : 'Enter a sourced or user-selected limit.'} Upstream route contributions require separate assessment.`, formula: `${connection === 'three' ? '√3' : '2'} × I × Lkm × (R·cosφ + X·sinφ)`, source: cable.source });
+      checks.push({ id: 'voltage-drop', label: 'Circuit voltage drop', assessment: !positive(cable.voltageDropLimitPercent) || !cable.source?.trim() ? 'incomplete' : Math.abs(percent) <= cable.voltageDropLimitPercent! ? 'passed' : 'failed', value: percent, limit: cable.voltageDropLimitPercent, unit: '%', detail: `${volts.toFixed(3)} V on this branch under the entered impedance model. ${positive(cable.voltageDropLimitPercent) ? 'Checks the entered design limit.' : 'Enter a sourced or user-selected limit.'} ${cable.source?.trim() ? '' : 'Record impedance/model provenance.'} Upstream route contributions require separate assessment.`, formula: `${connection === 'three' ? '√3' : '2'} × I × Lkm × (R·cosφ + X·sinφ)`, source: cable.source });
     }
   }
   if (!positive(circuit.breakingCapacityKA) || !positive(circuit.prospectiveFaultKA)) checks.push({ id: 'breaking-capacity', label: 'Breaking capacity', assessment: 'incomplete', detail: 'Enter verified prospective fault current and the device breaking capacity at the applicable voltage.' });

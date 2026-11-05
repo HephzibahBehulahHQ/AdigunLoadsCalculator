@@ -103,8 +103,11 @@ export function previewPhaseBalance(project: Project): BalancePlan {
     // Existing overloads may improve; proposals cannot increase the largest current.
     if (Math.max(...Object.values(result.phaseCurrents)) > Math.max(project.supply.limitA, ...Object.values(baseline.phaseCurrents)) + 1e-9) return false;
     for (const board of working.boards) {
-      const boardLoads = working.loads.filter((load) => load.boardId === board.id || working.circuits.some((c) => c.id === load.circuitId && c.boardId === board.id));
-      const beforeLoads = project.loads.filter((load) => load.boardId === board.id || project.circuits.some((c) => c.id === load.circuitId && c.boardId === board.id));
+      const descendants = new Set<string>([board.id]);
+      let grew = true;
+      while (grew) { grew = false; for (const child of working.boards) if (child.parentId && descendants.has(child.parentId) && !descendants.has(child.id)) { descendants.add(child.id); grew = true; } }
+      const boardLoads = working.loads.filter((load) => descendants.has(load.boardId ?? '') || working.circuits.some((c) => c.id === load.circuitId && descendants.has(c.boardId)));
+      const beforeLoads = project.loads.filter((load) => descendants.has(load.boardId ?? '') || project.circuits.some((c) => c.id === load.circuitId && descendants.has(c.boardId)));
       const boardProject = { ...working, loads: boardLoads };
       const oldProject = { ...project, loads: beforeLoads };
       const peak = Math.max(...Object.values(calculateProject(boardProject).phaseCurrents));

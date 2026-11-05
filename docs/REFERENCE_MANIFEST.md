@@ -13,6 +13,10 @@ Inspected 2026-11-05. These repositories were read-only references. Main commit 
 
 ## Exact corporate asset
 
+### Additional local schema reference
+
+The implemented V1/V2 migration adapter additionally inspected the clean local AdigunTokenCalculator checkout at `2e4f24e0ccb7fc92a78c7632bc54d7cc13fccf12`. Its `loadProfile.js`, `loadCalculator.js`, `loadProfileStorage.js` and `loadStorageV2.test.js` supplied the persisted-format field contracts. This local source revision is distinct from the verified main/specification baseline above and is not represented as a new main revision. The reference repository was not modified.
+
 - Source: [approved JPG](https://github.com/HephzibahBehulahHQ/hb-design-system/blob/52f01f9986d97088413ca9785bc7a2d3f2967123/assets/corporate/hephzibah-behulah-official.jpg).
 - Product path: `public/assets/corporate/hephzibah-behulah-official.jpg`.
 - Git blob: `f7b0e4a650d861fb9d52ed91ea894edec030e03b`.

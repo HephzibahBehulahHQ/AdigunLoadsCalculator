@@ -3,17 +3,19 @@ import type { CalculationResult, Project } from '../domain/types';
 import { LanguageContext, numberFormat, useT, type Locale } from '../i18n';
 import { applyProposal, runLocalCommand, type LocalResponse, type Proposal } from './adapter';
 import './bot.css';
+import {clampBotGeometry,readBotWindowState,writeBotWindowState,type BotGeometry} from './windowState';
+export {resetBotWindowState} from './windowState';
 
 export interface LocalBotProps {
   project: Project; result: CalculationResult; selectedId?: string;
-  onChange: (mutator: (draft: Project) => void) => void;
+  onChange: (mutator: (draft: Project) => void) => void | boolean;
   onClose: () => void; onReport: () => void;
 }
 interface Message { id: number; role: 'user' | 'assistant'; text?: string; response?: LocalResponse; applied?: boolean; dismissed?: boolean }
-interface Geometry { x: number; y: number; width: number; height: number }
+type Geometry = BotGeometry;
 const histories = new Map<string, Message[]>();
 let nextMessageId = 1;
-const geometryKey = 'adigunpowerlab.bot.geometry.v1';
+
 const text: Record<string, [string, string, string]> = {
   'Deterministic tools. No external AI connection.': ['Deterministische Werkzeuge. Keine externe KI-Verbindung.', 'Irinṣẹ́ ìṣírò pàtó. Kò sí ìsopọ̀ AI òde.', 'Na fixed calculation tools. No external AI connection.'],
   'Session history only': ['Verlauf nur für diese Sitzung', 'Ìtàn fún ìgbà yìí nìkan', 'History na for this session only'],
@@ -49,22 +51,15 @@ const text: Record<string, [string, string, string]> = {
   'Preview defaults: one single-phase unit on L1, start 08:00, duty 1, utilization 1. Review before applying.': ['Vorschauannahmen: ein einphasiges Gerät an L1, Start 08:00, Tastgrad 1, Auslastung 1. Vor Übernahme prüfen.', 'Àwọn èrò àbá: ohun èlò fásì kan lórí L1, ìbẹ̀rẹ̀ 08:00, duty 1, ìlò 1. Ṣàyẹ̀wò kí o tó lò ó.', 'Preview defaults: one single-phase unit for L1, start 08:00, duty 1, utilization 1. Review before apply.'],
 };
 function local(key: string, locale: Locale): string { return locale === 'en' ? key : text[key]?.[locale === 'de' ? 0 : locale === 'yo' ? 1 : 2] ?? key; }
-function initialGeometry(): Geometry {
-  const fallback = { x: Math.max(12, window.innerWidth - 448), y: Math.max(12, window.innerHeight - 648), width: 420, height: 600 };
-  try { const saved = JSON.parse(localStorage.getItem(geometryKey) ?? 'null'); return saved && ['x', 'y', 'width', 'height'].every((key) => Number.isFinite(saved[key])) ? saved : fallback; } catch { return fallback; }
-}
-function clampGeometry(g: Geometry): Geometry {
-  const width = Math.min(Math.max(320, g.width), Math.max(240, window.innerWidth - 24));
-  const height = Math.min(Math.max(400, g.height), Math.max(260, window.innerHeight - 24));
-  return { width, height, x: Math.max(12, Math.min(g.x, window.innerWidth - width - 12)), y: Math.max(12, Math.min(g.y, window.innerHeight - height - 12)) };
-}
+function clampGeometry(g: Geometry): Geometry { return clampBotGeometry(g, {width:window.innerWidth,height:window.innerHeight}); }
 
 export default function LocalBot({ project, result, selectedId, onChange, onClose, onReport }: LocalBotProps) {
   const t = useT(); const locale = useContext(LanguageContext); const l = (key: string) => local(key, locale);
   const [messages, setMessages] = useState<Message[]>(() => histories.get(project.id) ?? []);
   const [input, setInput] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const [geometry, setGeometry] = useState(() => clampGeometry(initialGeometry()));
-  const [minimized, setMinimized] = useState(false); const [maximized, setMaximized] = useState(false);
+  const [initialWindow] = useState(() => readBotWindowState());
+  const [geometry, setGeometry] = useState(initialWindow.geometry);
+  const [minimized, setMinimized] = useState(initialWindow.minimized); const [maximized, setMaximized] = useState(initialWindow.maximized);
   const [live, setLive] = useState<'off' | 'quiet' | 'standard' | 'proactive'>('quiet');
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const drag = useRef<{ x: number; y: number; geometry: Geometry } | null>(null);
@@ -76,13 +71,14 @@ export default function LocalBot({ project, result, selectedId, onChange, onClos
 
   useEffect(() => { if (firstProject.current !== project.id) { firstProject.current = project.id; setMessages(histories.get(project.id) ?? []); setInput(''); setError(''); commandId.current++; if (timer.current) clearTimeout(timer.current); setBusy(false); lastSeenRevision.current = project.revision; } }, [project.id, project.revision]);
   useEffect(() => { histories.set(project.id, messages); }, [messages, project.id]);
-  useEffect(() => { try { localStorage.setItem(geometryKey, JSON.stringify(geometry)); } catch { /* Geometry is optional; transcript is never written to storage. */ } }, [geometry]);
+  useEffect(() => { writeBotWindowState({geometry,minimized,maximized}); }, [geometry,minimized,maximized]);
   useEffect(() => {
     const resize = () => { setViewport({ width: window.innerWidth, height: window.innerHeight }); setGeometry((previous) => clampGeometry(previous)); };
     const move = (event: PointerEvent) => { if (drag.current) setGeometry(clampGeometry({ ...drag.current.geometry, x: drag.current.geometry.x + event.clientX - drag.current.x, y: drag.current.geometry.y + event.clientY - drag.current.y })); };
     const end = () => { drag.current = null; };
-    window.addEventListener('resize', resize); window.addEventListener('pointermove', move); window.addEventListener('pointerup', end);
-    return () => { window.removeEventListener('resize', resize); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); commandId.current++; if (timer.current) clearTimeout(timer.current); };
+    const reset = () => { const state=readBotWindowState({getItem:()=>null}); setGeometry(state.geometry); setMinimized(false); setMaximized(false); };
+    window.addEventListener('resize', resize); window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('powerlab-bot-reset',reset);
+    return () => { window.removeEventListener('resize', resize); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('powerlab-bot-reset',reset); commandId.current++; if (timer.current) clearTimeout(timer.current); };
   }, []);
   useEffect(() => { log.current?.scrollTo({ top: log.current.scrollHeight }); }, [messages, minimized]);
   useEffect(() => {
@@ -116,7 +112,8 @@ export default function LocalBot({ project, result, selectedId, onChange, onClos
   const apply = (proposal: Proposal, messageId: number) => {
     try {
       if (project.id !== proposal.projectId || project.revision !== proposal.revision) throw new Error(l('This preview is stale. Request a new one.'));
-      onChange((draft) => applyProposal(draft, proposal));
+      const accepted = onChange((draft) => applyProposal(draft, proposal));
+      if (accepted === false) throw new Error(l('This preview is stale. Request a new one.'));
       setMessages((previous) => previous.map((message) => message.id === messageId ? { ...message, applied: true } : message));
     } catch (cause) { setError(cause instanceof Error ? cause.message : l('Local command failed')); }
   };

@@ -177,6 +177,7 @@ export function simulateEnergy(project: Project, options: EnergyOptions = {}): E
   const intervalMinutes = options.intervalMinutes ?? 15; const hours = intervalMinutes / 60;
   const profile = dailyProfile(project.loads, intervalMinutes);
   const battery = project.energy.battery; validateBattery(battery);
+  pvDailyEstimate(project); // Validate entered PV assumptions even when chronology has not been supplied.
   const issues: Issue[] = [];
   for (const load of project.loads) if (!normalizeLoad(load).valid) fail('Correct invalid load inputs before running an energy simulation.');
   const tariffIssues = validateTariff(project.tariff);
@@ -192,7 +193,10 @@ export function simulateEnergy(project: Project, options: EnergyOptions = {}): E
   }
   if (generation.length !== profile.length) fail(`Generation profile must have ${profile.length} interval values.`);
   generation.forEach((value) => finite(value, 'Generation profile value', 0));
-  if (options.outage) { finite(options.outage.startHour, 'Outage start', 0, 24); finite(options.outage.durationHours, 'Outage duration', 0, 24); }
+  if (options.outage) {
+    finite(options.outage.startHour, 'Outage start', 0, 24); finite(options.outage.durationHours, 'Outage duration', 0, 24);
+    if (Math.abs(options.outage.startHour / hours - Math.round(options.outage.startHour / hours)) > 1e-9 || Math.abs(options.outage.durationHours / hours - Math.round(options.outage.durationHours / hours)) > 1e-9) fail('Outage start and duration must align with the selected simulation interval.');
+  }
   const points: EnergyPoint[] = []; let stored = battery.capacityKWh * battery.initialSoc;
   const totals = { loadKWh: 0, generationKWh: 0, importKWh: 0, exportKWh: 0, chargeKWh: 0, dischargeKWh: 0, lossesKWh: 0, unservedKWh: 0, curtailedKWh: 0 };
   const charges: { kWh: number; rate: number }[] = [];
