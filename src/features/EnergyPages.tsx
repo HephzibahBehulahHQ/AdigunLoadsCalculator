@@ -1,0 +1,1003 @@
+import { useContext, useMemo, useState, useEffect } from "react";
+import {
+  Plus,
+  Save,
+  Download,
+  Sun,
+  CarFront,
+  Trash2,
+  ArrowRight,
+} from "lucide-react";
+import type {
+  Project,
+  CalculationResult,
+  EVSession,
+  EnergySettings,
+  Phase,
+} from "../domain/types";
+import { createLoad, duplicateProject } from "../domain/project";
+import { calculateProject } from "../engine/electrical";
+import {
+  simulateEnergy,
+  pvDailyEstimate,
+  tariffRate,
+  validateTariff,
+} from "../engine/simulation";
+import type { EnergyResult } from "../engine/simulation";
+import { scheduleEV, conservativeDemandProfile } from "../engine/planning";
+import { Field, Notice, Modal, LineChart } from "./ui";
+import { LanguageContext, useT, numberFormat, money } from "../i18n";
+import { downloadFile, makeCSV, safeName } from "../import-export/files";
+import type { ProjectRecord } from "../storage/projects";
+type Change = (mutator: (draft: Project) => void) => void;
+export function Renewables({
+  project,
+  change,
+}: {
+  project: Project;
+  change: Change;
+}) {
+  const t = useT();
+  const locale = useContext(LanguageContext);
+  const [draft, setDraft] = useState<EnergySettings>(
+    structuredClone(project.energy),
+  );
+  const [profile, setProfile] = useState(
+    project.energy.pvHourlyProfile?.join(", ") || "",
+  );
+  const [outage, setOutage] = useState({
+    enabled: false,
+    startHour: 18,
+    durationHours: 4,
+  });
+  const [result, setResult] = useState<EnergyResult>();
+  const [error, setError] = useState("");
+  const energyKey = JSON.stringify(project.energy);
+  useEffect(() => {
+    setDraft(structuredClone(project.energy));
+    setProfile(project.energy.pvHourlyProfile?.join(", ") || "");
+    setError("");
+  }, [project.id, energyKey]);
+  useEffect(() => {
+    setResult((previous) =>
+      previous?.revision === project.revision ? previous : undefined,
+    );
+  }, [project.id, project.revision]);
+  const f = (n: number) => numberFormat(n, 3, locale);
+  function run(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const energy = {
+        ...draft,
+        pvHourlyProfile: profile.trim()
+          ? profile.split(/[,;\s]+/).map(Number)
+          : undefined,
+      };
+      if (
+        energy.pvHourlyProfile &&
+        (energy.pvHourlyProfile.length !== 24 ||
+          energy.pvHourlyProfile.some(
+            (n) => !Number.isFinite(n) || n < 0 || n > 1,
+          ))
+      )
+        throw new Error(
+          "Enter exactly 24 normalized hourly PV values from 0 to 1.",
+        );
+      const p = { ...project, revision: project.revision + 1, energy };
+      const next = simulateEnergy(p, {
+        outage: outage.enabled
+          ? { startHour: outage.startHour, durationHours: outage.durationHours }
+          : undefined,
+      });
+      change((d) => {
+        d.energy = energy;
+      });
+      setResult(next);
+      setError("");
+    } catch (e) {
+      setResult(undefined);
+      setError((e as Error).message);
+    }
+  }
+  return (
+    <>
+      <div className="section-title">
+        <div>
+          <span className="eyebrow">{t("Renewables & Storage")}</span>
+          <h2>
+            {t("Energy")} / {t("Grid import")} / {t("Battery stored")}
+          </h2>
+        </div>
+        <Sun size={30} className="gold-text" />
+      </div>
+      <form className="panel panel-pad" onSubmit={run}>
+        <div className="form-grid three">
+          {[
+            ["pvKW", "PV capacity", "kWp"],
+            ["peakSunHours", "Peak sun hours", "h/day"],
+            ["pvPerformanceRatio", "Performance ratio", "0–1"],
+          ].map(([key, label, unit]) => (
+            <Field key={key} label={t(label)} unit={unit}>
+              <input
+                required
+                type="number"
+                min="0"
+                max={key === "pvPerformanceRatio" ? 1 : undefined}
+                step="any"
+                value={draft[key as keyof EnergySettings] as number}
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, [key]: Number(e.target.value) }));
+                  setResult(undefined);
+                }}
+              />
+            </Field>
+          ))}
+        </div>
+        <h3>{t("Battery capacity")}</h3>
+        <div className="form-grid four">
+          {[
+            ["capacityKWh", "Battery capacity", "kWh"],
+            ["initialSoc", "Initial SOC", "0–1"],
+            ["minSoc", "Minimum SOC", "0–1"],
+            ["maxSoc", "Maximum SOC", "0–1"],
+            ["chargeKW", "Charge power", "kW"],
+            ["dischargeKW", "Discharge power", "kW"],
+            ["chargeEfficiency", "Charge efficiency", "0–1"],
+            ["dischargeEfficiency", "Discharge efficiency", "0–1"],
+          ].map(([key, label, unit]) => (
+            <Field key={key} label={t(label)} unit={unit}>
+              <input
+                required
+                type="number"
+                min="0"
+                max={unit === "0–1" ? 1 : undefined}
+                step="any"
+                value={
+                  draft.battery[key as keyof typeof draft.battery] as number
+                }
+                onChange={(e) => {
+                  setDraft((d) => ({
+                    ...d,
+                    battery: { ...d.battery, [key]: Number(e.target.value) },
+                  }));
+                  setResult(undefined);
+                }}
+              />
+            </Field>
+          ))}
+        </div>
+        <Field label={t("Source reference")}>
+          <input
+            value={draft.source}
+            onChange={(e) => {
+              setDraft((d) => ({ ...d, source: e.target.value }));
+              setResult(undefined);
+            }}
+          />
+        </Field>
+        <Field
+          label={t("Hourly PV profile, 00:00–23:00")}
+          unit="24 × 0–1"
+          hint="Entered generation fractions. Peak-sun-hours alone does not create a chronological profile."
+        >
+          <textarea
+            rows={2}
+            value={profile}
+            onChange={(e) => {
+              setProfile(e.target.value);
+              setResult(undefined);
+            }}
+          />
+        </Field>
+        <div className="check-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={draft.battery.islandCapable}
+              onChange={(e) => {
+                setDraft((d) => ({
+                  ...d,
+                  battery: { ...d.battery, islandCapable: e.target.checked },
+                }));
+                setResult(undefined);
+              }}
+            />
+            {t(
+              "Island-capable supply with verified transfer/isolation arrangement",
+            )}
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={outage.enabled}
+              onChange={(e) => {
+                setOutage((d) => ({ ...d, enabled: e.target.checked }));
+                setResult(undefined);
+              }}
+            />
+            {t("Simulate grid outage")}
+          </label>
+        </div>
+        {outage.enabled && (
+          <div className="form-grid">
+            <Field label={t("Start hour")} unit="h">
+              <input
+                type="number"
+                min="0"
+                max="23.75"
+                step=".25"
+                value={outage.startHour}
+                onChange={(e) => {
+                  setOutage((d) => ({
+                    ...d,
+                    startHour: Number(e.target.value),
+                  }));
+                  setResult(undefined);
+                }}
+              />
+            </Field>
+            <Field label={t("Outage duration")} unit="h">
+              <input
+                type="number"
+                min=".25"
+                max="24"
+                step=".25"
+                value={outage.durationHours}
+                onChange={(e) => {
+                  setOutage((d) => ({
+                    ...d,
+                    durationHours: Number(e.target.value),
+                  }));
+                  setResult(undefined);
+                }}
+              />
+            </Field>
+          </div>
+        )}
+        <div className="button-row">
+          <button className="button primary">
+            <Save size={16} />
+            {t("Save")} & {t("Run simulation")}
+          </button>
+        </div>
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+      <Notice>
+        {t("Daily energy")} PV = kWp × h × PR. {t("Calculated")}:{" "}
+        {f(pvDailyEstimate(project))} kWh.{" "}
+        {t("All results use entered assumptions.")}
+      </Notice>
+      {result && result.revision === project.revision && (
+        <>
+          <div className="kpi-grid">
+            {[
+              ["PV generation", result.generationKWh],
+              ["Grid import", result.importKWh],
+              ["Grid export", result.exportKWh],
+              ["Battery stored", result.finalStoredKWh],
+            ].map(([label, value]) => (
+              <div className="kpi-card cyan" key={label as string}>
+                <span>{t(label as string)}</span>
+                <div className="kpi-value">
+                  {f(value as number)}
+                  <small>kWh</small>
+                </div>
+              </div>
+            ))}
+          </div>
+          <section className="panel">
+            <div className="panel-head">
+              <h3>
+                {t("PV generation")} / {t("Load Schedule")}
+              </h3>
+              <span className="tag cyan">15 min</span>
+            </div>
+            <LineChart
+              points={result.points.map((p) => ({
+                x: p.hour,
+                y: p.generationKW,
+              }))}
+              secondary={result.points.map((p) => ({ x: p.hour, y: p.loadKW }))}
+              color="var(--gold)"
+            />
+            <div className="chart-footer">
+              <span>{t("Gold: PV · Violet: load")}</span>
+              <button
+                className="text-button"
+                onClick={() =>
+                  downloadFile(
+                    safeName(project.name) + "-energy.csv",
+                    makeCSV([
+                      [
+                        "hour",
+                        "load_kW",
+                        "generation_kW",
+                        "grid_import_kWh",
+                        "grid_export_kWh",
+                        "stored_kWh",
+                        "losses_kWh",
+                        "unserved_kWh",
+                        "balance_error_kWh",
+                      ],
+                      ...result.points.map((p) => [
+                        p.hour,
+                        p.loadKW,
+                        p.generationKW,
+                        p.importKWh,
+                        p.exportKWh,
+                        p.storedKWh,
+                        p.lossesKWh,
+                        p.unservedKWh,
+                        p.balanceErrorKWh,
+                      ]),
+                    ]),
+                    "text/csv",
+                  )
+                }
+              >
+                <Download size={15} />
+                {t("Export series")}
+              </button>
+            </div>
+          </section>
+          <section className="panel">
+            <div className="panel-head">
+              <h3>{t("Battery stored")}</h3>
+              <span>{money(result.totalCost, project.currency, locale)}</span>
+            </div>
+            <LineChart
+              points={result.points.map((p) => ({ x: p.hour, y: p.storedKWh }))}
+              color="var(--violet)"
+              label="kWh"
+            />
+            <div className="metric-strip">
+              <div>
+                <span>{t("Conversion losses")}</span>
+                <strong>{f(result.lossesKWh)} kWh</strong>
+              </div>
+              <div>
+                <span>{t("Unmet energy")}</span>
+                <strong>{f(result.unservedKWh)} kWh</strong>
+              </div>
+              <div>
+                <span>{t("Energy balance error")}</span>
+                <strong>
+                  {f(
+                    Math.max(
+                      ...result.points.map((p) => Math.abs(p.balanceErrorKWh)),
+                    ),
+                  )}{" "}
+                  kWh
+                </strong>
+              </div>
+            </div>
+          </section>
+          {result.issues.map((i) => (
+            <Notice key={i.id} tone="warning">
+              {i.message}
+            </Notice>
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+export function EVPlanner({
+  project,
+  result,
+  change,
+}: {
+  project: Project;
+  result: CalculationResult;
+  change: Change;
+}) {
+  const t = useT();
+  const locale = useContext(LanguageContext);
+  const [editing, setEditing] = useState<EVSession | null>(null);
+  const [strategy, setStrategy] = useState<"immediate" | "cheapest">(
+    "immediate",
+  );
+  const [error, setError] = useState("");
+  const plans = useMemo(() => {
+    try {
+      const envelope = conservativeDemandProfile(project);
+      const base = [...envelope.kw];
+      const remaining = structuredClone(envelope.phaseHeadroomKW);
+      return project.evSessions.map((session) => {
+        const phase = session.phase || "L1";
+        const headroom = remaining[phase];
+        const plan = scheduleEV(
+          session,
+          base,
+          result.profile.map((p) => tariffRate(project.tariff, p.hour)),
+          { strategy, phaseHeadroomKW: headroom },
+        );
+        plan.points.forEach((p, i) => {
+          base[i] += p.acKW;
+          remaining[phase][i] = Math.max(0, remaining[phase][i] - p.acKW);
+        });
+        return { session, plan };
+      });
+    } catch {
+      return [];
+    }
+  }, [project, result, strategy]);
+  const fresh = () => ({
+    id: crypto.randomUUID(),
+    name: "",
+    arrivalHour: 18,
+    departureHour: 7,
+    requiredKWh: 0,
+    chargerKW: 7.4,
+    vehicleKW: 7.4,
+    efficiency: 0.9,
+    siteLimitKW: (project.supply.limitA * project.supply.voltageLN * 3) / 1000,
+    phase: "L1" as Phase,
+  });
+  return (
+    <>
+      <div className="page-actions">
+        <select
+          aria-label={t("Charging strategy")}
+          value={strategy}
+          onChange={(e) => setStrategy(e.target.value as typeof strategy)}
+        >
+          <option value="immediate">{t("Immediate charging")}</option>
+          <option value="cheapest">
+            {t("Lowest-cost available intervals")}
+          </option>
+        </select>
+        <span className="spacer" />
+        <button className="button primary" onClick={() => setEditing(fresh())}>
+          <Plus size={16} />
+          {t("Add session")}
+        </button>
+      </div>
+      <Notice>
+        Sessions reserve conservative on-state demand within each occupied hour,
+        share site and phase limits in listed order, and preserve their actual
+        duration. {t("All results use entered assumptions.")}
+      </Notice>
+      {plans.length === 0 && (
+        <section className="panel tool-intro">
+          <CarFront size={40} className="cyan-text" />
+          <h2>{t("EV & Flexible Loads")}</h2>
+          <p>{t("Add session")}</p>
+        </section>
+      )}
+      {plans.map(({ session, plan }) => (
+        <section className="panel" key={session.id}>
+          <div className="panel-head">
+            <div>
+              <span className="eyebrow">
+                {session.phase} · {session.arrivalHour}:00 →{" "}
+                {session.departureHour}:00
+              </span>
+              <h3>{session.name}</h3>
+            </div>
+            <div className="button-row">
+              <span className={"tag " + (plan.feasible ? "cyan" : "red")}>
+                {t(plan.feasible ? "Feasible" : "Infeasible")}
+              </span>
+              <button
+                className="button"
+                onClick={() => setEditing(structuredClone(session))}
+              >
+                {t("Edit")}
+              </button>
+              <button
+                className="icon-button danger"
+                aria-label={t("Delete") + " " + session.name}
+                onClick={() =>
+                  change((p) => {
+                    p.evSessions = p.evSessions.filter(
+                      (s) => s.id !== session.id,
+                    );
+                  })
+                }
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="metric-strip">
+            <div>
+              <span>{t("Delivered energy")}</span>
+              <strong>{numberFormat(plan.deliveredKWh, 3, locale)} kWh</strong>
+            </div>
+            <div>
+              <span>{t("Unmet energy")}</span>
+              <strong>{numberFormat(plan.unmetKWh, 3, locale)} kWh</strong>
+            </div>
+            <div>
+              <span>{t("Cost")}</span>
+              <strong>{money(plan.cost, project.currency, locale)}</strong>
+            </div>
+          </div>
+          <LineChart
+            points={plan.points.map((p) => ({ x: p.hour, y: p.acKW }))}
+          />
+          {plan.issues.map((i) => (
+            <Notice key={i.id} tone="warning">
+              {i.message}
+            </Notice>
+          ))}
+          <div className="panel-pad">
+            <button
+              className="button"
+              onClick={() => {
+                if (
+                  !confirm(
+                    `${t("Apply changes")}: ${session.name} → ${plan.points.filter((p) => p.acKWh > 0).length} hourly load segments? This removes the planning session to prevent duplicate scheduling.`,
+                  )
+                )
+                  return;
+                change((p) => {
+                  plan.points
+                    .filter((point) => point.acKWh > 0)
+                    .forEach((point) =>
+                      p.loads.push(
+                        createLoad({
+                          name: session.name + " · " + point.hour + ":00",
+                          category: "EV",
+                          rating: point.acKW,
+                          connection: "single",
+                          voltage: p.supply.voltageLN,
+                          phase: session.phase || "L1",
+                          startHour: point.startHour,
+                          hoursPerDay: point.durationHours,
+                          source: {
+                            kind: "user",
+                            reference:
+                              "Applied EV planning result; on-state AC demand and actual permitted duration retained.",
+                          },
+                          notes:
+                            "Required battery energy " +
+                            session.requiredKWh +
+                            " kWh; charging efficiency " +
+                            session.efficiency,
+                        }),
+                      ),
+                    );
+                  p.evSessions = p.evSessions.filter(
+                    (s) => s.id !== session.id,
+                  );
+                });
+              }}
+              disabled={!plan.feasible}
+              title={
+                !plan.feasible
+                  ? "Reduce required energy, extend the permitted time or enter sufficient verified charger, site and phase capacity."
+                  : undefined
+              }
+            >
+              {t("Apply changes")}
+              <ArrowRight size={15} />
+            </button>
+            {!plan.feasible && (
+              <p className="muted small">
+                To apply this schedule, reduce required energy, extend the
+                arrival/departure window, or resolve the entered charger, site
+                and phase limits. Use Edit to correct the session.
+              </p>
+            )}
+          </div>
+        </section>
+      ))}
+      {editing && (
+        <Modal title={t("Add session")} onClose={() => setEditing(null)}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              try {
+                scheduleEV(editing);
+                change((p) => {
+                  const i = p.evSessions.findIndex((s) => s.id === editing.id);
+                  if (i >= 0) p.evSessions[i] = editing;
+                  else p.evSessions.push(editing);
+                });
+                setEditing(null);
+                setError("");
+              } catch (e) {
+                setError((e as Error).message);
+              }
+            }}
+          >
+            <div className="modal-body">
+              <Field label={t("Name")}>
+                <input
+                  value={editing.name}
+                  required
+                  onChange={(e) =>
+                    setEditing({ ...editing, name: e.target.value })
+                  }
+                />
+              </Field>
+              <div className="form-grid">
+                {[
+                  ["arrivalHour", "Arrival", "h", 0, 24],
+                  ["departureHour", "Departure", "h", 0, 24],
+                  ["requiredKWh", "Required energy", "kWh", 0, 10000],
+                  ["chargerKW", "Charger limit", "kW", 0, 10000],
+                  ["vehicleKW", "Vehicle limit", "kW", 0, 10000],
+                  ["efficiency", "Efficiency", "0–1", 0.01, 1],
+                  ["siteLimitKW", "Site limit", "kW", 0, 100000],
+                ].map(([key, label, unit, min, max]) => (
+                  <Field
+                    key={key as string}
+                    label={t(label as string)}
+                    unit={unit as string}
+                  >
+                    <input
+                      required
+                      type="number"
+                      step="any"
+                      min={min as number}
+                      max={max as number}
+                      value={editing[key as keyof EVSession] as number}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          [key]: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                ))}
+                <Field label={t("Phase")}>
+                  <select
+                    value={editing.phase}
+                    onChange={(e) =>
+                      setEditing({ ...editing, phase: e.target.value as Phase })
+                    }
+                  >
+                    {["L1", "L2", "L3"].map((p) => (
+                      <option key={p}>{p}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              {error && (
+                <p role="alert" className="error-text">
+                  {error}
+                </p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="button"
+                type="button"
+                onClick={() => setEditing(null)}
+              >
+                {t("Cancel")}
+              </button>
+              <button className="button primary">{t("Save")}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}
+export function Costs({
+  project,
+  result,
+  change,
+}: {
+  project: Project;
+  result: CalculationResult;
+  change: Change;
+}) {
+  const t = useT();
+  const locale = useContext(LanguageContext);
+  const [tariff, setTariff] = useState(structuredClone(project.tariff));
+  const [error, setError] = useState("");
+  const tariffKey = JSON.stringify(project.tariff);
+  useEffect(() => {
+    setTariff(structuredClone(project.tariff));
+    setError("");
+  }, [project.id, tariffKey]);
+  return (
+    <>
+      <div className="kpi-grid">
+        {[
+          [
+            "Daily cost",
+            money(result.dailyCost, project.currency, locale),
+            "24-hour estimate",
+          ],
+          [
+            "Monthly estimate",
+            money(result.monthlyCost, project.currency, locale),
+            "30-day assumption",
+          ],
+          [
+            "Daily energy",
+            numberFormat(result.dailyKWh, 3, locale) + " kWh",
+            "Calculated",
+          ],
+          [
+            "Carbon factor",
+            project.tariff.carbonKgPerKWh === undefined
+              ? "—"
+              : numberFormat(
+                  result.dailyKWh * project.tariff.carbonKgPerKWh,
+                  3,
+                  locale,
+                ) + " kg CO₂e",
+            "All results use entered assumptions.",
+          ],
+        ].map(([label, value, note]) => (
+          <div className="kpi-card gold" key={label}>
+            <span>{t(label)}</span>
+            <div className="kpi-value compact">{value}</div>
+            <small>{t(note)}</small>
+          </div>
+        ))}
+      </div>
+      <form
+        className="panel panel-pad"
+        onSubmit={(e) => {
+          e.preventDefault();
+          try {
+            const diagnostics = validateTariff(tariff);
+            if (diagnostics.length)
+              throw new Error(
+                diagnostics.map((item) => item.message).join(" "),
+              );
+            if (
+              tariff.carbonKgPerKWh !== undefined &&
+              (!Number.isFinite(tariff.carbonKgPerKWh) ||
+                tariff.carbonKgPerKWh < 0)
+            )
+              throw new Error(
+                "Carbon intensity must be a nonnegative finite number.",
+              );
+            change((p) => {
+              p.tariff = tariff;
+            });
+            setError("");
+          } catch (e) {
+            setError((e as Error).message);
+          }
+        }}
+      >
+        <h3>{t("Costs & Carbon")}</h3>
+        <div className="form-grid three">
+          {[
+            ["importRate", "Import price", project.currency + "/kWh"],
+            ["exportRate", "Export price", project.currency + "/kWh"],
+            ["standingPerDay", "Standing charge", project.currency + "/day"],
+            ["demandPerKW", "Demand charge", project.currency + "/kW/month"],
+            ["taxPercent", "Tax", "%"],
+            ["carbonKgPerKWh", "Carbon factor", "kg CO₂e/kWh"],
+          ].map(([key, label, unit]) => (
+            <Field key={key} label={t(label)} unit={unit}>
+              <input
+                type="number"
+                min={key === "taxPercent" ? 0 : undefined}
+                max={key === "taxPercent" ? 100 : undefined}
+                step="any"
+                value={(tariff[key as keyof typeof tariff] as number) ?? ""}
+                onChange={(e) =>
+                  setTariff((d) => ({
+                    ...d,
+                    [key]:
+                      e.target.value === "" && key === "carbonKgPerKWh"
+                        ? undefined
+                        : Number(e.target.value),
+                  }))
+                }
+              />
+            </Field>
+          ))}
+        </div>
+        <Field label={t("Source reference")}>
+          <input
+            value={tariff.source}
+            onChange={(e) => setTariff({ ...tariff, source: e.target.value })}
+          />
+        </Field>
+        <h3>{t("Time-of-use bands")}</h3>
+        <Notice>
+          Uncovered hours use the flat import price. Overlapping bands are
+          rejected. Demand charges use the largest modeled 15-minute average in
+          the repeated-day estimate.
+        </Notice>
+        {tariff.bands.map((band, i) => (
+          <div className="tariff-row" key={band.id}>
+            <input
+              aria-label={t("Band name")}
+              value={band.name}
+              onChange={(e) =>
+                setTariff((d) => ({
+                  ...d,
+                  bands: d.bands.map((b, j) =>
+                    j === i ? { ...b, name: e.target.value } : b,
+                  ),
+                }))
+              }
+            />
+            {(["startHour", "endHour", "importRate"] as const).map((k) => (
+              <Field key={k} label={k}>
+                <input
+                  type="number"
+                  step="any"
+                  min={k === "importRate" ? undefined : 0}
+                  max={k === "importRate" ? undefined : 24}
+                  value={band[k]}
+                  onChange={(e) =>
+                    setTariff((d) => ({
+                      ...d,
+                      bands: d.bands.map((b, j) =>
+                        j === i ? { ...b, [k]: Number(e.target.value) } : b,
+                      ),
+                    }))
+                  }
+                />
+              </Field>
+            ))}
+            <button
+              type="button"
+              className="icon-button danger"
+              aria-label={t("Delete")}
+              onClick={() =>
+                setTariff((d) => ({
+                  ...d,
+                  bands: d.bands.filter((_, j) => j !== i),
+                }))
+              }
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+        <div className="button-row">
+          <button
+            type="button"
+            className="button"
+            onClick={() =>
+              setTariff((d) => ({
+                ...d,
+                bands: [
+                  ...d.bands,
+                  {
+                    id: crypto.randomUUID(),
+                    name: "",
+                    startHour: 0,
+                    endHour: 6,
+                    importRate: 0,
+                  },
+                ],
+              }))
+            }
+          >
+            <Plus size={16} />
+            {t("Add tariff band")}
+          </button>
+          <button className="button primary">
+            <Save size={16} />
+            {t("Save")}
+          </button>
+        </div>
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+      <Notice>
+        {t("Currency")}: {project.currency}. Changing currency changes the
+        denomination only; no exchange rate is assumed.
+      </Notice>
+    </>
+  );
+}
+export function Scenarios({
+  project,
+  records,
+  onCreate,
+  onOpen,
+}: {
+  project: Project;
+  records: ProjectRecord[];
+  onCreate: (p: Project) => void;
+  onOpen: (p: Project) => void;
+}) {
+  const t = useT();
+  const locale = useContext(LanguageContext);
+  const [name, setName] = useState("");
+  const base = calculateProject(project);
+  const related = records.filter(
+    (r) =>
+      !r.deleted &&
+      r.id !== project.id &&
+      (r.project.scenarioOf === (project.scenarioOf || project.id) ||
+        r.id === project.scenarioOf),
+  );
+  return (
+    <>
+      <form
+        className="inline-form panel panel-pad"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const next = duplicateProject(project, name);
+          next.scenarioOf = project.scenarioOf || project.id;
+          next.baselineRevision = project.revision;
+          onCreate(next);
+          setName("");
+        }}
+      >
+        <Field label={t("Create scenario")}>
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={160}
+          />
+        </Field>
+        <button className="button primary">
+          <Plus size={16} />
+          {t("Create scenario")}
+        </button>
+      </form>
+      <Notice>
+        {t("Baseline")}: {project.name} · {t("Revision")} {project.revision}.
+        Each scenario is an independent saved project; open it to edit its
+        assumptions.
+      </Notice>
+      <div className="scenario-grid">
+        <section className="panel panel-pad">
+          <span className="tag cyan">{t("Baseline")}</span>
+          <h3>{project.name}</h3>
+          <dl className="detail-list">
+            <dt>{t("Installed load")}</dt>
+            <dd>{numberFormat(base.installedKW, 3, locale)} kW</dd>
+            <dt>{t("Daily energy")}</dt>
+            <dd>{numberFormat(base.dailyKWh, 3, locale)} kWh</dd>
+            <dt>{t("Daily cost")}</dt>
+            <dd>{money(base.dailyCost, project.currency, locale)}</dd>
+          </dl>
+        </section>
+        {related.map((record) => {
+          const r = calculateProject(record.project);
+          return (
+            <section className="panel panel-pad" key={record.id}>
+              <span className="tag">
+                {t("Revision")} {record.project.revision}
+              </span>
+              <h3>{record.project.name}</h3>
+              <dl className="detail-list">
+                <dt>{t("Installed load")}</dt>
+                <dd>
+                  {numberFormat(r.installedKW, 3, locale)} kW{" "}
+                  <small>
+                    Δ{" "}
+                    {numberFormat(r.installedKW - base.installedKW, 3, locale)}
+                  </small>
+                </dd>
+                <dt>{t("Daily energy")}</dt>
+                <dd>
+                  {numberFormat(r.dailyKWh, 3, locale)} kWh{" "}
+                  <small>
+                    Δ {numberFormat(r.dailyKWh - base.dailyKWh, 3, locale)}
+                  </small>
+                </dd>
+                <dt>{t("Daily cost")}</dt>
+                <dd>{money(r.dailyCost, record.project.currency, locale)}</dd>
+              </dl>
+              <button className="button" onClick={() => onOpen(record.project)}>
+                {t("Open")}
+                <ArrowRight size={15} />
+              </button>
+            </section>
+          );
+        })}
+      </div>
+    </>
+  );
+}

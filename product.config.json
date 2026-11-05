@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 3,
+  "brandKey": "elektroniker",
+  "product": {
+    "name": "AdigunPowerLab",
+    "description": "Electrical load, circuit, power and energy engineering workspace.",
+    "repository": "HephzibahBehulahHQ/AdigunPowerLab",
+    "legacyRepository": null
+  },
+  "references": {
+    "corporateWebsiteRepository": "HephzibahBehulahHQ/HephzibahBehulahHQ.github.io",
+    "designSystemRepository": "HephzibahBehulahHQ/hb-design-system",
+    "divisionRepository": "HephzibahBehulahHQ/hb-elektroniker",
+    "calculatorReferenceRepository": "HephzibahBehulahHQ/AdigunTokenCalculator",
+    "policyRevision": "d42d4e04ac6ab77ebafa1d4fccb724a4dde8d02e"
+  },
+  "features": {
+    "languages": ["en", "de", "yo", "pcm"],
+    "defaultLanguage": "en",
+    "themeSwitcher": true,
+    "adigunBot": {
+      "enabled": true,
+      "displayName": "Adigun BOT",
+      "mode": "quiet",
+      "actionsRequireConfirmation": true
+    },
+    "accounts": {
+      "enabled": false,
+      "provider": null,
+      "emailPassword": false,
+      "profileAvatar": false,
+      "guestAccess": {
+        "enabled": false,
+        "trialMinutes": null,
+        "permanentSaving": false
+      }
+    },
+    "projects": {
+      "localSaving": true,
+      "cloudSaving": false,
+      "ownerScopedAccess": false
+    },
+    "administration": {
+      "owner": "Hephzibah Behulah",
+      "serverAuthorizedRoles": false
+    }
+  },
+  "links": {
+    "documentation": "https://github.com/HephzibahBehulahHQ/AdigunPowerLab/blob/main/docs/USER_GUIDE.md",
+    "support": "https://github.com/HephzibahBehulahHQ/AdigunPowerLab/issues"
+  },
+  "integrations": {
+    "assistantEndpoint": null,
+    "productActionAdapter": "src/bot/adapter.ts",
+    "supabaseProject": null,
+    "cloudflareDeployment": null
+  },
+  "branding": {
+    "logoPolicy": "single-corporate-logo",
+    "corporateLogo": {
+      "asset": "assets/corporate/hephzibah-behulah-official.jpg",
+      "status": "verified-local-asset",
+      "source": "hb-design-system@52f01f9986d97088413ca9785bc7a2d3f2967123; blob f7b0e4a650d861fb9d52ed91ea894edec030e03b",
+      "alt": "Hephzibah Behulah"
+    },
+    "header": {
+      "productWordmark": true,
+      "divisionTextLabel": true,
+      "additionalBrandLogos": false,
+      "profilePosition": "top-right"
+    }
+  }
+}

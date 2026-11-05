@@ -1,0 +1,22 @@
+{
+  "observedDate": "2026-11-05",
+  "sourceCandidate": "cdff7e3591b0ab8c28cf3ed280379678834e2677",
+  "command": "npm audit --json",
+  "knownVulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "dependencyCounts": {
+    "prod": 14,
+    "dev": 89,
+    "optional": 63,
+    "peer": 0,
+    "peerOptional": 0,
+    "total": 118
+  },
+  "scope": "Registry advisory audit of the pinned dependency tree; not a penetration test or proof that all defects are absent."
+}
