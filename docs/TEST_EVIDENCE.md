@@ -35,8 +35,17 @@ The first full browser run exposed test-harness lifecycle/selector defects. Thos
 - Combined browser gate: **15/15 tests passed in 1.2 minutes**, covering billing, measurements, planning, recovery and workspace flows.
 - Production offline candidate checks passed at both `/` and `/AdigunPowerLab/`, including lazy billing and actual PDF export, with zero page errors and zero failed requests. The rerun exposed `Vary: Origin` differing between precache fetches and module requests; the fix matches only the dedicated static-asset cache while ignoring that header and isolates cache cleanup by scope.
 - Actual development-browser benchmark: 1,000 loads, 30 real editor saves, p95 184.3 ms; annual UI worker simulation 3,910 ms, 35,040 rows, 8,760,000 kWh within floating-point tolerance. See `browser-performance.json` and `PERFORMANCE.md` for method and limits.
-- Fresh-checkout verification and final remote CI are in progress; their exact candidate and outcome are recorded below after observation.
+- Fresh-checkout verification passed for exact remote source candidate `cdff7e3591b0ab8c28cf3ed280379678834e2677`: `git clone --depth 1 --branch feat/power-studio`, asserted `git rev-parse HEAD`, `npm ci`, lint, all 215 tests (4.89 seconds), production build and repository-subpath offline smoke including actual PDF. No working-tree source files or node_modules were copied into the recovery checkout.
+- `npm audit --json`: zero known advisory vulnerabilities across the pinned tree; see `security-audit.json`. This is not a penetration test.
 
 ## Not claimed
 
 No physical hardware, connected AI provider, cloud owner-scoped authorization, licensed standards dataset, or complete WCAG audit has been tested. Node timing is not substituted for browser timing; see PERFORMANCE.md.
+
+## Delivered source
+
+The verified application source candidate is `cdff7e3591b0ab8c28cf3ed280379678834e2677`; subsequent delivery documentation records these observations. [PR #1](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/1) contains the exact branch/integration history. Public deployment has not been run.
+
+## Remote CI
+
+[GitHub Actions run 42125403239](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42125403239) completed successfully for exact candidate `cdff7e3591b0ab8c28cf3ed280379678834e2677`. Its fresh Ubuntu runner passed dependency installation, TypeScript/Prettier lint, all unit tests, production build, Chromium installation, the full browser suite, root offline smoke, repository-subpath offline smoke and static artifact upload. The earlier candidate failed offline module lookup; the documented cache fix resolved that failure before this successful run.
