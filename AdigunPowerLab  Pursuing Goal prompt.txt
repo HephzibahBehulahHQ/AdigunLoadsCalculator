@@ -1,0 +1,767 @@
+ADIGUNPOWERLAB — PURSUING GOAL PROMPT
+Electrical & Engineering Power Studio
+Hephzibah Behulah → HB Elektroniker → AdigunPowerLab
+Prepared: 5 November 2026 | Reference timezone: Europe/Berlin
+Product repository: https://github.com/HephzibahBehulahHQ/AdigunPowerLab
+
+01. MISSION AND EXECUTION CONTRACT
+
+Act as a senior electrical engineering software architect, numerical-methods engineer, product designer, frontend engineer, accessibility specialist and test engineer. When instructed to execute this specification, build and finish AdigunPowerLab in the existing product repository. Deliver a powerful, precise, animated, futuristic electrical engineering workspace whose calculations, controls, project files and reports actually work.
+
+AdigunPowerLab serves electricians, electrical engineers, installers, students, facilities teams and energy planners. Its central workflow is: describe an installation → enter and organize equipment → calculate demand and energy → assign circuits and phases → assess cables, protection and supply constraints → simulate operating scenarios → compare improvements → issue a traceable engineering report.
+
+The product must combine the visual presence of a science-fiction engineering command room with the clarity of professional electrical design software. Make the spectacle explain the engineering. A beautiful screen with fictional values, dead controls or unverified green approvals is a failed delivery.
+
+Use the exact product name AdigunPowerLab throughout the application, metadata, documentation, manifests and reports. Its subtitle may be Electrical & Engineering Power Studio. Preserve the existing repository identity. At the inspected starting revision, the repository contains only a README headed AdigunLoadsCalculator; correct that old heading during implementation after checking the current repository state.
+
+Treat this file as the durable product specification. Saving this prompt is a documentation action; implementation starts when the owner instructs the agent to execute it. Publishing requires the owner's applicable deployment authorization. Do not interpret this document alone as authorization to purchase services, create charges, disclose project data, send messages or control physical equipment.
+
+Continue through the accepted scope in working milestones. Resolve routine engineering and implementation choices using the verified references and this specification. Ask only for a genuinely necessary decision, missing authority, credential, licensed dataset or inaccessible dependency that prevents a concrete next step. Complete independent authorized work while a specific dependency is unavailable. Do not turn a finished milestone into a claim that the whole product is complete.
+
+02. REQUIRED REFERENCES AND VERIFIED STARTING REVISIONS
+
+Inspect current repository instructions and actual files before implementation. Record the revisions used in docs/REFERENCE_MANIFEST.md. The following immutable commits were inspected while preparing this prompt; they are evidence baselines, not a claim that future main branches will remain unchanged.
+
+A. Corporate identity and global gateway
+Repository: https://github.com/HephzibahBehulahHQ/HephzibahBehulahHQ.github.io
+Commit: bd116504412b37105166805018f64a6e7bbe3cde
+Relevant files: AGENTS.md; README.md; docs/repository-scope.md; index.html.
+
+B. Shared design system, product contract and Adigun BOT standard
+Repository: https://github.com/HephzibahBehulahHQ/hb-design-system
+Commit: 52f01f9986d97088413ca9785bc7a2d3f2967123
+Relevant files: AGENTS.md; README.md; tokens/corporate.json; tokens/brands.json; docs/brand-and-product-naming.md; assets/corporate/README.md; templates/universal-product/README.md; templates/universal-product/product.config.json; components/AdigunBot/AGENTS.md; components/AdigunBot/README.md; components/AdigunBot/floating-window.md; components/AdigunBot/platform-integration-and-verification.md; components/AdigunBot/live-copilot.md; components/AdigunBot/security-and-assurance.md.
+
+C. AI division and responsible technology
+Repository: https://github.com/HephzibahBehulahHQ/hb-artificial-intelligence
+Commit: 4d4eb7e9108f88f6a406cec52e3e9a551eb09bdd
+Relevant files: AGENTS.md; README.md; docs/responsible-technology-guidance.md.
+
+D. Engineering execution policy
+Repository: https://github.com/HephzibahBehulahHQ/hb-AI-policy
+Commit: d42d4e04ac6ab77ebafa1d4fccb724a4dde8d02e
+Policy: HB-AI-ENGINEERING-001, version 2.0.
+Relevant files: policies/governance.md; policies/quality-and-testing.md; policies/security-and-approvals.md; policies/model-and-token-efficiency.md; policies/checkpoint-and-recovery.md; policies/cloud-execution.md; policies/multi-agent-collaboration.md; standards/repository-ownership.md; standards/continuation-and-reporting.md; templates/product-AGENTS.md.
+
+E. Electrical division identity and domain guidance
+Repository: https://github.com/HephzibahBehulahHQ/hb-elektroniker
+Commit: 1daeed88df067a235b33516fb4cce111350ab80c
+Relevant files: AGENTS.md; README.md; docs/engineering-guidance.md.
+
+F. Existing electrical calculator: reuse and migration reference
+Website: https://hephzibahbehulahhq.github.io/AdigunTokenCalculator/#/electrical-load
+Repository: https://github.com/HephzibahBehulahHQ/AdigunTokenCalculator
+Commit: c04d971a97e490efd8fda47727039623a9f28218
+Relevant files: AGENTS.md; src/tools/loadCalculatorUI.js; src/calculators/loadCalculator.js; src/calculators/loadProfile.js; src/data/loadPresets.js; src/tools/loadProfileStorage.js; docs/ELECTRICAL_LOAD_CALCULATOR.md; docs/ARCHITECTURE.md; tests/loadCalculator.test.js; tests/loadCalculatorV2.test.js; tests/loadProfileV2.test.js; tests/loadStorageV2.test.js; tests/loadV2UI.test.js; tests/loadBill.test.js; tests/loadV2I18n.test.js; tests/offline.test.js.
+
+G. Product starting point
+Repository: https://github.com/HephzibahBehulahHQ/AdigunPowerLab
+Inspected main commit: 0b55a7182eeca80bc66d2f6c6e5fd4fba96e87bb.
+Recheck actual branch, working tree, instructions and newer changes before editing.
+
+All new product code, data, tests, integration adapters, reports, documentation and deployment configuration belong in AdigunPowerLab. The corporate, brand, design-system, policy and source-calculator repositories are read-only references for this task. Preserve their identity and unrelated work.
+
+03. USE THE TEMPLATES ACCURATELY
+
+The inspected shared templates are documentation, color tokens, an approved image and configuration contracts. They do not provide a finished React UI, an AI backend, an avatar image, a translation package or operational cloud integrations. The corporate website is a gateway; the electrical division repository contains domain guidance. Implement the required product functionality instead of claiming those repositories already supply it.
+
+Adapt the universal product contract, schemaVersion 3, with concrete product values:
+- brandKey: elektroniker.
+- product.name: AdigunPowerLab.
+- product.description: Electrical load, circuit, power and energy engineering workspace.
+- product.repository: HephzibahBehulahHQ/AdigunPowerLab.
+- product.legacyRepository: null; the source calculator is a reference, not this product's former repository.
+- references.corporateWebsiteRepository: HephzibahBehulahHQ/HephzibahBehulahHQ.github.io.
+- references.designSystemRepository: HephzibahBehulahHQ/hb-design-system.
+- references.divisionRepository: HephzibahBehulahHQ/hb-elektroniker.
+- features.languages: en, de, yo, pcm; features.defaultLanguage: en.
+- features.adigunBot.displayName: Adigun BOT; features.adigunBot.actionsRequireConfirmation: true.
+- features.projects.localSaving and features.themeSwitcher become true when their implementation passes verification.
+- branding.logoPolicy: single-corporate-logo; branding.header.productWordmark: true; branding.header.divisionTextLabel: true; branding.header.additionalBrandLogos: false. Retain branding.header.profilePosition: top-right for actual account controls.
+- Record the source calculator as a reference/migration source, not as the product's former repository.
+- Set real documentation links, adapter paths and provider configuration only when they exist. Internal null/false values accurately represent unconfigured optional capabilities; they are never a substitute for implementing required local features.
+- Do not inherit unrelated example-product subscriptions, forced accounts, timed guest trials or invented company details.
+
+Adopt the policy in a product-specific AGENTS.md with the actual pinned policy revision, product scope, current owner, adoption date, authorization boundaries and working commands. Resolve every template field. Keep one current PROJECT_STATUS.md. A policy link alone does not implement backup, testing, access control or recovery.
+
+04. NON-NEGOTIABLE FUNCTIONALITY AND DATA HONESTY
+
+No placeholder pages, dummy production records, lorem ipsum, random telemetry, hardcoded chart series, fabricated testimonials, fake notifications, invented standards, imitation AI conversations, pretend exports, empty click handlers, console-only actions or buttons that always display success.
+
+Every visible action must perform its stated function. Loading indicators must correspond to a real operation. Show progress percentages only when measurable work exists. Do not display a disconnected sensor as live or a future integration as connected.
+
+Start a new customer project empty, with useful actions such as Add load, Import schedule and Open reference case. Distinguish a genuine empty state from a broken implementation. Missing input produces an actionable request for that input; it does not become a numerical zero. A valid empty-project total can be zero, with its meaning clearly stated.
+
+Analytical test fixtures and deliberately opened worked reference cases are permitted for learning and verification. Label their inputs and assumptions. They must not masquerade as a customer's installation, measured data or certified designs, and must never silently populate a new project.
+
+Give every engineering result separate metadata for origin and assessment:
+- Origin: entered/nameplate, measured/imported, calculated, simulated, or assumed.
+- Assessment: passes the specified check, fails the specified check, warning, incomplete, not applicable, or outside supported model.
+- Evidence: source, method, model scope, input revision, units, assumptions and relevant dataset version.
+
+Changing a relevant input immediately invalidates an old result until recomputation. A partial result cannot produce a blanket installation approval. Use precise statements such as Voltage-drop check passes for the selected limit. Certification, physical testing, regulatory approval and manufacturer coordination require their own recorded evidence.
+
+05. BRAND, SCIENCE-FICTION VISUAL SYSTEM AND MOTION
+
+Follow the hierarchy Hephzibah Behulah → HB Elektroniker → AdigunPowerLab. Use one approved corporate logo in the main header, the product name as a text wordmark, and the small division label BY HB ELEKTRONIKER. The assistant launcher is a control, not another competing logo.
+
+Use the approved image unchanged from hb-design-system/assets/corporate/hephzibah-behulah-official.jpg, blob f7b0e4a650d861fb9d52ed91ea894edec030e03b. Preserve its aspect ratio and legibility. Package the verified asset locally with attribution and provenance; do not redraw, recolor or generate a substitute.
+
+Verified brand colors:
+- Midnight navy #0B1220: core dark surfaces.
+- Corporate gold #D4AF37: restrained identity and important action accents.
+- Royal blue #2563EB: supporting interaction color.
+- Ivory #F8FAFC: light theme and high-contrast text surfaces.
+- Electric cyan #22D3EE: primary HB Elektroniker product accent, active pathways and selected engineering objects.
+- Violet #A78BFA: assistant context and secondary AI treatment.
+
+Create a documented semantic token layer for surfaces, borders, focus, selected states, errors, warnings and success. Keep the approved brand values intact. Never depend on color alone. Chart phase colors are analytical labels; do not present decorative colors as jurisdiction-specific conductor identification.
+
+Use the verified font stack Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif. Source and license any bundled font explicitly. Use tabular numerals for measurements, aligned decimal columns, disciplined spacing and readable labels.
+
+Visual direction: precision instrument panels, fine circuit-grid backgrounds, subtle glass layers, crisp cyan edge lighting, restrained depth, technical linework, spacious diagrams and dense readable engineering tables. Build light, dark and system themes equally well. Glow belongs on selected edges and energy paths, not behind small numeric text.
+
+Implement meaningful animation:
+- Energy-path motion follows the selected simulation interval and calculated flow direction/magnitude.
+- Phase bars and rings transition between actual before/after loads.
+- Demand curves reveal real time-series data; scrubbing synchronizes tooltips and selected equipment.
+- Battery fill follows actual simulated state of charge.
+- Scenario changes highlight the actual affected objects and metrics.
+- Panel transitions preserve spatial context without delaying input.
+- Selection in tables, diagrams, timelines and inspector refers to the same object ID.
+
+Use a concise motion scale, approximately 120–180 ms for control feedback and 180–280 ms for panels, adjusted after usability testing. Numerical values must remain exact while visual transitions run. Animation does not alter simulation time unless the user starts playback.
+
+Provide Motion: System / Reduced / Full and a global pause for continuous visual effects. Respect prefers-reduced-motion, background-tab suspension, low-power conditions and screen-reader use. Avoid flashing, strobing, forced startup cinematics, moving table backgrounds and fake holographic telemetry. Optional sound stays off by default.
+
+06. WORKSPACE SHELL AND COMPLETE NAVIGATION
+
+Open directly into the project workspace. On the first visit, show a compact project setup panel inside that workspace: project name, application context, supply, timezone, language and optional jurisdiction. The user must be able to enter a first load immediately. Keep language, currency and engineering jurisdiction independent.
+
+Desktop shell: compact branded header; collapsible navigation/project tree on the left; central table, diagram or analysis surface; contextual inspector on the right; optional bottom simulation timeline; unobtrusive status rail. Panels resize within sensible bounds. Remember layout preferences without losing access to content.
+
+Header controls:
+- Corporate logo/home link; AdigunPowerLab wordmark; division label.
+- Project switcher with recent projects, New project and Open/import.
+- Actual save state: Saved locally, Saving, Unsaved changes or Save failed, with a recovery action.
+- Undo and Redo with availability based on history.
+- Global command/search palette; Calculate/Validate; scenario selector; report/export menu.
+- Language selector with full language names; theme selector; help; Adigun BOT launcher.
+- User/profile controls only if real account functionality is installed and enabled.
+
+Navigation groups and destinations:
+
+WORKSPACE
+1. Overview — installed load, design demand, kVA, phase current, peak demand, energy, cost, source status and unresolved checks.
+2. Load Schedule — editable equipment rows, filters, bulk changes, provenance and connected circuit assignments.
+3. Boards & Circuits — site/building/board tree, circuit schedule, board ways, spare capacity and phase balancing.
+4. Single-Line Studio — topology editing, source/board/circuit/load relationships and synchronized selection.
+5. Schedules & Simulation — operating calendars, time profiles, motor starts, outage events and playback.
+
+ENGINEERING
+6. Cables & Protection — voltage drop, ampacity, protective-device assessment, fault and earthing worksheets.
+7. Motors & Supply — motors, starting sequences, transformers, generators, inverters and UPS planning.
+8. Power Quality — power triangle, PF correction, fundamental phasors, neutral and supplied harmonic data.
+9. Engineering Toolbox — searchable standalone tools linked to project objects.
+
+ENERGY
+10. Renewables & Storage — PV, supplied wind profiles, inverter limits, battery dispatch and backup.
+11. EV & Flexible Loads — charging requirements, deadlines, phase limits and controllable-load schedules.
+12. Scenarios & Optimization — baseline comparison, sensitivity studies and constrained improvement suggestions.
+13. Costs & Carbon — tariff editor, bills, demand charges, emissions assumptions and investment comparisons.
+
+PROJECT
+14. Equipment Library — searchable sourced equipment records, user entries and complete worked reference cases.
+15. Reports & Estimates — calculation report, circuit schedules, diagrams, comparison, BOM and customer estimate.
+16. Engineering Reference — equations, methods, standards/dataset registry, limitations and learning explanations.
+17. History & Issues — project revisions, change comparison, deleted-item recovery and actionable issue register.
+18. Settings — project defaults, language, units, jurisdiction, data sources, accessibility, storage and actual integrations.
+
+Use collapsible groups and the command palette to keep this breadth manageable. Do not duplicate tools into disconnected pages. Each route must load directly, preserve the selected project and have a useful empty/error state.
+
+Mobile/tablet: replace sidebars with accessible drawers and the inspector with a sheet or dedicated pane. Keep the selected object and unsaved edits when changing layout. Retain table operations through a deliberate compact view and horizontal scrolling inside the table, without forcing the whole page sideways. Test at 360 px, 768 px, 1440 px and a wide desktop size.
+
+Footer/status rail: corporate ownership, division/product text, current year, working documentation/support/policy destinations, calculation-engine version, current project revision and truthful offline/connection state. Verify external destinations before release. Do not invent company registration, address, phone, tax identity or legal approval text.
+
+For external corporate/social destinations, use the owner-provided channel list in the pinned design-system docs/brand-and-product-naming.md and verify the selected destinations before publishing. Label its LinkedIn destination as a personal profile. Include only relevant working links; do not invent replacements or add every social channel merely to fill space.
+
+07. MENU, BUTTON AND INTERACTION CONTRACT
+
+Implement these actions through shared project commands so menus, shortcuts, BOT proposals and context menus use the same validation and undo behavior.
+
+Project menu: New, Open, Rename, Duplicate, Save, Export project, Import project, Revision history, Move to trash, Restore and Close. Save is complete only after persistence succeeds. A failed import or save must preserve the existing working project.
+
+Load actions: Add load, Add from library, Edit, Duplicate, Assign circuit, Assign phase, Set schedule, Mark critical, Attach source, Bulk edit, Copy rows, Paste validated rows, Delete and Undo. Show affected row counts and validation before destructive or broad changes.
+
+Board/circuit actions: Add board, Add circuit, Move loads, Set supply, Set protective device, Set cable, Lock phase, Preview balance, Apply balance, Rename and Remove with dependency handling. Never orphan loads or silently move connected objects.
+
+Diagram actions: Select, Connect, Disconnect, Pan, Zoom in/out, Fit, Auto-layout, Toggle labels, Show flow, Inspect, Add note and Export SVG/PDF. A wiring connection must update the underlying project graph; a visual line alone is insufficient. Provide non-drag alternatives.
+
+Simulation actions: Validate inputs, Run, Cancel, Play, Pause, Step backward/forward, Scrub, Change speed, Select date/range, Compare and Export series. Cancel stops the active job and leaves the last completed result identifiable by revision.
+
+Scenario actions: Duplicate baseline, Rename, Edit assumptions, Compare, Set baseline, Preview recommendation, Apply selected changes and Delete with recovery. Never overwrite the baseline silently.
+
+Report actions: Choose sections, Enter project/customer details, Preview, Generate PDF, Print, Export data and Open calculation trace. Generate from a frozen result snapshot and show generation failure honestly.
+
+Every tool provides labelled inputs and units, Calculate or validated automatic recalculation, Reset, Explain method, Copy result, Export and Apply to selected object where meaningful. Applying a result shows its target, changed fields and validation; standalone tool experiments cannot mutate projects implicitly.
+
+Global search indexes routes, tools, project objects, equipment and local help. Filters include category, phase, board, source status and unresolved issues. Ctrl/Cmd+K opens the command palette; Ctrl/Cmd+S saves locally; Undo/Redo shortcuts follow platform expectations. Document other shortcuts and avoid capturing text-entry keys.
+
+An action with missing prerequisites may be disabled only with a visible, accessible reason and a working way to resolve it. This mechanism must not conceal unfinished required features. No empty routes, perpetual Coming soon cards or decorative action buttons may pass acceptance.
+
+08. PROJECT MODEL, INPUT SCHEMAS AND EQUIPMENT LIBRARY
+
+Organize projects as Site → Building/Zone → Distribution board → Circuit → Load. Also model sources, meters, cables, protective devices, schedules, tariffs, scenarios, measurements, source documents and calculation snapshots. Give every entity a stable ID, schema version and explicit relationship references.
+
+Project settings include supply topology, nominal voltage with basis, frequency, earthing arrangement where known, timezone, jurisdiction/ruleset, currency, units, design assumptions, permitted source configurations and reporting details. Support residential, commercial, workshop, industrial, agricultural and community installations through editable project templates.
+
+Load fields, shown only when relevant:
+- Name, category, manufacturer/model if known, equipment ID, location, quantity and notes.
+- Entry mode: electrical input W/kW, apparent power VA/kVA with PF, nameplate current with voltage/PF, motor mechanical output with efficiency, or explicit supported complex-power data.
+- Connection: DC, single-phase L–N, single-phase L–L, or three-phase; line-to-line versus line-to-neutral voltage is explicit.
+- Phase assignment, supply frequency, leading/lagging reactive behavior, true/displacement PF distinction and efficiency where applicable.
+- On-state utilization, operating schedule, cycling duty, standby input, seasonal behavior and start/stop conditions.
+- Starting current or entered multiplier, starting PF, duration, start method and sequence.
+- Criticality, backup priority, shed permission, minimum operating time and restart delay when used.
+- Source type: measured, nameplate, manufacturer datasheet, typical estimate or user assumption; source URL/file, date and conditions.
+
+Thermal heating/cooling capacity is not electrical input. A conversion using COP/efficiency must be explicitly selected, show its operating conditions and retain the original rating. Do not apply motor efficiency to an already electrical-input rating.
+
+Keep units in types and schemas. Normalize to a documented SI-based internal representation, carry full precision through calculations and round at presentation or the specified billing boundary. Preserve the user's original entry and unit for audit. Define currencies using decimal-safe arithmetic.
+
+Reject non-finite values, invalid efficiencies, invalid quantities, inconsistent voltage bases, impossible dates and unsupported connections. Zero power is valid where physically meaningful; undefined PF at zero apparent power must be shown as not applicable. Reactive-only loads require an explicit supported Q/complex-power mode rather than division by PF=0. Represent generation as a source with a direction convention, not a negative appliance count.
+
+Equipment library coverage: LED and conventional lighting; domestic appliances; socket/user-defined loads; IT and servers; HVAC and heat pumps; refrigeration; resistive/process heating; pumps, fans and compressors; motors and drives; workshop tools; welders with documented duty/nameplate basis; lifts and building services; agricultural equipment; EV chargers; UPS; transformers; generators; inverters; PV modules and batteries.
+
+Each record must contain useful real fields, provenance and validation. Estimated generic entries are clearly labelled and editable. Manufacturer-specific records need verified datasheets and usage rights. Do not inflate the catalogue with duplicated names or guessed ratings. Support search, filters, favorite records, user-created records, import/export, version history and replacement previews when updating a library record used by projects.
+
+Provide opt-in, fully worked reference projects for a home, workshop with motor starts, office/commercial installation, small industrial board, agricultural pump system, PV/battery backup and managed EV charging. Every reference project states its assumptions and expected results. They are instructional cases, not claims about surveyed installations.
+
+09. DETERMINISTIC ELECTRICAL CALCULATION ENGINE
+
+Create independently testable pure functions with explicit inputs, units, methods and numerical tolerances. Keep DOM, storage, network, AI and implicit current time outside the engine. Return structured results and diagnostics rather than only formatted strings.
+
+Keep these quantities distinct everywhere:
+1. Installed/nameplate capacity.
+2. On-state operating demand.
+3. Coincident maximum design demand.
+4. Starting/inrush demand and duration.
+5. Interval-average demand.
+6. Time-integrated energy.
+
+An energy duty fraction must never silently reduce the on-state current used for cable, device or starting assessment. An assumed utilization reduction must state its purpose and applicability. Define coincidence, diversity, utilization, growth and spare capacity separately. Show where each factor applies. Do not multiply two reductions that describe the same scheduling effect.
+
+Implement verified formulas with applicability stated:
+- DC: P = V × I.
+- Single-phase AC electrical input: P = V × I × PF.
+- Balanced three-phase AC electrical input: P = √3 × VLL × I × PF.
+- Mechanical-output motor entry: Pin = Pout / η.
+- Time-integrated energy: E = Σ(Pinterval × actual elapsed Δt).
+- Consuming sinusoidal load with P ≥ 0 and displacement-PF magnitude 0 < PFdisp ≤ 1: Q = sQ × P × tan(acos(PFdisp)), with sQ=+1 for inductive absorption and sQ=−1 for capacitive supply under the declared passive sign convention; S = √(P² + Q²).
+- Source/regenerative quadrants use explicitly signed P/Q or another verified four-quadrant model. Do not infer Q direction from P's sign. Handle reactive-only elements through a separate supported path.
+- Current/PF derived from nameplate kVA or current must not receive a second efficiency adjustment.
+
+For compatible sinusoidal loads at a common electrical boundary, sum real and signed reactive power before calculating the net complex-power magnitude. Preserve leading/lagging cancellation. Keep per-phase currents and equipment loading separate: net reactive cancellation does not erase phase imbalance, branch current or conductor heating.
+
+True PF can include distortion; displacement PF describes fundamental phase shift. Do not derive a phase angle, harmonic spectrum or reactive power from true PF alone when the simple sinusoidal assumptions are not valid. Support additional models only with the necessary measurements and independently verified equations.
+
+Each result exposes: input values and source labels; normalized units; selected model and conditions; formula; intermediate values; rounding rule; assumptions; warnings; source/dataset IDs; project revision; engine version; timestamp; and completeness. Build an Explain result drawer used consistently by KPI cards, tools, plots, warnings and reports.
+
+10. BOARDS, CIRCUITS, PHASES AND SINGLE-LINE STUDIO
+
+Implement a validated topology graph for supplies, boards, circuits, protective devices, cables and loads. Detect orphaned objects, incompatible voltage/phase assignments, invalid cycles and unintended source paralleling. Radial installations are the default supported topology; other networks require an explicitly implemented and validated solver.
+
+Boards show rated limits, available ways, occupied ways, per-phase current, design-demand basis, spare capacity and upstream relationships. Circuit schedules include circuit ID, location, connected loads, phase/connection, demand, cable data, protective device, relevant checks and unresolved inputs.
+
+For unbalanced four-wire calculations, declare the supply-voltage/neutral assumptions. Solve phase currents from actual connections and P/Q data. Single-phase L–L loads contribute phasor currents to both relevant lines. Balanced three-phase loads remain linked across phases. Never report total kVA divided by √3V as the actual current of every phase in an unbalanced installation.
+
+Fundamental neutral current is the phasor sum of phase currents under the documented supported model. An unknown/floating-neutral network, arbitrary delta network or substantial voltage unbalance must not silently inherit a stiff-neutral approximation. State the exact supported topology before producing results.
+
+Define each imbalance metric visibly, for example maximum phase-current deviation from the mean divided by the mean. Handle zero mean correctly. Current imbalance and negative-sequence voltage imbalance are different quantities; label them accurately.
+
+Phase-balancing suggestions respect locked assignments, three-phase loads, circuit grouping, board limits, scheduling and critical loads. Let the user choose the objective: design-current imbalance, selected-interval peak or scenario maximum. Show baseline, proposed moves, affected circuits, objective change and constraints. Apply only the selected validated plan, with undo. Label a heuristic as a heuristic and do not promise a global optimum without proof.
+
+Single-Line Studio must be an editable, data-bound engineering view with recognizable symbols and a legend. Include grid/source, transformer, generator, inverter, battery, board, breaker/fuse, meter, circuit, motor, EV charger and generic load where supported. Use properly licensed symbol assets or original consistent schematic symbols. Do not claim IEC symbol compliance without verification.
+
+Support labelled connections, cable annotations, circuit IDs, component ratings, selectable overlays, notes, page sizing, print layout, auto-layout and manual positioning. Preserve user layout when recalculating. Export vector SVG and PDF with legible text and an engineering legend.
+
+Provide an optional lazy-loaded spatial/3D view generated from the same project graph. Users can orbit, select, isolate a board, inspect a component and scrub simulated flows. Display its analytical nature clearly. It is a spatial visualization, not a substitute for electrical solving, physical dimensions or hardware validation. All core tasks remain available in the accessible 2D/table view.
+
+11. SCHEDULES, MEASUREMENTS AND SIMULATION TIMELINE
+
+Support daily operating windows, overnight windows, weekdays/weekends, seasonal patterns, holiday exceptions, explicit start events, standby demand and user-defined duty cycles. Overlapping windows require deterministic union/priority behavior; never double-count a load accidentally.
+
+Separate energy-average duty modelling from explicitly timed on/off cycles. Where instantaneous duty timing is unknown, show average energy and a conservative or explicitly selected peak assumption. Do not fabricate subinterval switching or infer a guaranteed maximum from an average duty fraction.
+
+Provide hourly and 15-minute simulation. Finer event resolution may be used for start sequences without forcing an entire annual simulation into subsecond time steps. Explain the distinction between quasi-steady planning, interval energy simulation and transient models.
+
+Use actual calendar dates and IANA timezones. Store unambiguous instants and offsets; resolve daylight-saving gaps/repeated times deliberately. A calendar day may contain 23, 24 or 25 elapsed hours. Support leap years and user-selected billing periods. Quick daily/monthly estimates must state their assumed day counts and not impersonate calendar simulations.
+
+Measurement import accepts documented timestamped power/energy columns, units, interval interpretation and timezone. Distinguish instantaneous samples, interval-average power and interval energy. Detect duplicate/out-of-order timestamps, gaps, inconsistent interval lengths and implausible values. Require an explicit missing-data treatment; missing measurements are not zero consumption.
+
+Resampling must preserve energy with a declared method. Never invent finer-resolution peaks from coarse data. Show coverage, resolution, measurement period, source and uncertainty alongside comparisons with simulated schedules.
+
+Timeline views: daily/weekly/yearly demand; load-duration curve; selected circuit and device traces; phase utilization; starting events; generation/storage flows; cumulative energy; tariff bands; and issue markers. Linked cursors and table alternatives expose the same numbers. Tooltips identify whether a value is instantaneous, averaged, accumulated or predicted.
+
+12. CABLES, VOLTAGE DROP AND LOSSES
+
+Provide independent workflows for voltage drop, current-carrying capacity, protective-device assessment and combined circuit review. A voltage-drop calculation alone is never presented as a complete cable selection.
+
+Collect conductor material, cross-section, length basis, insulation, installation method, loaded-conductor count, ambient/soil conditions, grouping, temperature assumptions and parallel paths where supported. Accept manufacturer resistance/reactance data or a documented resistance model. Preserve the conditions at which values are valid.
+
+For a supported balanced/common single-phase model using per-length impedance and one-way route length L:
+- Single-phase two-conductor approximation: ΔV = 2 × I × L × (R cosφ + X sinφ).
+- Balanced three-phase approximation: ΔV = √3 × I × L × (R cosφ + X sinφ).
+- DC uses the complete outgoing/return path resistance.
+Use consistent length units. Handle leading reactive behavior and voltage rise within the stated model. More complex circuits require their own supported calculation, not an unexplained reuse of these expressions.
+
+The two-conductor approximation assumes equal outgoing/return per-length impedance; otherwise use the separately entered path impedances. For every endpoint, assess cumulative source-to-load voltage drop through upstream feeders and the final circuit under the same operating/start scenario. Show segment contributions and the total. Passing the final branch alone does not establish that the complete route meets its limit.
+
+Show volts, percentage, receiving-end estimate, conductor losses, maximum route length for an entered limit and sensitivity to conductor size/temperature. Distinguish running and starting conditions. Use the correct voltage basis for each percentage and clearly identify one-way versus loop length.
+
+Limits come from the selected validated jurisdiction/circuit ruleset or an explicitly entered design criterion. Do not impose a universal 5% rule. Current-carrying capacity requires a sourced base rating and applicable correction factors; every factor exposes its table/source and scope. Do not reuse a rating from an incompatible installation method.
+
+If authorized standards tables are unavailable, provide a complete manual-data worksheet with provenance fields and exact missing-data diagnostics. This is a real calculation workflow, not a fabricated standards database. Dataset-backed automatic selection is enabled only for validated datasets.
+
+13. PROTECTION, FAULTS, EARTHING AND CHECK STATUS
+
+Assess the applicable relationship between design current, device rating/settings and corrected conductor capacity, together with conventional operating characteristics, fault duty and disconnection requirements where supported. Record the exact rule and its scope. A universal next-breaker-above-1.25×current rule is unacceptable as verified protective-device selection.
+
+Protective-device records include manufacturer, model, poles, voltage, AC/DC applicability, characteristic/curve, rated/adjustable current, breaking capacity, source and compatible coordination data. Time-current plots use actual sourced curve envelopes and a logarithmic axis; guessed curves must not be labelled manufacturer data.
+
+Provide worksheets for:
+- Prospective short-circuit current from a stated supply/source impedance model.
+- Minimum/maximum fault conditions where the model supports both.
+- Loop impedance and disconnection-time checks for the selected earthing/ruleset.
+- Conductor adiabatic thermal withstand using the entered/sourced material coefficient and applicable fault-energy/time model.
+- Protective conductor/equipotential bonding assessment within a verified scope.
+- RCD/RCBO selection criteria and compatibility records for the equipment and selected ruleset.
+- Device breaking-capacity comparison and manufacturer-backed selectivity/backup coordination.
+
+Require the necessary source impedance, fault level, earthing arrangement, cable path, protective-device data and operating conditions. Distinguish simplified source/fault estimates from a validated standards-based short-circuit study. Inverter and generator fault behavior must use supported source models or manufacturer data.
+
+For current-limiting devices, use applicable manufacturer let-through I²t data at the relevant voltage and prospective fault current when comparing energy with conductor withstand. Do not substitute a generic trip-curve time or assume prospective current remains unchanged until clearing. State the temperature and time-range limits of the selected adiabatic model.
+
+Report each check separately as passed, failed, warning, incomplete, not applicable or unsupported. Show the source, missing information and affected circuit. Removing required data must remove any prior pass. An RCD selection aid, worksheet or numerical model cannot certify an installation or replace required physical inspection/testing.
+
+14. MOTORS, TRANSFORMERS, GENERATORS, INVERTERS AND UPS
+
+Motor tools include electrical input/current, shaft power, efficiency, torque/speed, synchronous speed/slip, entered operating-point losses and start-sequence planning. Make rating basis, poles, frequency and operating conditions visible. Star/delta calculations apply only to explicitly compatible winding/rated-connection assumptions.
+
+Start scenarios include DOL, star-delta, soft starter, VFD and user-defined methods, using entered or sourced current/PF/time characteristics. Account for loads already running and simultaneous/staggered starts. Do not substitute the running PF for starting PF by default or assign universal multipliers as manufacturer facts.
+
+Transformer assessment includes kVA, current, utilization, entered impedance, no-load/load losses, selected temperature/derating assumptions and supported fault contribution. Generator assessment includes continuous/standby basis, kW/kVA limits, load steps, start demand and sourced derating. Predict voltage/frequency dip only if a validated model and necessary parameters are available.
+
+Inverter and UPS assessment checks kW and kVA limits, supported phase configuration, overload duration, DC/AC limits, efficiency assumptions and usable backup energy. Runtime based on a constant-energy approximation must be labelled; use manufacturer discharge/efficiency curves for equipment-specific runtime claims.
+
+Compare candidate equipment only from entered or verified sourced records. Show the limiting constraint and numerical headroom. Avoid one universal oversizing percentage. User-selected reserve capacity is a distinct design allowance, not an undocumented safety guarantee.
+
+15. RENEWABLES, STORAGE AND BACKUP DISPATCH
+
+Offer a clearly labelled daily-energy estimate and a separate chronological time-step simulation. Profiles may come from entered schedules, imported measurements or actual configured resource services. Record location, dataset/source, period, timezone and assumptions. Weather/resource availability is never simulated as a live connection.
+
+PV features: module array description, installed DC capacity, orientation/tilt when a supported yield model uses them, inverter clipping, generation profile import, loss assumptions and self-consumption/export analysis. String checks use actual module/inverter datasheet ratings, temperature coefficients and design temperatures for cold Voc, hot Vmp, MPPT range and current limits. Yield estimates and equipment compatibility are separate checks.
+
+Wind features: use supplied time-series output or a validated manufacturer power curve with appropriate wind inputs and declared losses. Do not infer real wind generation from an arbitrary decorative turbine animation.
+
+Battery model: nominal/usable energy, chemistry/operating limits when known, initial SOC, lower/upper SOC, reserve, charge/discharge power, efficiencies, inverter coupling and optional supplied degradation assumptions. Declare whether capacity and power are on the AC or DC side. Apply each loss once.
+
+Define whether SOC percentages refer to nominal energy or a specified usable window. Map minimum/maximum SOC, depth of discharge, usable capacity and reserve to one stored-energy state without applying the same restriction twice. Distinguish the absolute lower operating bound from energy reserved for critical loads.
+
+Compute physical flows first: load served directly, battery charging/discharging, grid import/export, curtailment, losses and unserved critical demand. Maintain a per-step conservation equation and cumulative reconciliation. Respect power and energy limits, export/import constraints and available generation. Prevent simultaneous charge/discharge unless an explicitly justified model requires it.
+
+Dispatch strategies include self-consumption, critical-load reserve, time-of-use scheduling and peak shaving. Show the objective, constraints and whether the strategy uses forecast information. A forecast-optimized result is not guaranteed real-world performance.
+
+Outage simulation accepts start time/duration, critical-load groups, shedding priority and restart rules. Report served/unserved energy, load availability, limiting intervals and reserve exhaustion. Storage at zero/maximum SOC must behave correctly. Solar exported at noon must not erase evening grid imports merely because daily kWh totals match.
+
+During an outage, grid-following generation is unavailable unless the project explicitly includes a compatible island-capable supply, supported transfer/isolation arrangement and operating mode that establishes the required voltage/frequency reference. Validate backup output, phase limits, restart and black-start capabilities against entered or manufacturer data. An installed PV array or charged battery does not by itself establish backup capability.
+
+Start an outage from its stated initial energy state or the preceding simulated interval. Do not silently fill the battery at the outage boundary. If grid charging or precharging is permitted, include its actual power, timing, costs, losses and constraints in the scenario.
+
+16. EV CHARGING AND FLEXIBLE LOADS
+
+For each charging session, capture arrival/departure, required battery energy or starting/target SOC with usable capacity, charging efficiency, vehicle acceptance limit, charger limit, phase connection and optional minimum power. Distinguish battery-delivered energy from AC meter energy.
+
+Implement unmanaged and managed charging with board/site/phase constraints. Compare immediate charging, deadline-aware scheduling, solar-following and tariff-aware operation. Respect locked equipment, departure deadlines, critical circuits and existing loads. Report unmet energy and infeasible deadlines explicitly.
+
+Flexible-load planning also supports user-authorized heating, pumping or process windows with minimum run times and required energy. Apply schedule proposals to a scenario through a preview and undoable change. Optimization must not violate user-defined operational constraints to make its charts look better.
+
+These functions plan and simulate. Hardware control is a separate integration requiring a supported device protocol, verified permissions, feedback and operating safeguards; no UI action may imply that a physical charger, breaker or generator has changed state without actual evidence.
+
+17. POWER QUALITY AND POWER-FACTOR CORRECTION
+
+Provide real/reactive/apparent-power views, signed power triangles, current phasors and phase-by-phase comparisons. Make fundamental sinusoidal assumptions visible. Distinguish net power quantities from phase/conductor thermal loading.
+
+PF correction calculates required kvar from initial and target displacement PF under valid conditions. Include capacitor element calculations for single-phase, star and delta connections with correct per-element voltage/frequency. Explain what changes in current/kVA and what is not automatically a kWh saving.
+
+Capacitor-bank selection requires equipment compatibility, switching, harmonic/resonance and source-system assessment where relevant. Do not recommend an unverified capacitor bank beside a VFD or distorted supply solely from a target PF calculation.
+
+Harmonic analysis accepts actual supplied spectra or documented sampled data. Define THD denominator, frequency basis, RMS treatment and phase assumptions. For neutral assessment, combine compatible per-harmonic phase currents consistently; balanced triplen components may add. A single PF number cannot generate a valid spectrum. Waveforms without measurement provenance are labelled analytical illustrations.
+
+18. TARIFFS, COSTS, CARBON AND PROJECT ECONOMICS
+
+Build a tariff editor supporting flat rates, time-of-use bands, weekday/weekend rules, effective dates, standing charges, specified demand-charge windows, import/export prices, user-entered taxes and applicable billing-period rules. Validate overlaps/gaps. Allow negative prices when the selected tariff model legitimately permits them.
+
+Calculate physical consumption/import/export first, then billing. Keep energy charges, demand charges, fixed charges, export credits and taxes as separate lines. Specify rounding, tax basis and whether demand is measured by aligned or rolling intervals. Do not mix peak instantaneous current with a billed average-demand metric.
+
+Support EUR, NGN, USD and GBP, with extensible currency metadata. Selecting another currency changes display/denomination settings; it does not fetch or invent an exchange rate. Any conversion requires an entered or actually retrieved dated rate and explicit confirmation of the conversion basis.
+
+Provide daily, calendar-month, annual and custom-period projections, plus clear quick-estimate modes. Compare baseline and proposed scenarios using the same weather/profile period and tariff assumptions unless intentionally varied.
+
+Carbon calculations use editable sourced factors with geography, date, units and method. Separate operational electricity estimates from embodied impacts and supplier claims. Exports do not receive an automatic emissions credit unless the selected stated methodology supports it.
+
+Economics includes entered capital cost, maintenance/replacement assumptions, annual energy/cost change, simple payback and discounted cash-flow/NPV analysis. Expose discount rate, horizon, tariff escalation and residual-value assumptions. Handle zero/negative savings and payback beyond the horizon honestly. Sensitivity charts vary actual assumptions; they do not promise future prices or investment returns.
+
+19. SCENARIOS, SENSITIVITY AND OPTIMIZATION
+
+Scenarios are versioned branches of project assumptions: existing installation, expansion, efficient equipment, altered schedules, added EV charging, renewable/storage design, supply outage and critical-only operation. Preserve a selected baseline and show which inputs changed.
+
+Compare installed load, design demand, actual phase maxima, interval peak, start demand, energy, import/export, losses, unserved demand, cost, emissions and unresolved checks. Display absolute and percentage changes with correct handling of a zero baseline. Do not compare values calculated with different definitions without an explicit explanation.
+
+Provide sensitivity sweeps for selected parameters such as operating hours, demand assumption, tariff, cable length, PV size or storage capacity. Show range, step and model scope. If probability/Monte Carlo functionality is implemented, require explicit distributions, seed and convergence evidence; deterministic min/base/max analysis is a complete useful starting feature.
+
+Optimization tasks include phase balancing, charging schedules, peak shaving, start sequencing and bounded PV/storage comparisons. State the objective, constraints, search bounds, runtime budget and solver/heuristic. Return feasible alternatives with trade-offs and unsuccessful/infeasible outcomes. Recalculate proposals with the same trusted engine before presenting them as improvements. Apply through an inspectable change set with undo.
+
+20. ENGINEERING TOOLBOX: REQUIRED FUNCTIONAL INVENTORY
+
+Implement the following as reusable panels backed by the shared engine. A panel may combine closely related operations; do not inflate the application with duplicate calculator pages. Every listed calculation has validation, declared scope, units, method explanation, independent fixtures and applicable project linkage.
+
+ELECTRICAL FUNDAMENTALS
+T01. Ohm's law: solve compatible V/I/R/P quantities, with consistency checks for overdetermined inputs.
+T02. DC power/current and load calculations.
+T03. Single-phase AC power/current with explicit terminal voltage and PF.
+T04. Balanced three-phase AC power/current with explicit line voltage.
+T05. kW/kVA/kvar/PF conversion with signed reactive-power behavior.
+T06. Series/parallel resistance networks within a stated supported topology.
+T07. Basic sinusoidal R/L/C impedance, reactance and phase at entered frequency.
+T08. Engineering units, including W/kW, VA/kVA, Wh/kWh, Ah with voltage, length and temperature, with unambiguous conversion definitions.
+T09. Electrical input versus useful mechanical/thermal output, using entered efficiency or COP under stated conditions.
+
+MOTORS AND STARTING
+T10. Shaft power, electrical input, efficiency and motor current.
+T11. Torque/speed/power conversion.
+T12. Synchronous speed and induction-motor slip.
+T13. Compatible star/delta winding voltage/current relationships.
+T14. Running and starting demand with duration, starting PF and sequence.
+
+CABLES AND PROTECTION
+T15. Conductor resistance and temperature correction from entered/sourced properties.
+T16. DC voltage drop including the complete loop.
+T17. Supported single/three-phase AC voltage drop and voltage rise.
+T18. Maximum route length or candidate cross-section for an explicit drop criterion.
+T19. Conductor I²R losses and time-integrated loss energy.
+T20. Current-carrying capacity and correction-factor worksheet with provenance.
+T21. Protective-device/load/cable compatibility assessment within supported rules.
+T22. Simplified fault-current calculation with declared source/path model.
+T23. Loop-impedance/disconnection worksheet with required device/ruleset inputs.
+T24. Adiabatic thermal-withstand assessment with sourced coefficient and fault basis.
+T25. Protective conductor/bonding worksheet using a verified applicable method.
+
+DISTRIBUTION AND SUPPLY
+T26. Circuit/board connected load and coincident-demand aggregation.
+T27. Per-phase current and explicitly defined imbalance.
+T28. Fundamental neutral-current phasor calculation.
+T29. Transformer current, utilization and entered loss estimates.
+T30. Generator steady-state and supported start-capacity assessment.
+T31. Inverter kW/kVA and overload-envelope assessment.
+T32. UPS load and energy-based or manufacturer-curve runtime assessment.
+
+POWER QUALITY
+T33. PF-correction kvar and before/after current/kVA.
+T34. Single-phase/star/delta capacitor element sizing.
+T35. Supplied harmonic spectrum, RMS and defined THD analysis.
+
+RENEWABLES AND STORAGE
+T36. Battery voltage/Ah/Wh/usable-energy conversion.
+T37. Battery C-rate, charge/discharge duration and constrained backup runtime.
+T38. Time-step storage dispatch, reserve and energy-balance analysis.
+T39. PV yield from entered/profile/resource-model inputs with explicit assumptions.
+T40. PV string temperature-voltage and MPPT/current compatibility.
+T41. Wind generation from supplied output or supported power-curve data.
+
+EV, ENERGY AND ECONOMICS
+T42. EV battery/AC energy, charging time and deadline feasibility.
+T43. Managed charging under phase/site/charger constraints.
+T44. Power-profile integration and interval-demand conversion.
+T45. Load factor, peak demand and load-duration curve.
+T46. Coincidence/diversity/utilization definitions and scoped calculations.
+T47. Time-of-use energy and demand billing.
+T48. Standby and equipment-replacement energy/cost comparison.
+T49. Sourced operational carbon estimate.
+T50. Simple payback and break-even comparison.
+T51. Discounted cash-flow/NPV and sensitivity analysis using entered assumptions.
+
+Keep dataset-dependent functions usable through a complete validated manual-input path. A missing standard, manufacturer curve or online profile must identify exactly which result cannot be assessed. Never fill that gap with an invented number or a permanent fake feature.
+
+21. REPORTS, BILL OF MATERIALS AND CUSTOMER ESTIMATES
+
+Generate useful professional outputs from one immutable project/result revision:
+- Engineering calculation report with executive results, inputs, assumptions, methodology and calculation traces.
+- Load and circuit schedules, board/phase summaries and single-line diagrams.
+- Cable/protection/fault assessment sheets and unresolved-check register.
+- Motor-starting and supply-capacity assessment.
+- Energy, tariff, carbon and scenario-comparison report.
+- Renewable/storage/EV report with time-series evidence and feasibility limitations.
+- Bill of materials and customer estimate based on actual model quantities and entered prices.
+
+Include project title/reference, prepared-by details entered by the user, date/timezone, selected jurisdiction and dataset editions, engine/schema version, scenario, revision identifier, measurement/simulation provenance and scope limitations. Report sections must be configurable and previewable.
+
+BOM quantities must come from modeled/entered components and lengths. A decorative diagram line is not a measured cable route. Keep unit cost, labor, tax, waste allowance and contingency explicit. Label estimates as estimates. Do not invent customer/company/contact/tax information, statutory invoice status, approval signatures or professional certification.
+
+PDFs require real pagination, repeatable table headers, page numbers, readable charts, vector diagrams where possible, correct symbols/units and embedded Unicode-capable fonts. Test German text and Yoruba diacritics. Verify long project names, multipage schedules and report tables against the on-screen snapshot.
+
+Exports: versioned JSON project; CSV loads/circuits/time series; documented spreadsheet-friendly exports; SVG diagrams; PDF reports; and print layouts. Every export contains meaningful content and sensible filenames. Opening the exported file is part of acceptance. Do not call a browser screenshot a complete engineering report.
+
+22. LOCAL SAVING, HISTORY, OFFLINE OPERATION AND RECOVERY
+
+Use IndexedDB for projects, scenarios, revisions and appropriate attachments. Persist small harmless preferences separately if useful. Show autosave state and provide manual save/export. The application must be useful without accounts or AI.
+
+Implement transactional writes, schema migrations, integrity checks, undo/redo, project duplication, revision compare and recoverable deletion. Keep sensitive project content separate from UI preferences and assistant window geometry. A duplicated project must not share mutable nested objects with its original.
+
+Detect multi-tab editing and stale revisions; prevent silent last-write-wins loss. Resolve conflicts through an explicit reload/copy/merge workflow appropriate to the data. A quota failure, blocked storage, interrupted write or failed migration must preserve a recoverable copy and offer export.
+
+Local browser storage is not a guaranteed remote backup. Give users an actual backup export/import workflow and truthful storage status. Do not claim synchronization or device-to-device recovery until a configured service has completed it.
+
+Provide a correctly scoped offline/PWA build: local assets, cached help and deterministic calculations remain available after the required initial load. Installation controls appear only when the platform supports them. Service-worker updates must not destroy unsaved work or mix incompatible application/data versions. Offer a safe update/reload path and a recoverable migration strategy.
+
+Keep online-only operations clearly identified. Reconnect does not silently transmit project/customer data. Cloud synchronization, if enabled, needs real authentication, per-owner authorization, conflict handling, deletion semantics and verified restore. Never simulate cloud saves in localStorage.
+
+23. IMPORTS AND LEGACY CALCULATOR MIGRATION
+
+Provide versioned JSON and CSV import with file-size limits, schema validation, column/unit mapping, preview, row-specific errors and an explicit destination: new project, merge or replacement. Use safe parsing and transactional application. An invalid file must not discard current work.
+
+Harden spreadsheet exports against formula injection while preserving legitimate typed numeric values. Sanitize text/markup imports and URLs; do not execute imported formulas, scripts, event handlers or embedded instructions. Treat attachments as data, not authority over application behavior.
+
+Support supplied source-calculator V1/V2 profile records through a documented adapter where the source schema allows it. The browser cannot read another site's localStorage automatically; the user must supply an exported record/file through a supported path.
+
+Create docs/LEGACY_MIGRATION.md with a field map and before/after examples. Preserve the original record, show the changed semantics and create a new recoverable project. Specifically address:
+- Legacy duty-adjusted power labelled instantaneous versus new on-state/energy separation.
+- Legacy demand/diversity/growth scaling of energy versus explicitly scoped new factors.
+- Daily renewable netting versus chronological physical import/export.
+- Fixed 30/365-day assumptions versus real calendar periods.
+- Same-PF simultaneous inrush versus separately entered starting PF/time/sequence.
+- The legacy 1.25×current breaker planning candidate versus complete supported protection checks.
+- Fixed-resistivity voltage-drop approximation and generic alert threshold versus declared impedance/conditions/limits.
+
+Do not promise exact numerical parity when intentionally correcting these assumptions. Explain differences in an import review and preserve historical results as historical approximations rather than re-labelling them verified designs.
+
+24. ADIGUN BOT — ENGINEERING COPILOT
+
+Use the verified official name Adigun BOT, with Engineering Copilot as a descriptive subtitle. Implement the shared design-system interaction standard. No official avatar asset was present in the inspected templates; use a consistent accessible assistant-control icon until an approved asset is supplied, without inventing another brand logo.
+
+Window behavior:
+- One launcher and one instance; repeated activation focuses the existing window.
+- Desktop non-modal floating window, approximately 420×600 px initially and at least approximately 320×400 px when the viewport permits.
+- Draggable header, resizing, Minimize, Maximize, Restore and Close, with keyboard/menu alternatives.
+- Clamp position and size after viewport changes; restore a lost window through settings.
+- Keep the workspace interactive with no intercepting backdrop or desktop focus trap.
+- Save geometry after interaction, namespaced by product and user/session.
+- Mobile adapts to a near/full-screen surface with visible close, safe-area handling and composer above the keyboard.
+- Closing preserves history; Clear history deliberately deletes it.
+- Preserve normal/restore geometry and open/minimized/maximized state. Minimizing retains conversations and active requests; verify reload/restore and viewport clamping.
+- Show an unread badge only for actual unread replies, completed in-session work or suggestions awaiting review. Clear viewed badges without automatically opening the window.
+
+Composer and messages: multiline input, Send, Cancel, Retry, copy response, sanitized supported Markdown, tool/result cards, source links, actual processing states, clear errors and duplicate-submit protection. Streaming is displayed only when the real provider streams.
+
+Provide two truthful operating modes:
+1. Local engineering help: deterministic result explanations, missing-input detection, searchable local methods, issue explanations, project commands and validated optimization proposals. This mode works offline and is not presented as a generative model.
+2. Connected AI: a real configured model service accessed through an authenticated backend. Show actual availability and data scope. Credentials remain server-side. The local application continues to work when the provider is absent or unavailable.
+
+Implement a typed product adapter and capability registry. Useful tools include getProjectSummary, getSelectedObject, explainCalculation, listMissingInputs, runCalculation, runScenario, compareScenarios, proposeLoads, proposePhaseBalance, proposeSchedule, previewProjectChanges and prepareReportNarrative. Tool inputs/outputs reference stable object IDs and project revisions. Use validation and permissions at the product boundary, not only natural-language instructions.
+
+AI capabilities:
+- Explain an actual result, method, intermediate values and assumption.
+- Convert an equipment description into a proposed typed schedule, marking uncertain fields for review.
+- Explain warnings and identify exactly which missing data blocks a check.
+- Compare scenarios using verified engine outputs.
+- Suggest phase balancing, schedules and efficiency changes through actual product tools.
+- Draft report commentary from a frozen calculation snapshot.
+- Retrieve authorized engineering references with title, edition/date and links.
+- Extract nameplate fields only when an actual OCR/image capability is configured; show the source and uncertain extraction for confirmation.
+
+Numerical answers come from the deterministic engine. The AI must not fabricate clause numbers, equipment ratings, measurements, curve data, certificates, completed checks or safe-to-install verdicts. Imported documents and retrieved text cannot override tool authorization, privacy or application rules.
+
+Every proposed mutation follows validate → preview/diff → user acceptance → authorized project command → verify resulting state → undo/rollback. Show changed fields, affected totals and warnings. A chat claim that an action succeeded is insufficient. An assistant report/export request must produce the actual artifact through the product's export system.
+
+Live copilot observes committed structured state changes, debounces analysis, tracks project revision and cancels stale findings on project edits/switches. Local findings include object IDs, evidence, severity and revision. Suggestions offer Accept, Dismiss and Tell me more, with Off/Quiet/Standard/Proactive settings. Ordinary proactive suggestions should be throttled to approximately one per 20–30 seconds and suppressed during active editing. Never force-open the assistant, steal focus or repeat dismissed advice without a relevant changed condition.
+
+Turning live assistance off unsubscribes its observers and cancels obsolete analyzer work while preserving manual local help. Clean up listeners on project changes and component teardown. Default chat retention to the current session; separate transcripts from harmless window geometry. Any optional persistence needs explicit retention/deletion controls, a documented protection model and owner-scoped cloud access where configured. Do not store sensitive transcripts in unprotected localStorage or portray IndexedDB alone as encrypted secret storage.
+
+Online data transfer must follow the user's requested workflow. Show the minimum project context sent, exclude unnecessary customer details, provide cancellation and deletion controls, and handle rate limits/timeouts without fabricating a response. Browser-only GitHub Pages cannot securely hold provider secrets; use a real configured backend or keep connected mode unavailable with a working setup explanation.
+
+25. LANGUAGES, ACCESSIBILITY AND FIELD USABILITY
+
+Support English (en), Deutsch (de), Yorùbá (yo) and Nigerian Pidgin (pcm) across navigation, forms, validation, tooltips, empty/error states, help, result labels, chart text, assistant controls and reports. Keep terminology in a shared electrical glossary. Use correct Yoruba diacritics and readable Nigerian Pidgin. Record translation-review status honestly; untranslated keys or an English-only application behind a language selector do not meet acceptance.
+
+Language changes must preserve projects, selections, input values and focus appropriately. Parse numbers using the chosen locale while keeping machine-readable exports locale-independent and documented. Explain ambiguous decimal/group separators instead of silently changing magnitudes. A German UI does not automatically select a German ruleset, and a Nigerian Pidgin UI does not automatically change voltage or currency.
+
+Target WCAG 2.2 AA and verify relevant criteria. Include semantic structure, accessible names, visible focus, keyboard-complete workflows, meaningful errors, sufficient contrast, accessible dialogs, focus restoration, screen-reader-friendly status updates and table/text alternatives for plots. Dragging/resizing has non-pointer alternatives. Keep animation optional and assistive output quiet enough to use.
+
+Provide Simple and Engineering detail views over the same model. Simple view explains quantities and asks for essential inputs; Engineering view exposes full assumptions and intermediate values. Neither view hides a material failed/incomplete check. Use sensible touch targets, readable outdoor/light-theme contrast and unit suffixes that remain visible while editing.
+
+26. ARCHITECTURE, PERFORMANCE AND SECURITY
+
+Prefer TypeScript, React and Vite for an initially empty product repository. Confirm supported compatible releases using official documentation at implementation time, pin dependencies and commit the lockfile. If newer product code already exists, extend its sound architecture instead of rebuilding blindly.
+
+Suggested product-owned separation:
+- src/domain: schemas, entity IDs, units, project commands and revisions.
+- src/engine: electrical formulas, schedules, demand, energy, tariffs, optimization and diagnostics.
+- src/data: versioned equipment/ruleset registries with provenance.
+- src/features: workspace modules, charts and single-line/spatial views.
+- src/storage: IndexedDB, migrations, history and recovery.
+- src/import-export: parsers, mapping, exports, report snapshots and rendering.
+- src/bot: capability adapter, local analyzer, proposal validation and assistant UI.
+- src/integrations: actual optional provider/telemetry/account adapters.
+- src/i18n: messages, glossary and locale formatting.
+- src/workers: cancellable simulations and expensive calculations.
+- public/assets: approved packaged assets and properly scoped offline resources.
+- tests and docs: independent fixtures, acceptance evidence and product documentation.
+
+Use a single project state/command layer. Derived totals, charts, diagrams, reports and AI context must consume the same revisioned engine outputs. Cache by inputs/model/dataset revision; invalidate correctly. Responses from old workers or providers must not overwrite newer state.
+
+Use virtualization for large schedules, incremental recomputation for affected objects and workers for long simulations. Lazy-load the optional 3D view, report renderer and other heavy modules. Cancel obsolete work; bound memory use and dataset imports. Avoid continuous rendering when nothing changes.
+
+Demonstrate a usable project with at least 1,000 load rows and a calendar-year 15-minute simulation. Report hardware/browser, project composition, elapsed time, peak memory where measurable and interaction latency. Set and verify a practical editing-response budget, with a target of p95 below 200 ms for normal row edits on the documented test setup. Long operations show meaningful state and remain cancellable. Do not fabricate performance scores.
+
+Security requirements: validate at trust boundaries, sanitize rendered external text, restrict accepted file formats/sizes, protect CSV export, avoid unsafe dynamic evaluation, scope worker/service-worker behavior, review dependency licenses/vulnerabilities and never log credentials or customer content unnecessarily. Use deployment-appropriate security headers and authentication for any backend. Keep provider secrets out of browser bundles and public repository history.
+
+If accounts/cloud storage are implemented, enforce ownership and permissions server-side for every project and attachment. A hidden button is not authorization. Test cross-user access, expired sessions and deletion/recovery. Optional telemetry is read-only unless a separately authorized control integration is built; show timestamps, sampling interval, stale/offline status and device identity. A browser demonstration is not hardware validation.
+
+27. STANDARDS, DATASETS AND SOURCE RIGHTS
+
+Germany/EU is the initial engineering focus. Make jurisdiction packs extensible without claiming unsupported regional compliance. Resolve applicable IEC/DIN VDE documents, editions, amendments and national requirements from authoritative sources at implementation time. Do not guess current editions or reproduce restricted tables without permission.
+
+Each dataset/ruleset records jurisdiction, supported circuit/equipment scope, standard or manufacturer identifier, edition/date, table/curve ID, original URL/document, permitted use/license, retrieval date, units, conditions, checksum/version and validation evidence. Freeze the selected version in a project/report; show a reviewed migration when updating it.
+
+Distinguish normative standards, manufacturer guidance, user-entered criteria and worked examples. A manufacturer guide explains methods but is not universal approval of a design. Record the coverage matrix: which checks are automated, manual-data-supported, not applicable or unsupported.
+
+Primary engineering/reference starting points reviewed for this specification:
+- Schneider Electric, voltage-drop methods: https://www.electrical-installation.org/enwiki/Calculation_of_voltage_drop_in_steady_load_conditions
+- Schneider Electric, cable-sizing method: https://www.electrical-installation.org/enwiki/General_method_for_cable_sizing
+- Schneider Electric, induction motors: https://www.electrical-installation.org/enwiki/Induction_motors
+- Schneider Electric, demand/coincidence terminology: https://www.electrical-installation.org/enwiki/Estimation_of_actual_maximum_kVA_demand
+- Schneider Electric, neutral conductor and harmonic considerations: https://www.electrical-installation.org/enwiki/Sizing_the_neutral_conductor
+- Schneider Electric, conductor short-circuit withstand: https://www.electrical-installation.org/enwiki/Verification_of_the_withstand_capabilities_of_cables_under_short-circuit_conditions
+- Fronius, equipment-specific backup configurations: https://www.fronius.com/en/solar-energy/solar-solutions/backup-power
+- W3C, accessibility target: https://www.w3.org/TR/WCAG22/
+
+Use these links to verify methods and scope; do not copy their equipment-specific assumptions into universal defaults. Retain notices for reused code/assets, document source ownership and avoid assigning an invented license to material with unresolved rights.
+
+28. INDEPENDENT NUMERICAL ACCEPTANCE FIXTURES
+
+Expected results must be calculated independently of the production functions under test. Keep transparent reference arithmetic and justified absolute/relative tolerances. Test units and assumptions as well as final digits. These cases are analytical validation inputs, not seeded customer data.
+
+F01. 2.3 kW electrical input, 230 V single-phase, PF=1 → 10 A on-state.
+F02. The same load for 8 elapsed hours → 18.4 kWh; energy-only price EUR 0.30/kWh → EUR 5.52.
+F03. The same 8-hour window at 50% energy duty and zero standby → 9.2 kWh, while on-state current remains 10 A.
+F04. 7.5 kW shaft-output motor, 400 V balanced three-phase, η=0.90, displacement PF=0.85 → 8.3333333333 kW electrical input and approximately 14.1507418919 A.
+F05. Two compatible consuming sinusoidal loads at a common boundary, each 4 kW with +3 kvar and −3 kvar → 8 kW, 0 kvar and 8 kVA net complex-power magnitude; preserve their individual branch currents.
+F06. 1 kW for 15 minutes → 0.25 kWh and 1 kW demand for that quarter-hour; if the other 45 minutes are zero, the complete hour averages 0.25 kW.
+F07. Three equal unity-PF 10 A phase currents separated by 120° → approximately zero fundamental neutral current. One 10 A phase with the other two zero → 10 A neutral.
+F08. Supplied resistance of 0.4 Ω in each of two conductors, 10 A DC or unity-PF AC under the declared resistive model → 8 V loop drop; no ampacity/compliance conclusion follows from this alone.
+F09. A 10 kW consuming sinusoidal load corrected from displacement PF 0.80 to 0.95 → approximately 4.2131589482 kvar compensation. Do not automatically reduce its useful-load kWh.
+F10. PV produces 1 kWh at noon and the load consumes 1 kWh in the evening, with no battery or other flows → 1 kWh physical export and 1 kWh physical import, billed separately.
+F11. Battery stored energy starts at 5 kWh. Accept 2 kW AC charging for 1 hour at 90% charge efficiency → 6.8 kWh stored. Then supply 2 kW AC for 1 hour at 80% discharge efficiency → 4.3 kWh stored. Choose capacity/reserve bounds that permit both steps and do not apply the same conversion loss again.
+F12. A 10 kWh nominal battery moves from SOC 80% down to a 20% lower bound, with 90% discharge efficiency and no other losses → 5.4 kWh deliverable AC energy, subject separately to its power limit.
+F13. A constant 1 kW load integrated over an actual 23-hour/25-hour local DST day → 23/25 kWh respectively. Repeated local timestamps remain distinct by offset; test a complete leap-year February.
+F14. Removing required cable/device/ruleset input turns the relevant check incomplete, invalidates stale pass status and identifies the missing input.
+F15. A locked phase assignment remains unchanged after balancing. All proposed moves preserve topology and improve or honestly report the selected objective.
+F16. Grid-tied-only PV without a supported island-capable supply cannot continue serving an isolated backup load merely because sunlight is present. An outage starts from the actual previous/stated battery state, without free precharging.
+F17. An EV session with insufficient permitted charging time/power reports unmet energy and an infeasible deadline; it does not overrun phase/site constraints to force success.
+F18. A malformed or unsupported import preserves the current project and edits. Export/import round trips preserve entity IDs, values, units, provenance and supported scenario relationships.
+F19. Battery SOC, charge/discharge limits and interval energy balance hold at all boundaries. Summed interval energy agrees with cumulative plots and billing inputs within declared tolerances.
+F20. Reports, charts, schedules, issue status and BOT explanations agree on one frozen project/scenario/engine revision. A delayed old result cannot overwrite a newer edit.
+
+Add independent fixtures for every toolbox method, leading/lagging quadrants, L–L connections, zero/invalid inputs, unit conversion, fractional quantities only where allowed, tariff overlaps, negative prices where supported, all declared fault/thermal model boundaries and unavailable standards data. Physical-model claims need their own evidence beyond arithmetic fixtures.
+
+29. USER-FLOW, FAILURE, VISUAL AND RELEASE VERIFICATION
+
+Exercise complete flows, not only isolated components:
+- Create project → add/edit loads → assign board/circuit/phase → schedule → calculate → inspect trace → save → reload with identical results.
+- Duplicate scenario → change equipment/schedule → compare → preview/apply a valid improvement → undo.
+- Import a schedule → review mapping/errors → apply → export → reopen and verify.
+- Configure a cable/protective device → complete supported checks → remove required evidence → verify incomplete state.
+- Simulate PV/storage/EV/outage → reconcile flows → compare tariffs → generate/open a multipage PDF.
+- Use Adigun BOT to explain a real result and propose a change → review → apply → verify → undo; test stale context and provider failure.
+- Use every menu item, context action and toolbox panel at least once with valid and representative invalid inputs.
+
+Test persistence failures, migrations, interrupted imports, cancellation, multi-tab conflicts, offline start after caching, service-worker updates, reduced motion, full keyboard operation, mobile layouts and all four languages. Test account/provider endpoints only if implemented; mark live integration checks NOT TESTED when access is absent and distinguish them from mocked adapter tests.
+
+Run meaningful unit, property/invariant, integration and browser tests. Use independent expected values for consequential formulas. Inspect desktop/tablet/mobile screenshots and actual rendered PDFs; repair overlap, clipped controls, unreadable labels, illegible print styles and layout jumps. A passing build alone does not prove functionality.
+
+Document the test commands that actually exist. The old reference calculator uses npm test (node --test) and npm run build; those commands are reference facts, not an instruction to copy its test architecture blindly. The new product should expose clear install, dev, typecheck, lint, unit/integration, browser-test and build commands matching its actual implementation.
+
+Record command, tested SHA, environment, pass/fail/unrun status and relevant evidence. Rerun affected checks when code changes and all required merge/release gates on the actual candidate revision. Do not weaken gates, hide failures, invent screenshots or claim hardware testing from browser simulations.
+
+30. IMPLEMENTATION MILESTONES AND COMPLETION GATES
+
+Milestone 1 — Foundation and real calculation flow
+Inspect references/current product; create policy/config adoption and source manifest; implement brand shell, typed project model, core electrical engine, first load editor, trace drawer and working local save/reload. Gate: a real entered load produces verified values and survives reopening; no sample dashboard pretending to be a user's project.
+
+Milestone 2 — Engineering workspace
+Complete equipment/load workflows, boards/circuits/phases, topology-linked single-line editor, schedules, worker simulation, measurements and scenario comparison. Gate: synchronized views and a complete load-to-circuit-to-report-data path with verified phase and calendar behavior.
+
+Milestone 3 — Engineering assessments and toolbox
+Implement cables/protection/fault/earthing manual-data workflows, supported datasets, motors/supply, power quality and the shared toolbox methods. Gate: independent numerical fixtures, explicit unsupported/missing-data states and actionable per-check evidence.
+
+Milestone 4 — Energy planning and deliverables
+Complete renewables/storage, EV/flexible-load scheduling, constrained optimization, tariffs/carbon/economics, BOM/estimates, PDF/vector/data exports and legacy migration. Gate: energy conservation, realistic feasibility, reproducible reports and successful import/export recovery.
+
+Milestone 5 — Copilot, motion and product polish
+Complete local Adigun BOT and its validated product adapter, data-bound animation, optional spatial view, localization, responsive design, accessibility and offline/update recovery. Implement and live-test connected AI only when an actual provider/backend is configured and within authorized scope; otherwise verify the complete local mode and document connected-mode availability accurately. Gate: all core tasks remain usable without online AI or 3D; assistant actions genuinely change/verify the intended state.
+
+Milestone 6 — Full acceptance and release readiness
+Verify all required routes/actions/tools, all four languages, independent fixtures, 1,000-row performance, failures/recovery, source rights, security and rendered reports. Resolve required defects; record any actual external dependency separately. Prepare a reproducible release artifact and deployment instructions.
+
+Maintain a usable application at every milestone. Do not build eighteen empty routes first and call the project advanced. Do not mark the full task complete while required local tools are unfinished. Connected services, hardware or licensed data require explicit real activation/evidence; unavailable external capability cannot be represented as a working feature.
+
+A deployment-ready build is not a deployment. Preserve the owner's stated publishing boundary: deploy only with applicable explicit authorization, through the real repository workflow, then verify the published revision and URL. Do not invent a live address or treat a GitHub commit as proof of publication.
+
+31. CONTINUATION, CHECKPOINTS AND TOKEN DISCIPLINE
+
+Resume from actual repository state, AGENTS.md, this specification and one current PROJECT_STATUS.md. Inspect the working tree and preserve unrelated changes. Keep a requirement-to-implementation/verification matrix and update the single current status with completed work, current milestone, evidence, concrete blockers and next action.
+
+Follow the adopted policy's useful changed-work checkpoints: first verified remote WIP push within five minutes of changed implementation work, then changed checkpoints at most five minutes apart and before long operations/handoffs. Use a scoped branch where appropriate, no empty commits, no secrets, no unrelated staging and no force push. Verify the actual remote commit. If synchronization remains unresolved for ten minutes, stop new feature expansion unless an authorized bounded offline exception applies; preserve a recoverable checkpoint and report the exact barrier.
+
+Checkpoint backup, integration, testing and deployment are separate states. Failing WIP may be backed up honestly; release gates still apply. Validate recovery from a fresh checkout/environment instead of merely writing a backup policy. Do not promise background work or unattended continuation without a real authorized runtime and scheduler.
+
+Delegate independent bounded reviews or implementation modules where useful, with one integration owner and separate edit ownership/worktrees. Avoid overlapping edits and redundant research. Use targeted searches, inspect only relevant source ranges, process clean pasted text as-is, batch independent reads and change strategy after repeated identical failures.
+
+Do not repeat this specification in progress messages. Show only useful changed files/lines when code is requested. Do not paste raw HTML/PDF dumps, long histories or invented token/time metrics. Report actual changes, verification, blockers and one next action. Routine execution reporting follows this form unless the owner requests a stricter format:
+
+STATUS
+- Done: actual completed or synchronized changes.
+- Tested: passed, failed and unrun checks, with material limitations.
+- ESTIMATED FINISH TIME: evidence-based remaining effort, or unknown.
+- ETA: Europe/Berlin estimate with timezone, or pending and the concrete blocker.
+- Next: one concrete next action.
+
+32. REQUIRED PRODUCT DELIVERABLES
+
+Deliver in AdigunPowerLab:
+- Working maintainable source, actual dependency lockfile and reproducible build/test commands.
+- Approved local brand asset, semantic design tokens and populated product configuration.
+- Product-specific AGENTS.md and one PROJECT_STATUS.md.
+- README with setup, supported scope, local/offline use and deployment prerequisites.
+- docs/REFERENCE_MANIFEST.md with pinned sources and asset/data rights.
+- docs/ARCHITECTURE.md and docs/CALCULATION_METHODS.md with model boundaries and units.
+- docs/DATA_SOURCES.md with dataset/standards/manufacturer coverage and versions.
+- docs/LEGACY_MIGRATION.md with semantic changes and recovery behavior.
+- docs/USER_GUIDE.md including all menus, tools, shortcuts, BOT window and copilot settings.
+- docs/TEST_EVIDENCE.md with actual commands, candidate revisions, independent fixtures and live-versus-mocked integration status.
+- docs/ACCEPTANCE_MATRIX.md mapping this specification's requirements, T01–T51 and F01–F20 to working behavior and evidence.
+- docs/KNOWN_LIMITATIONS.md containing actual scope/dependency limitations, not a disguised list of abandoned required features.
+- Complete opt-in worked reference projects and their expected results.
+- Genuine sample exports generated from those labelled reference cases, reviewed desktop/mobile screenshots and verified recovery instructions.
+
+Choose a coherent documentation structure if the product already has one, but preserve each deliverable's purpose and traceability. Do not create duplicate status documents or unmaintained plans.
+
+33. FINAL DEFINITION OF DONE
+
+AdigunPowerLab is complete for the accepted release when a user can create their own project, enter equipment, calculate explainable results, organize circuits/phases, inspect a linked diagram, simulate real schedules, perform the supported engineering assessments, compare energy/cost scenarios, save/recover work and open a professional exported report. Every required menu, button and toolbox calculation performs its promised behavior.
+
+The brand matches the verified global and HB Elektroniker templates. The futuristic motion is driven by real project calculations. English, German, Yoruba and Nigerian Pidgin work throughout the product. Adigun BOT has a functional local mode and only truthful configured online capabilities. Results expose their evidence and limits. Required tests pass on the release candidate, and all untested external/hardware claims remain explicitly unclaimed.
+
+Carry the work through these gates with careful engineering, strong visual execution and durable checkpoints. Deliver the complete usable product described here, and keep every claim proportional to the evidence.
+
+END OF ADIGUNPOWERLAB PURSUING GOAL PROMPT
