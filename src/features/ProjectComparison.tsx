@@ -14,6 +14,7 @@ import type {
 } from "../domain/workspace";
 import { calculateProject } from "../engine/electrical";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
+import { PeriodComparison } from "./PeriodComparison";
 import { Field, Notice } from "./ui";
 import { parseLocaleNumberList, formatEditableNumber } from "../i18n/numbers";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
@@ -560,6 +561,7 @@ export function ScenarioWorkspace({
           </>
         )}
       </section>
+      <PeriodComparison project={project} baseline={base as Project} />
       <section className="panel panel-pad">
         <h3>{t("Sensitivity study")}</h3>
         <Notice>

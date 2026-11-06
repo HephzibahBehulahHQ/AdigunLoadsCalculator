@@ -112,7 +112,7 @@ export function calculateIntervalBill(tariff: Tariff, intervals: BillingInterval
   };
   let complete = true;
   if (tariff.demandPerKW > 0) {
-    const resolution = Math.max(...rows.map((row) => row.durationMinutes));
+    const resolution = rows.reduce((maximum, row) => Math.max(maximum, row.durationMinutes), 0);
     if (resolution > rule.windowMinutes + 1e-9) {
       complete = false;
       issues.push({ id: "demand-resolution", severity: "warning", assessment: "incomplete", message: `Input resolution (${resolution} minutes) is coarser than the ${rule.windowMinutes}-minute demand window. Demand charge is incomplete; no finer peak is invented.` });

@@ -143,7 +143,11 @@ import {
 } from "./commands/projectCommands";
 import { tools } from "./tools";
 import { resetBotWindowState } from "./bot/windowState";
-const ReportWorkspace = lazy(() => import("./features/ReportWorkspace").then(module => ({default:module.ReportWorkspace})));
+const ReportWorkspace = lazy(() =>
+  import("./features/ReportWorkspace").then((module) => ({
+    default: module.ReportWorkspace,
+  })),
+);
 const Billing = lazy(() =>
   import("./features/Billing").then((m) => ({ default: m.Billing })),
 );
@@ -1816,38 +1820,43 @@ export default function App() {
                           />
                         </Suspense>
                       ) : (
-                        <Suspense fallback={<div className="loading"><LoaderCircle className="spin"/></div>}>
-                        <ReportWorkspace
-                          project={project}
-                          result={result}
-                          locale={locale}
-                          context={{
-                            ...reportContext,
-                            scenarios: records
-                              .filter(
-                                (r) =>
-                                  !r.deleted &&
-                                  r.id !== project.id &&
-                                  (r.project.scenarioOf === project.id ||
-                                    r.id === project.scenarioOf ||
-                                    (project.scenarioOf &&
-                                      r.project.scenarioOf ===
-                                        project.scenarioOf)),
-                              )
-                              .map((r) => ({
-                                project: r.project,
-                                result: calculateProject(r.project),
-                                label: r.project.name,
-                              })),
-                          }}
-                          onDetailsChange={(details) =>
-                            change((p) => {
-                              p.reportDetails = details;
-                            })
+                        <Suspense
+                          fallback={
+                            <div className="loading">
+                              <LoaderCircle className="spin" />
+                            </div>
                           }
-                          onOpenBilling={() => setReportTab("billing")}
-                        />
-
+                        >
+                          <ReportWorkspace
+                            project={project}
+                            result={result}
+                            locale={locale}
+                            context={{
+                              ...reportContext,
+                              scenarios: records
+                                .filter(
+                                  (r) =>
+                                    !r.deleted &&
+                                    r.id !== project.id &&
+                                    (r.project.scenarioOf === project.id ||
+                                      r.id === project.scenarioOf ||
+                                      (project.scenarioOf &&
+                                        r.project.scenarioOf ===
+                                          project.scenarioOf)),
+                                )
+                                .map((r) => ({
+                                  project: r.project,
+                                  result: calculateProject(r.project),
+                                  label: r.project.name,
+                                })),
+                            }}
+                            onDetailsChange={(details) =>
+                              change((p) => {
+                                p.reportDetails = details;
+                              })
+                            }
+                            onOpenBilling={() => setReportTab("billing")}
+                          />
                         </Suspense>
                       )}
                     </>

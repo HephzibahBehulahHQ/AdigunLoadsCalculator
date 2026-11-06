@@ -150,4 +150,22 @@ describe("decimal-safe customer billing", () => {
     expect(calculateBill(bill).totalMinor).toBe(0);
     expect(validateBill(bill)).toContain("Add at least one priced line.");
   });
+  it("preserves an invalid localized draft while blocking stale totals and exports", () => {
+    const bill = valid();
+    bill.numericDrafts = {
+      "line:test-line:unitPrice": { text: "1.234", locale: "de" },
+    };
+    expect(parseBillJson(JSON.stringify(bill))).toEqual(bill);
+    expect(() => calculateBill(bill)).toThrow("invalid numeric draft");
+    expect(() => billCsv(bill)).toThrow("invalid numeric draft");
+    expect(
+      validateBill(bill).some((error) =>
+        error.includes("invalid numeric draft"),
+      ),
+    ).toBe(true);
+    bill.numericDrafts = {
+      "line:unknown:unitPrice": { text: "1.234", locale: "de" },
+    };
+    expect(() => parseBillJson(JSON.stringify(bill))).toThrow();
+  });
 });

@@ -214,7 +214,17 @@ export function validateProjectExtensions(candidate: Record<string, unknown>): s
       if (!record(dispatch) || !["self-consumption", "reserve", "time-of-use", "peak-shaving"].includes(String(dispatch.strategy)) || !finite(dispatch.reserveSoc) || dispatch.reserveSoc < 0 || dispatch.reserveSoc > 1 || typeof dispatch.allowGridCharge !== "boolean" || !Array.isArray(dispatch.gridChargeWindows) || dispatch.gridChargeWindows.length > 100) errors.push("Invalid battery dispatch strategy, reserve or charging permission.");
       else {
         if (dispatch.peakLimitKW !== undefined && (!finite(dispatch.peakLimitKW) || dispatch.peakLimitKW < 0)) errors.push("Peak-shaving target must be finite and nonnegative.");
-        for (const row of dispatch.gridChargeWindows) if (!record(row) || !finite(row.startHour) || row.startHour < 0 || row.startHour >= 24 || !finite(row.endHour) || row.endHour < 0 || row.endHour > 24 || row.startHour === row.endHour || !finite(row.targetSoc) || row.targetSoc < 0 || row.targetSoc > 1) errors.push("Invalid grid-charge window or target SOC.");
+        const chargingSpans: [number, number][] = [];
+        for (const row of dispatch.gridChargeWindows) {
+          if (!record(row) || !finite(row.startHour) || row.startHour < 0 || row.startHour >= 24 || !finite(row.endHour) || row.endHour < 0 || row.endHour > 24 || row.startHour === row.endHour || !finite(row.targetSoc) || row.targetSoc < 0 || row.targetSoc > 1) errors.push("Invalid grid-charge window or target SOC.");
+          else {
+            const spans: [number, number][] = row.startHour < row.endHour ? [[row.startHour, row.endHour]] : [[row.startHour, 24], [0, row.endHour]];
+            for (const [start, end] of spans) {
+              if (chargingSpans.some(([priorStart, priorEnd]) => Math.max(start, priorStart) < Math.min(end, priorEnd))) errors.push("Grid-charge windows overlap; enter one target for each interval.");
+              chargingSpans.push([start, end]);
+            }
+          }
+        }
       }
     }
     if (energy.backup !== undefined) {

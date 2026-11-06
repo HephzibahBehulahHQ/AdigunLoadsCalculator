@@ -303,6 +303,7 @@ export function ReportWorkspace({
     return parsed.canonical;
   }
   async function previewEstimate() {
+    const ticket = ++sequence.current;
     setError("");
     setBillPreview(null);
     try {
@@ -346,6 +347,7 @@ export function ReportWorkspace({
           ),
         });
       const existing = await loadBillingDocument(project.id);
+      if (ticket !== sequence.current) return;
       if (existing && existing.currency !== project.currency)
         throw new Error(
           "The saved bill uses a different currency. Review that bill before adding model prices.",
@@ -361,15 +363,17 @@ export function ReportWorkspace({
       calculateBill(document);
       setBillPreview(document);
     } catch (cause) {
-      setError(t((cause as Error).message));
+      if (ticket === sequence.current) setError(t((cause as Error).message));
     }
   }
   async function applyEstimate() {
     if (!billPreview) return;
+    const ticket = ++sequence.current;
     setBusy(true);
     setError("");
     try {
       await saveBillingDocument(project.id, billPreview);
+      if (ticket !== sequence.current) return;
       setBillPreview(null);
       setMessage(
         t(
@@ -378,9 +382,9 @@ export function ReportWorkspace({
       );
       onOpenBilling?.();
     } catch (cause) {
-      setError(t((cause as Error).message));
+      if (ticket === sequence.current) setError(t((cause as Error).message));
     } finally {
-      setBusy(false);
+      if (ticket === sequence.current) setBusy(false);
     }
   }
   function print() {

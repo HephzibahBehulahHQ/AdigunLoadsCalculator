@@ -92,6 +92,7 @@ export function simulateStartEvents(project: Project, range?: { start: string; e
   for (const load of project.loads) for (const window of load.schedule?.absoluteWindows ?? []) for (const t of [Date.parse(window.start), Date.parse(window.end)]) if (t > start && t < end) boundaries.add(t);
   const ordered = [...boundaries].sort((a, b) => a - b);
   const points: StartPoint[] = [];
+  let unknownPhaseEvidence = false;
   const peakPhaseA: Record<Phase, number> = { L1: 0, L2: 0, L3: 0 };
   let peakKW = 0, peakKVA = 0, energyKWh = 0;
   for (let i = 0; i < ordered.length - 1; i++) {
@@ -101,6 +102,7 @@ export function simulateStartEvents(project: Project, range?: { start: string; e
     const currents = zeroPhases();
     let kw = 0, q = 0, scalarKVA = 0;
     const unknown = normalized.some((load) => load.reactiveKvar === null);
+    unknownPhaseEvidence ||= unknown;
     for (const load of normalized) {
       kw += load.operatingKW; q += load.reactiveKvar ?? 0; scalarKVA += load.apparentKVA;
       for (const phase of PHASES) currents[phase] = addComplex(currents[phase], load.phaseCurrents[phase]);
@@ -113,5 +115,6 @@ export function simulateStartEvents(project: Project, range?: { start: string; e
     peakKW = Math.max(peakKW, kw); peakKVA = Math.max(peakKVA, kva); energyKWh += kw * durationSeconds / 3600;
     for (const phase of PHASES) peakPhaseA[phase] = Math.max(peakPhaseA[phase], phaseCurrents[phase]);
   }
+  if (unknownPhaseEvidence) issues.push({ id: "start-phase-evidence", severity: "warning", assessment: "incomplete", message: "True PF alone does not establish phase angle. Start-sequence kVA and phase current use conservative magnitude bounds where displacement PF or measured P/Q is missing; neutral current is unavailable." });
   return { revision: project.revision, engineVersion: ENGINE_VERSION, points, peakKW, peakKVA, peakPhaseA, energyKWh, issues };
 }

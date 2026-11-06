@@ -1,3 +1,5 @@
+import { planningMessages } from "./planningMessages";
+import { workspaceMessages } from "./workspaceMessages";
 import { createContext, useContext } from "react";
 import { uiMessages } from "./uiMessages";
 import { reportMessages } from "./reportMessages";
@@ -1628,7 +1630,14 @@ const validationTemplates: Array<[RegExp, [string, string, string]]> = [
     ],
   ],
 ];
-Object.assign(words, engineeringMessages, uiMessages, reportMessages);
+Object.assign(
+  words,
+  engineeringMessages,
+  uiMessages,
+  reportMessages,
+  workspaceMessages,
+  planningMessages,
+);
 const uiTemplates: Array<[string, [string, string, string]]> = [
   ["Value {0}: {1}", ["Wert {0}: {1}", "Iye {0}: {1}", "Value {0}: {1}"]],
   [
@@ -1705,7 +1714,10 @@ const messageTemplates = [...engineeringTemplates, ...uiTemplates].map(
       previous = match.index! + match[0].length;
     }
     pattern += escape(source.slice(previous)) + "$";
-    return { pattern: new RegExp(pattern), ids, messages };
+    // Captures may be user-entered identifiers. Translate only explicitly declared message slots.
+    const messageIds =
+      source === "Value {0}: {1}" || source === "Project {0}: {1}" ? [1] : [];
+    return { pattern: new RegExp(pattern), ids, messages, messageIds };
   },
 );
 export function translationCatalogKeys(): string[] {
@@ -1728,7 +1740,9 @@ export function translate(key: string, locale: Locale, depth = 0): string {
       });
       if (consistent)
         return item.messages[index].replace(/\{(\d+)\}/g, (_, id: string) =>
-          translate(values[Number(id)] ?? `{${id}}`, locale, depth + 1),
+          item.messageIds.includes(Number(id))
+            ? translate(values[Number(id)] ?? `{${id}}`, locale, depth + 1)
+            : (values[Number(id)] ?? `{${id}}`),
         );
     }
   for (const [pattern, templates] of validationTemplates) {

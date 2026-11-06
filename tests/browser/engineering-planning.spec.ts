@@ -76,7 +76,7 @@ test("wind/PV dispatch retains completed results, reconciles curtailment and exp
   await page.getByRole("button", { name: "Save & Run simulation", exact: true }).click();
   await expect(page.locator(".kpi-card").filter({ hasText: "PV + wind generation" })).toContainText("72");
   await expect(page.locator(".metric-strip > div").filter({ hasText: "Energy balance error" })).toContainText("0 kWh");
-  const csv = await exportText(page, "Export series"), lines = csv.trim().split(/\r?\n/), headers = lines.shift()!.split(",");
+  const csv = await exportText(page, "Export series"), lines = csv.trim().split(/\r?\n/), headers = lines.shift()!.split(",").map((cell) => cell.replace(/^"|"$/g, ""));
   const records = lines.map((line) => line.split(",")); expect(records).toHaveLength(96);
   expect(records.reduce((sum, row) => sum + Number(row[headers.indexOf("curtailed_kWh")]), 0)).toBeCloseTo(72, 8);
   expect(records[0][headers.indexOf("timestamp")]).toContain("2026-01-01T00:00:00");

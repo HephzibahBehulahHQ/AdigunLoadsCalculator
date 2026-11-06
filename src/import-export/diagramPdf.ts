@@ -83,7 +83,7 @@ export function appendDiagramPages(
         x = (value: number) => margin + value * scale - offsetX,
         y = (value: number) => top + value * scale - offsetY;
       doc.saveGraphicsState();
-      doc.rect(margin, top, viewW, viewH);
+      doc.rect(margin, top, viewW, viewH, null);
       doc.clip();
       doc.discardPath();
       doc.setDrawColor(90, 115, 135);
@@ -145,7 +145,7 @@ export function appendDiagramPages(
           yy + h > pageH - bottom
         )
           continue;
-        const title = snapshot.showLabels ? node.name : node.id;
+        const title = `${node.symbol ? node.symbol + " · " : ""}${snapshot.showLabels ? node.name : node.id}`;
         doc.text(
           doc
             .splitTextToSize(title, Math.max(4, w - 4))

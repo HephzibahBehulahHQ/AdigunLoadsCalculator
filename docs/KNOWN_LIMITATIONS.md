@@ -1,27 +1,24 @@
-# Scope and remaining acceptance work
+# Supported scope and external boundaries
 
-This initial product is a real, local engineering workspace. The original specification is broader than the first implementation; the following differences are explicit so no partial result is presented as full acceptance.
+This release implements a local electrical planning workspace. Use the acceptance matrix and recorded candidate checks to distinguish implemented functionality from untested real-world conditions.
 
-## Engineering/model boundaries
+## Engineering boundaries
 
-- The electrical model supports entered DC, single-phase, L–L and balanced three-phase loads at a stiff-neutral supply. Arbitrary meshed networks, floating neutrals, voltage-dependent load flow and transient electromagnetic solving are outside this model.
-- Nameplate/on-state current and energy duty remain separate. Unknown true-PF reactive/phase information is incomplete. No harmonic spectrum is inferred from PF.
-- Current manual circuit checks require entered cable impedance, sourced ampacity/correction factors and device evidence. Automatic licensed table selection, manufacturer time-current/selectivity curves and cumulative feeder-path assessment still require expanded datasets/models and acceptance work.
-- Calendar simulations use daily operating windows and selected weekdays, actual elapsed time and IANA offsets. Full seasonal calendars, holiday exceptions and arbitrary overlapping windows are not yet an editing workflow.
-- PV chronology requires entered profiles. There is no live weather retrieval. Battery dispatch is a declared energy model, not manufacturer-specific performance certification. Backup suitability depends on entered island-capable equipment assumptions.
-- EV plans apply conservative site/phase envelopes and report infeasibility. The implemented heuristics do not claim a global optimum.
+- The electrical model supports entered DC, single-phase, line-to-line and balanced three-phase loads with declared nominal voltage and stiff-neutral/fundamental assumptions. Arbitrary meshed networks, floating neutrals, voltage-dependent load flow and electromagnetic transients are outside this solver.
+- On-state current, design diversity, energy duty, explicit starts and chronological interval demand are distinct quantities. True PF alone does not determine displacement angle, reactive power or harmonics; those cases stay incomplete.
+- Feeder-route drop/loss/current calculations use entered cable impedances, ampacity corrections and the supported radial model. Individual device/cable/source checks are independent. No licensed table, manufacturer selectivity curve, dynamic voltage/frequency response or regulatory approval is inferred.
+- Source equipment represents entered planning records and served boundaries. It does not establish a second energized feed or safe parallel operation. Physical switching and hardware control are unavailable.
+- Renewable and wind profiles are entered data. There is no live weather/resource feed. Battery ageing, detailed thermal behaviour and manufacturer-specific dynamic limits need supplied validated models. Entered island/transfer/black-start declarations are not physical test results.
+- Flexible and EV scheduling use declared bounded heuristics and constraints, not a proof of global optimality. Deadline or capacity failures remain visible. Dated cross-scenario comparisons are bounded to 31 elapsed days; the separate calendar worker supports annual ranges.
 
-## Product/UI boundaries
+## Data, language and reports
 
-- The single-line diagram is a real view of circuit/load relationships with selections, flow and SVG export. Manual coordinate editing, arbitrary symbol insertion, editable feeder routing and optional 3D are not implemented.
-- A paged load schedule handles large projects; general multi-select bulk editing, clipboard paste mapping, split-pane resizing and the full expanded menu inventory need further work.
-- Native JSON and supported CSV have preview and validation. Recognized legacy V1/V2 import and validated measurement import, persistence and comparison are implemented within documented format limits; see the migration/acceptance documents.
-- Engineering projects, billing drafts and measurement datasets use separate stores and explicit backups; a project export is not a unified backup. A bill is user-authored; the software does not invent legal/tax details or claim jurisdiction-specific invoice compliance.
-- Core navigation/forms and billing have four-language dictionaries. Detailed equation narratives, some engine errors and technical source prose still require full translation and professional review. Yoruba/Pidgin translations are drafts; no native-speaker review is claimed.
-- The local BOT is deterministic. It runs real project tools and checked proposals; it is not a remote generative model. General OCR, document retrieval and external tool execution require actual integrations.
+- Local storage is not a remote backup. Combined archives and reviewed restore are implemented; unvalidated raw import text and unsaved measurement text are not represented as saved datasets. Browser/device cleanup can remove local data.
+- Individual project JSON, equipment JSON, measurement exports and bill drafts have different scopes; choose Workspace backup for a combined archive.
+- User-entered customers, taxes, prices and source references remain user evidence. Reports and estimates do not constitute installation certification or a jurisdiction-specific statutory invoice certification.
+- Four-language UI/report/technical catalogs and localized numeric inputs are implemented. Original user/source text is retained. Professional German/Yorùbá/Pidgin technical-language review and a full independent WCAG 2.2 AA audit remain unperformed; machine/browser checks are not substitutes.
+- The local BOT provides deterministic help and reviewed commands. Connected generative AI, account-backed cloud sync, provider OCR/resource retrieval and physical telemetry/control need actual configured services and authorization. No credentials or fabricated live integrations are included.
 
 ## Verification boundaries
 
-Node benchmarks, unit tests, browser-flow checks and rendered PDF inspection are separate evidence categories. Performance targets are not claimed for untested devices. A build or GitHub commit does not prove public deployment. Accessibility checks and responsive screenshots do not constitute a complete WCAG certification.
-
-Local browser storage may be cleared by the browser or operating system; actual exported backups are the cross-device recovery mechanism. Hardware, licensed-data and live provider checks remain untested until those capabilities are supplied and configured.
+Unit/reference tests, browser workflows, PDF rendering, offline checks, clean-checkout recovery and measured performance are separate evidence categories. The release record identifies actual commands and revisions. No claim is made about every device, every installation, all possible input combinations, peak memory, penetration testing, hardware measurements, licensed standards validation or professional certification.

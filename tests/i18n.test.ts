@@ -104,4 +104,15 @@ describe("four-language core and tool navigation", () => {
       "Unreviewed technical phrase",
     );
   });
+  it("keeps user-entered identifiers unchanged inside translated technical messages", () => {
+    for (const locale of secondary) {
+      const message = translate(
+        "Tariff band Voltage has invalid weekdays.",
+        locale,
+      );
+      expect(message).toContain("Voltage");
+      if (translate("Voltage", locale) !== "Voltage")
+        expect(message).not.toContain(translate("Voltage", locale));
+    }
+  });
 });

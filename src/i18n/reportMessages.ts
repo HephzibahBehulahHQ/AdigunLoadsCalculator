@@ -207,7 +207,7 @@ export const reportMessages: Record<string, [string, string, string]> = {
     [
       "Das PDF zeigt höchstens die ersten 96 Intervalle; für die vollständige Reihe CSV oder den eingefrorenen JSON-Snapshot exportieren.",
       "PDF fi ó pọ̀ jù àárín àkókò 96 àkọ́kọ́ hàn; gba CSV tàbí ẹ̀dà JSON tí a dì mú fún àtòjọ pátápátá.",
-      "PDF shows at most first96 intervals; export CSV or frozen JSON snapshot for complete series.",
+      "PDF shows at most first 96 intervals; export CSV or frozen JSON snapshot for complete series.",
     ],
   "Representative daily profile; not timestamped measurement data. Export the complete machine-readable series alongside this report.":
     [
@@ -477,6 +477,6 @@ export const reportMessages: Record<string, [string, string, string]> = {
   "A numeric list is limited to 4,096 values.": [
     "Eine Zahlenliste ist auf 4.096 Werte begrenzt.",
     "Àtòjọ nọ́ńbà ní ààlà iye 4,096.",
-    "Numeric list limited to4,096 values.",
+    "Numeric list limited to 4,096 values.",
   ],
 };

@@ -408,25 +408,27 @@ export function Loads({
     y: number;
   }>();
   const menu = useRef<HTMLDivElement>(null);
+  const restoreMenuFocus=useRef(true);
   useEffect(() => {
     if (!context) return;
     const prior = document.activeElement as HTMLElement | null;
     menu.current?.querySelector<HTMLElement>("button")?.focus();
     const outside = (event: PointerEvent) => {
-      if (!menu.current?.contains(event.target as Node)) setContext(undefined);
+      if (!menu.current?.contains(event.target as Node)) {restoreMenuFocus.current=false;setContext(undefined);}
     };
     document.addEventListener("pointerdown", outside);
     return () => {
       document.removeEventListener("pointerdown", outside);
-      prior?.focus();
+      if(restoreMenuFocus.current)prior?.focus();
     };
   }, [context]);
-  const openContext = (load: Load, x: number, y: number) =>
+  const openContext = (load: Load, x: number, y: number) => {
+    restoreMenuFocus.current=true;
     setContext({
       load,
       x: Math.min(x, innerWidth - 200),
       y: Math.min(y, innerHeight - 190),
-    });
+    });};
   const filtered = project.loads.filter(
     (l) =>
       (!phase || l.phase === phase) &&
@@ -453,7 +455,8 @@ export function Loads({
             const index = buttons.indexOf(
               document.activeElement as HTMLButtonElement,
             );
-            if (event.key === "Escape") {
+            if(event.key === "Tab"){restoreMenuFocus.current=false;setContext(undefined);}
+            else if (event.key === "Escape") {
               event.preventDefault();
               setContext(undefined);
             } else if (
