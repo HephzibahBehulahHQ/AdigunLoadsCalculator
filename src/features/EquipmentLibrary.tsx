@@ -13,6 +13,7 @@ import { createProject, newId, validateProjectImport } from "../domain/project";
 import { equipmentTemplate, instantiateEquipment } from "../domain/workspace";
 import { downloadFile, safeName } from "../import-export/files";
 import { LoadEditor } from "./LoadEditor";
+import type { DetailMode } from "./DetailViews";
 import { Field, Modal, Notice } from "./ui";
 import {
   applyProjectCommand,
@@ -24,10 +25,14 @@ export function EquipmentLibrary({
   project,
   change,
   onAdd,
+  detailMode = "engineering",
+  onDetailModeChange,
 }: {
   project: Project;
   change: (mutator: (draft: Project) => void) => boolean | void;
   onAdd: (load: Load) => void;
+  detailMode?: DetailMode;
+  onDetailModeChange?: (value: DetailMode) => void;
 }) {
   const t = useT();
   const file = useRef<HTMLInputElement>(null);
@@ -599,6 +604,8 @@ export function EquipmentLibrary({
           project={project}
           load={editor.load}
           purpose="template"
+          detailMode={detailMode}
+          onDetailModeChange={onDetailModeChange}
           onSave={saveTemplate}
           onClose={() => setEditor(null)}
         />

@@ -116,6 +116,7 @@ export function ReportWorkspace({
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [prices, setPrices] = useState<BOMPricing>({}),
+    [pricingDirty, setPricingDirty] = useState(false),
     [bomPage, setBomPage] = useState(0),
     [contingency, setContingency] = useState("0"),
     [billPreview, setBillPreview] = useState<BillDocument | null>(null),
@@ -126,11 +127,15 @@ export function ReportWorkspace({
     dirtyDetails =
       JSON.stringify(details) !==
       JSON.stringify(project.reportDetails ?? blankDetails);
-  useUpdateGuard(dirtyDetails || busy, t("Report details and sections"));
+  useUpdateGuard(
+    dirtyDetails || pricingDirty || busy,
+    t("Report details and sections"),
+  );
   useEffect(() => {
     priceLocales.current = {};
     setDetails(project.reportDetails ?? blankDetails);
     setPrices({});
+    setPricingDirty(false);
     setBomPage(0);
     setBillPreview(null);
     let alive = true;
@@ -321,6 +326,7 @@ export function ReportWorkspace({
     value: string,
   ) {
     priceLocales.current[`${rowId}:${field}`] = locale;
+    setPricingDirty(true);
     setBillPreview(null);
     setPrices((previous) => ({
       ...previous,
@@ -432,6 +438,7 @@ export function ReportWorkspace({
     try {
       await saveBillingDocument(project.id, billPreview);
       if (ticket !== sequence.current) return;
+      setPricingDirty(false);
       setBillPreview(null);
       setMessage(
         t(
@@ -781,6 +788,7 @@ export function ReportWorkspace({
             onChange={(event) => {
               contingencyLocale.current = locale;
               setContingency(event.target.value);
+              setPricingDirty(true);
               setBillPreview(null);
             }}
           />

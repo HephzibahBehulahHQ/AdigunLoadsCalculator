@@ -17,6 +17,7 @@ export const languages: Record<Locale, string> = {
 };
 export const LanguageContext = createContext<Locale>("en");
 const words: Record<string, [string, string, string]> = {
+  Measurements: ["Messdaten", "Àwọn ìwọ̀n", "Measured data"],
   Overview: ["Übersicht", "Àkótán", "Overview"],
   "Load Schedule": ["Lastenliste", "Àtòjọ ẹrù", "Load Schedule"],
   "Boards & Circuits": [

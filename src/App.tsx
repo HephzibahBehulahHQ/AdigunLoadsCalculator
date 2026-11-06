@@ -890,6 +890,8 @@ export default function App() {
         <EquipmentLibrary
           key={project.id}
           project={project}
+          detailMode={detailMode}
+          onDetailModeChange={setDetailMode}
           change={change}
           onAdd={(load) => setEditor({ load })}
         />
@@ -2166,10 +2168,6 @@ export default function App() {
                           <dd>{selectedLoad.phase}</dd>
                           <dt>{t("Power factor")}</dt>
                           <dd>{selectedLoad.pf}</dd>
-                          <dt>{t("Current")}</dt>
-                          <dd>{selectedResult?.currentA.toFixed(3)} A</dd>
-                          <dt>{t("Daily energy")}</dt>
-                          <dd>{selectedResult?.energyKWh.toFixed(3)} kWh</dd>
                           <dt>{t("Operating hours")}</dt>
                           <dd>{selectedLoad.hoursPerDay} h</dd>
                           <dt>{t("Energy duty")}</dt>

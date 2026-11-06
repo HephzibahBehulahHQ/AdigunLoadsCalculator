@@ -346,6 +346,14 @@ export function LoadEditor({
           </div>
           <div className="load-assumption-values" aria-label={t("Assumptions")}>
             <span>
+              {t("Power factor basis")}:{" "}
+              {t(
+                draft.pfKind === "true"
+                  ? "True power factor"
+                  : "Displacement power factor",
+              )}
+            </span>
+            <span>
               {t("Phase")}:{" "}
               {draft.connection === "three" ? "L1–L3" : draft.phase}
             </span>
@@ -367,7 +375,12 @@ export function LoadEditor({
               invalidFields.length > 0
             }
             onToggle={(event) => {
-              if (detailMode === "simple" && !invalidFields.length)
+              if (
+                (detailMode === "engineering" || invalidFields.length > 0) &&
+                !event.currentTarget.open
+              )
+                event.currentTarget.open = true;
+              else if (detailMode === "simple" && !invalidFields.length)
                 setAssumptionsOpen(event.currentTarget.open);
             }}
           >
@@ -420,6 +433,19 @@ export function LoadEditor({
                 >
                   <option value="lagging">{t("Lagging")}</option>
                   <option value="leading">{t("Leading")}</option>
+                </select>
+              </Field>
+              <Field label={t("Power factor basis")}>
+                <select
+                  value={draft.pfKind ?? "displacement"}
+                  onChange={(event) =>
+                    set("pfKind", event.target.value as Load["pfKind"])
+                  }
+                >
+                  <option value="displacement">
+                    {t("Displacement power factor")}
+                  </option>
+                  <option value="true">{t("True power factor")}</option>
                 </select>
               </Field>
               {num("startHour", "Start hour", "h", 0, 23.999)}

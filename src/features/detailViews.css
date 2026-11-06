@@ -72,7 +72,7 @@
 .detail-checks {
   padding-left: 18px;
   line-height: 1.6;
-  color: var(--amber);
+  color: var(--text);
 }
 .detail-checks li + li {
   margin-top: 8px;
@@ -85,7 +85,7 @@
   max-width: 360px;
   white-space: normal;
   margin: 4px 0;
-  color: var(--amber);
+  color: var(--text);
   font-size: 12px;
 }
 .simple-mode .load-table {

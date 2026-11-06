@@ -88,7 +88,7 @@ export function LoadCalculationDetails({
                   <dt>{t("Reactive power")}</dt>
                   <dd>
                     {result.reactiveKvar === null
-                      ? t("unavailable")
+                      ? t("Not available")
                       : f(result.reactiveKvar) + " kvar"}
                   </dd>
                 </div>
@@ -105,12 +105,12 @@ export function LoadCalculationDetails({
                 <strong>{t("Current calculation")}</strong>
                 <br />I = {f(result.apparentKVA)} × 1000 / (
                 {load.connection === "three" ? "√3 × " : ""}
-                {f(load.voltage)}) = {f(result.currentA)} A
+                {f(load.voltage)}) ≈ {f(result.currentA)} A
               </p>
               <p>
                 <strong>{t("Energy calculation")}</strong>
                 <br />E = {f(result.operatingKW)} × {f(activeHours)} +{" "}
-                {f(standbyKW)} × (24 − {f(activeHours)}) = {f(result.energyKWh)}{" "}
+                {f(standbyKW)} × (24 − {f(activeHours)}) ≈ {f(result.energyKWh)}{" "}
                 kWh
               </p>
             </div>
@@ -158,7 +158,7 @@ export function ProjectCalculationDetails({
   const locale = useContext(LanguageContext);
   const f = (value: number | null, unit = "") =>
     value === null || !Number.isFinite(value)
-      ? t("unavailable")
+      ? t("Not available")
       : numberFormat(value, 3, locale) + (unit ? " " + unit : "");
   return (
     <section
@@ -208,7 +208,7 @@ export function ProjectCalculationDetails({
       </ul>
       <p className="small muted">
         {t("Revision")} {result.revision} · {t("Engine")} {result.engineVersion}{" "}
-        · {t(result.trace.assessment)}
+        · {result.issues.length} {t("Issues")}
       </p>
     </section>
   );

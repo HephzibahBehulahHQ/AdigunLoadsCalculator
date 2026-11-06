@@ -10,6 +10,13 @@ test("load dialog keeps keyboard focus inside and restores the opening control",
   await expect(
     dialog.getByRole("textbox", { name: "Name", exact: true }),
   ).toBeFocused();
+  await dialog
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Unfinished keyboard draft");
+  await page.keyboard.press("Control+k");
+  await expect(
+    dialog.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Unfinished keyboard draft");
   await expect(
     page.getByRole("navigation", { name: "Main navigation" }),
   ).toHaveCount(0);

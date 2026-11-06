@@ -77,6 +77,12 @@ export function Modal({
     ).focus();
     function key(e: KeyboardEvent) {
       if (modalStack.at(-1) !== modal) return;
+      // Workspace shortcuts must not replace an editor and discard its draft.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();

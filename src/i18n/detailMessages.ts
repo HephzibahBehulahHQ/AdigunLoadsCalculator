@@ -1,5 +1,15 @@
 /** Detail-view copy uses the shared catalogue; professional language review is pending. */
 export const detailMessages: Record<string, [string, string, string]> = {
+  "Power factor basis": [
+    "Grundlage des Leistungsfaktors",
+    "Ìpìlẹ̀ ìwọ̀n agbára",
+    "Power factor basis",
+  ],
+  "True power factor": [
+    "Gesamtleistungsfaktor",
+    "Ìwọ̀n agbára gidi",
+    "True power factor",
+  ],
   "Essential inputs and explained results. Your project stays the same.": [
     "Wesentliche Eingaben und erklärte Ergebnisse. Ihr Projekt bleibt unverändert.",
     "Àwọn ìwọlé pàtàkì àti èsì tí a ṣàlàyé. Iṣẹ́ rẹ kò yí padà.",
