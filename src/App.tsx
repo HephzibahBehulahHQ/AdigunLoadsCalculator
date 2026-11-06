@@ -105,6 +105,8 @@ import type {
 } from "./commands/projectCommands";
 import { Modal, Field, Notice, ResizeHandle } from "./features/ui";
 import { LoadEditor } from "./features/LoadEditor";
+import { HelpSupport } from "./features/HelpSupport";
+import { searchHelp } from "./help/content";
 import {
   DetailModeControl,
   LoadCalculationDetails,
@@ -332,10 +334,11 @@ export default function App() {
   );
   const [editor, setEditor] = useState<{ load?: Load } | null>(null);
   const [dialog, setDialog] = useState<
-    "projects" | "import" | "commands" | "references" | "rename" | null
+    "projects" | "import" | "commands" | "references" | "rename" | "help" | null
   >(null);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
+  const [helpQuery, setHelpQuery] = useState("");
   const [commandReview, setCommandReview] = useState<{
     preview: CommandPreview;
     selectedId?: string;
@@ -585,6 +588,10 @@ export default function App() {
       void projectHistory(project.id)
         .then(setRevisions)
         .catch((e) => setError(e.message));
+  }
+  function openHelp(query = "") {
+    setHelpQuery(query);
+    setDialog("help");
   }
   async function openProject(next: Project) {
     try {
@@ -1306,8 +1313,9 @@ export default function App() {
             </div>
             <button
               className="icon-button"
-              title={t("Help")}
-              onClick={() => go("reference")}
+              title={t("Help & Support")}
+              aria-label={t("Help & Support")}
+              onClick={() => openHelp()}
             >
               <HelpCircle size={17} />
             </button>
@@ -1530,6 +1538,13 @@ export default function App() {
                   value={detailMode}
                   onChange={setDetailMode}
                 />
+                <button
+                  className="button small-button help-launch"
+                  onClick={() => openHelp()}
+                >
+                  <HelpCircle size={17} aria-hidden="true" />
+                  {t("Help & Support")}
+                </button>
                 {project.referenceCase && (
                   <span className="tag amber">
                     <BookOpen size={13} />
@@ -2707,6 +2722,22 @@ export default function App() {
                 />
               </div>
               <div className="command-results">
+                <button onClick={() => openHelp(query)}>
+                  <HelpCircle size={17} />
+                  {t("Help & Support")}
+                  <ChevronRight size={14} />
+                </button>
+                {query.trim() &&
+                  searchHelp(query, locale, 6).map((topic) => (
+                    <button
+                      key={`help-${topic.id}`}
+                      onClick={() => openHelp(t(topic.title))}
+                    >
+                      <BookOpen size={17} />
+                      {t("Help")} · {t(topic.title)}
+                      <ChevronRight size={14} />
+                    </button>
+                  ))}
                 {routes
                   .filter(
                     (r) =>
@@ -2801,6 +2832,17 @@ export default function App() {
                     ))}
               </div>
             </div>
+          </Modal>
+        )}
+        {dialog === "help" && (
+          <Modal title={t("Help & Support")} onClose={() => setDialog(null)} wide>
+            <HelpSupport
+              initialQuery={helpQuery}
+              onNavigate={(nextRoute, nextToolId) => {
+                if (nextToolId) setToolId(nextToolId);
+                go(nextRoute);
+              }}
+            />
           </Modal>
         )}
       </div>
