@@ -214,7 +214,17 @@ function mutate(project: Project, command: ProjectCommand, depth = 0): void {
     case "loads.patch":
       permitted(command.patch, loadFields);
       selectedLoads(project, command.ids).forEach((load) => {
-        if (load.locked && ((command.patch.connection !== undefined && command.patch.connection !== load.connection) || (command.patch.phasePair !== undefined && JSON.stringify(command.patch.phasePair) !== JSON.stringify(load.phasePair)))) throw new Error(`${load.name}: unlock the phase before changing its electrical connection.`);
+        if (
+          load.locked &&
+          ((command.patch.connection !== undefined &&
+            command.patch.connection !== load.connection) ||
+            (command.patch.phasePair !== undefined &&
+              JSON.stringify(command.patch.phasePair) !==
+                JSON.stringify(load.phasePair)))
+        )
+          throw new Error(
+            `${load.name}: unlock the phase before changing its electrical connection.`,
+          );
         Object.assign(load, structuredClone(command.patch));
       });
       break;
@@ -312,7 +322,11 @@ function mutate(project: Project, command: ProjectCommand, depth = 0): void {
             load.boardId = target.id;
           });
         project.boards = project.boards.filter((item) => item.id !== board.id);
-        project.sources?.filter((source) => source.boardId === board.id).forEach((source) => { source.boardId = target.id; });
+        project.sources
+          ?.filter((source) => source.boardId === board.id)
+          .forEach((source) => {
+            source.boardId = target.id;
+          });
       } else if (command.strategy === "detach") {
         const circuitIds = new Set(
           project.circuits
@@ -335,7 +349,11 @@ function mutate(project: Project, command: ProjectCommand, depth = 0): void {
         project.boards = project.boards.filter(
           (item) => !descendants.has(item.id),
         );
-        project.sources?.filter((source) => descendants.has(source.boardId ?? "")).forEach((source) => { delete source.boardId; });
+        project.sources
+          ?.filter((source) => descendants.has(source.boardId ?? ""))
+          .forEach((source) => {
+            delete source.boardId;
+          });
       } else throw new Error("Choose how connected objects will be handled.");
       break;
     }
@@ -545,7 +563,11 @@ export function previewProjectCommand(
     preview.command = structuredClone(command);
     const next = structuredClone(project);
     mutate(next, preview.command);
-    for (const item of [...next.loads, ...next.boards, ...next.circuits]) if (typeof item.name !== "string" || !item.name.trim()) preview.errors.push("Every load, board and circuit needs a nonempty name.");
+    for (const item of [...next.loads, ...next.boards, ...next.circuits])
+      if (typeof item.name !== "string" || !item.name.trim())
+        preview.errors.push(
+          "Every load, board and circuit needs a nonempty name.",
+        );
     const validation = validateProjectImport(next);
     if (!validation.valid) preview.errors.push(...validation.errors);
     for (const load of next.loads)

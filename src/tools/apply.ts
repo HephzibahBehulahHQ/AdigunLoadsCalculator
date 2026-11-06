@@ -228,7 +228,10 @@ export function previewToolApplication(
     noteAction = noteCommand(project, request.target, note);
   if (request.mode === "note") {
     const preview = previewProjectCommand(project, noteAction);
-    preview.warnings.unshift(`Calculation status: ${result.status}. The note preserves this status; electrical inputs are unchanged.`, ...result.warnings);
+    preview.warnings.unshift(
+      `Calculation status: ${result.status}. The note preserves this status; electrical inputs are unchanged.`,
+      ...result.warnings,
+    );
     return preview;
   }
   const info = toolApplicationInfo(tool.id);

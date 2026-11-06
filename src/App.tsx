@@ -81,10 +81,14 @@ import {
   exportProject,
   exportLoads,
   previewImport,
+  parseCSV,
   safeName,
 } from "./import-export/files";
-import type { ImportPreview } from "./import-export/files";
-import { mergeProjectObjects, replaceProjectContents } from "./import-export/projectDestination";
+import type { ImportPreview, CSVImportMapping } from "./import-export/files";
+import {
+  mergeProjectObjects,
+  replaceProjectContents,
+} from "./import-export/projectDestination";
 import {
   LanguageContext,
   languages,
@@ -93,7 +97,13 @@ import {
   money,
 } from "./i18n";
 import type { Locale } from "./i18n";
-import { Modal, Field, Notice } from "./features/ui";
+import { LocaleNumberInput } from "./i18n/LocaleNumberInput";
+import { CommandReview } from "./features/CommandReview";
+import type {
+  CommandPreview,
+  ProjectCommand,
+} from "./commands/projectCommands";
+import { Modal, Field, Notice, ResizeHandle } from "./features/ui";
 import { LoadEditor } from "./features/LoadEditor";
 import {
   Overview,
@@ -123,7 +133,10 @@ import { SourceRegistry, ProjectOrganization } from "./features/SourceRegistry";
 import { ReportWorkspace } from "./features/ReportWorkspace";
 import type { ReportContext } from "./import-export/reportSnapshot";
 import type { CalendarResult, RangeOptions } from "./engine/simulation";
-import { previewProjectCommand, applyProjectCommand } from "./commands/projectCommands";
+import {
+  previewProjectCommand,
+  applyProjectCommand,
+} from "./commands/projectCommands";
 import { tools } from "./tools";
 import { resetBotWindowState } from "./bot/windowState";
 const Billing = lazy(() =>
@@ -267,6 +280,32 @@ export default function App() {
   const [sidebar, setSidebar] = useState(() =>
     readPreference("sidebar", innerWidth > 900),
   );
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    readPreference("sidebarWidth", 240),
+  );
+  const [inspectorWidth, setInspectorWidth] = useState(() =>
+    readPreference("inspectorWidth", 300),
+  );
+  const [detailMode, setDetailMode] = useState(() =>
+    readPreference("detailMode", "engineering"),
+  );
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>(() =>
+    readPreference("collapsedGroups", []),
+  );
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--sidebar",
+      sidebarWidth + "px",
+    );
+    document.documentElement.style.setProperty(
+      "--inspector",
+      inspectorWidth + "px",
+    );
+    writePreference("sidebarWidth", sidebarWidth);
+    writePreference("inspectorWidth", inspectorWidth);
+    writePreference("detailMode", detailMode);
+    writePreference("collapsedGroups", collapsedGroups);
+  }, [sidebarWidth, inspectorWidth, detailMode, collapsedGroups]);
   const [selected, setSelected] = useState<string>();
   const [showTrace, setShowTrace] = useState(false);
   const [editor, setEditor] = useState<{ load?: Load } | null>(null);
@@ -275,10 +314,23 @@ export default function App() {
   >(null);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
+  const [commandReview, setCommandReview] = useState<{
+    preview: CommandPreview;
+    selectedId?: string;
+  }>();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importBusy, setImportBusy] = useState(false);
-  const [importMode, setImportMode] = useState<"new"|"merge"|"replace">("new");
-  const [importTarget, setImportTarget] = useState<{id:string;revision:number}>();
+  const [csvFile, setCSVFile] = useState<File>();
+  const [csvHeaders, setCSVHeaders] = useState<string[]>([]);
+  const [csvMapping, setCSVMapping] = useState<CSVImportMapping>({});
+  const [mappingDirty, setMappingDirty] = useState(false);
+  const [importMode, setImportMode] = useState<"new" | "merge" | "replace">(
+    "new",
+  );
+  const [importTarget, setImportTarget] = useState<{
+    id: string;
+    revision: number;
+  }>();
   const [botOpen, setBotOpen] = useState(false);
   const [reportTab, setReportTab] = useState<"engineering" | "billing">(
     "engineering",
@@ -286,7 +338,21 @@ export default function App() {
   const [, setReportBusy] = useState(false);
   const [reportContext, setReportContext] = useState<ReportContext>({});
   useEffect(() => setReportContext({}), [project.id, project.revision]);
-  const rememberCalendar = (calculated: CalendarResult, inputs: Record<string, unknown> | RangeOptions) => setReportContext(context => ({...context, calendar: {projectId: project.id, revision: project.revision, calculatedAt: new Date().toISOString(), result: calculated, inputs: inputs as RangeOptions, source: "Completed calendar simulation"}}));
+  const rememberCalendar = (
+    calculated: CalendarResult,
+    inputs: Record<string, unknown> | RangeOptions,
+  ) =>
+    setReportContext((context) => ({
+      ...context,
+      calendar: {
+        projectId: project.id,
+        revision: project.revision,
+        calculatedAt: new Date().toISOString(),
+        result: calculated,
+        inputs: inputs as RangeOptions,
+        source: "Completed calendar simulation",
+      },
+    }));
   const [toolId, setToolId] = useState("");
   const [revisions, setRevisions] = useState<Project[]>([]);
   const [update, setUpdate] = useState<ServiceWorkerRegistration>();
@@ -302,10 +368,11 @@ export default function App() {
   const result = useMemo(() => calculateProject(project), [project]);
   const selectedLoad = project.loads.find((l) => l.id === selected);
   const selectedResult = result.loads.find((l) => l.id === selected);
-  const selectedBoard = project.boards.find(row => row.id === selected);
-  const selectedCircuit = project.circuits.find(row => row.id === selected);
-  const selectedSource = project.sources?.find(row => row.id === selected);
-  const selectedObject = selectedLoad ?? selectedBoard ?? selectedCircuit ?? selectedSource;
+  const selectedBoard = project.boards.find((row) => row.id === selected);
+  const selectedCircuit = project.circuits.find((row) => row.id === selected);
+  const selectedSource = project.sources?.find((row) => row.id === selected);
+  const selectedObject =
+    selectedLoad ?? selectedBoard ?? selectedCircuit ?? selectedSource;
   const refreshRecords = useCallback(async () => {
     try {
       setRecords(await listProjects(true));
@@ -575,15 +642,42 @@ export default function App() {
     }
   }
   function saveLoad(load: Load) {
-    change((p) => {
-      const i = p.loads.findIndex((l) => l.id === load.id);
-      if (i < 0) p.loads.push(load);
-      else p.loads[i] = load;
+    const prior = project.loads.find((row) => row.id === load.id);
+    if (
+      prior?.locked &&
+      (prior.phase !== load.phase ||
+        prior.connection !== load.connection ||
+        JSON.stringify(prior.phasePair) !== JSON.stringify(load.phasePair))
+    )
+      throw new Error(
+        t("Unlock the load first before changing its phase or connection."),
+      );
+    const commands: ProjectCommand[] = [];
+    if (!prior) commands.push({ kind: "loads.insert", loads: [load] });
+    else {
+      const { id, phase, boardId, circuitId, ...patch } = load;
+      commands.push({ kind: "loads.patch", ids: [id], patch });
+      if (prior.circuitId !== circuitId || prior.boardId !== boardId)
+        commands.push({ kind: "loads.assign", ids: [id], boardId, circuitId });
+      if (prior.phase !== phase)
+        commands.push({ kind: "loads.phase", ids: [id], phase });
+    }
+    const reviewed = previewProjectCommand(project, {
+      kind: "batch",
+      commands,
     });
-    setEditor(null);
-    setSelected(load.id);
-    setMessage(t("Load updated"));
-    go("loads");
+    if (reviewed.errors.length) throw new Error(reviewed.errors.join(" "));
+    if (reviewed.changes.some((item) => item.objectId !== load.id)) {
+      setEditor(null);
+      setCommandReview({ preview: reviewed, selectedId: load.id });
+      return;
+    }
+    if (change((p) => Object.assign(p, applyProjectCommand(p, reviewed)))) {
+      setEditor(null);
+      setSelected(load.id);
+      setMessage(t("Load updated"));
+      go("loads");
+    }
   }
   async function pdf() {
     setReportBusy(true);
@@ -642,11 +736,77 @@ export default function App() {
     setImportBusy(true);
     setError("");
     try {
-      const next = await previewImport(file);
-      if(next.kind !== "project") {next.project = {...createProject(file.name.replace(/\.[^.]+$/, "")), loads: next.loads};}
+      let next: ImportPreview;
+      setCSVFile(undefined);
+      setCSVHeaders([]);
+      setCSVMapping({});
+      setMappingDirty(false);
+      if (file.name.toLowerCase().endsWith(".csv") && file.size <= 5_000_000) {
+        const headers = parseCSV(await file.text())[0] ?? [];
+        setCSVFile(file);
+        setCSVHeaders(headers);
+        const aliases: Record<string, string> = {
+          power_kw: "rating",
+          kw: "rating",
+          power: "rating",
+          hours: "hoursperday",
+          powerfactor: "pf",
+        };
+        const columns: Record<string, number> = {};
+        headers.forEach((header, index) => {
+          const key = header
+            .trim()
+            .toLowerCase()
+            .replace(/^\uFEFF/, "");
+          if (
+            [
+              "name",
+              "rating",
+              "quantity",
+              "entrymode",
+              "voltage",
+              "connection",
+              "pf",
+              "phase",
+              "hoursperday",
+              "starthour",
+              "duty",
+              "utilization",
+              "efficiency",
+              "reactive",
+              "standbyw",
+              "pfkind",
+              "reactivekvar",
+              "phasepair",
+              "source",
+            ].includes(aliases[key] ?? key)
+          )
+            columns[aliases[key] ?? key] = index;
+        });
+        setCSVMapping({ columns, ratingUnit: "native" });
+        try {
+          next = await previewImport(file);
+        } catch (error) {
+          next = {
+            kind: "loads",
+            loads: [],
+            warnings: [],
+            errors: [(error as Error).message],
+          };
+        }
+      } else next = await previewImport(file);
+      if (next.kind !== "project") {
+        next.project = {
+          ...createProject(file.name.replace(/\.[^.]+$/, "")),
+          loads: next.loads,
+        };
+      }
       setPreview(next);
       setImportMode(next.kind === "project" ? "new" : "merge");
-      setImportTarget({id:latest.current.id,revision:latest.current.revision});
+      setImportTarget({
+        id: latest.current.id,
+        revision: latest.current.revision,
+      });
       setDialog("import");
     } catch (e) {
       setError((e as Error).message);
@@ -659,17 +819,41 @@ export default function App() {
     if (!preview?.project || preview.errors.length) return;
     setError("");
     try {
-      if(importMode !== "new" && (latest.current.id !== importTarget?.id || latest.current.revision !== importTarget?.revision)) throw new Error(t("Project changed. Preview the import again before applying."));
-      if(importMode === "new") {
-        const next = duplicateProject(preview.project, preview.project.name + " · imported");
+      if (
+        importMode !== "new" &&
+        (latest.current.id !== importTarget?.id ||
+          latest.current.revision !== importTarget?.revision)
+      )
+        throw new Error(
+          t("Project changed. Preview the import again before applying."),
+        );
+      if (importMode === "new") {
+        const next = duplicateProject(
+          preview.project,
+          preview.project.name + " · imported",
+        );
         await createAndOpen(next);
-        if(latest.current.id !== next.id) return;
+        if (latest.current.id !== next.id) return;
       } else {
-        const next = importMode === "merge" ? mergeProjectObjects(latest.current,preview.project) : replaceProjectContents(latest.current,preview.project);
-        if(!change(p => {for(const key of Object.keys(p)) delete (p as unknown as Record<string,unknown>)[key];Object.assign(p,next);})) return;
+        const next =
+          importMode === "merge"
+            ? mergeProjectObjects(latest.current, preview.project)
+            : replaceProjectContents(latest.current, preview.project);
+        if (
+          !change((p) => {
+            for (const key of Object.keys(p))
+              delete (p as unknown as Record<string, unknown>)[key];
+            Object.assign(p, next);
+          })
+        )
+          return;
       }
-      setDialog(null);setPreview(null);go("loads");
-    } catch(error) {setError((error as Error).message);}
+      setDialog(null);
+      setPreview(null);
+      go("loads");
+    } catch (error) {
+      setError((error as Error).message);
+    }
   }
   function libraryPage() {
     return (
@@ -752,6 +936,7 @@ export default function App() {
           key={project.id}
           project={project}
           revisions={revisions}
+          change={change}
         />
         <section className="panel panel-pad">
           <div className="panel-title">
@@ -934,7 +1119,15 @@ export default function App() {
   const current = routes.find((r) => r.id === route)!;
   return (
     <LanguageContext.Provider value={locale}>
-      <div className={"app " + (sidebar ? "" : "sidebar-collapsed")}>
+      <div
+        className={
+          "app " +
+          (sidebar ? "" : "sidebar-collapsed") +
+          " " +
+          detailMode +
+          "-mode"
+        }
+      >
         <a href="#workspace" className="skip-link">
           {t("Workspace")}
         </a>
@@ -1030,30 +1223,44 @@ export default function App() {
             {["Workspace", "Engineering", "Energy & Planning", "Resources"].map(
               (group) => (
                 <div className="nav-group" key={group}>
-                  <span className="nav-heading">{t(group)}</span>
-                  {routes
-                    .filter((r) => r.group === group)
-                    .map((r) => (
-                      <button
-                        key={r.id}
-                        className={
-                          "nav-item " + (route === r.id ? "active" : "")
-                        }
-                        onClick={() => go(r.id)}
-                        aria-current={route === r.id ? "page" : undefined}
-                      >
-                        <r.icon size={17} />
-                        <span>{t(r.label)}</span>
-                        {r.id === "loads" && (
-                          <span className="nav-count">
-                            {project.loads.length}
-                          </span>
-                        )}
-                        {r.id === "tools" && (
-                          <span className="nav-count">{tools.length}</span>
-                        )}
-                      </button>
-                    ))}
+                  <button
+                    className="nav-heading nav-group-toggle"
+                    aria-expanded={!collapsedGroups.includes(group)}
+                    onClick={() =>
+                      setCollapsedGroups((groups) =>
+                        groups.includes(group)
+                          ? groups.filter((item) => item !== group)
+                          : [...groups, group],
+                      )
+                    }
+                  >
+                    {t(group)}
+                    <ChevronDown size={12} />
+                  </button>
+                  {!collapsedGroups.includes(group) &&
+                    routes
+                      .filter((r) => r.group === group)
+                      .map((r) => (
+                        <button
+                          key={r.id}
+                          className={
+                            "nav-item " + (route === r.id ? "active" : "")
+                          }
+                          onClick={() => go(r.id)}
+                          aria-current={route === r.id ? "page" : undefined}
+                        >
+                          <r.icon size={17} />
+                          <span>{t(r.label)}</span>
+                          {r.id === "loads" && (
+                            <span className="nav-count">
+                              {project.loads.length}
+                            </span>
+                          )}
+                          {r.id === "tools" && (
+                            <span className="nav-count">{tools.length}</span>
+                          )}
+                        </button>
+                      ))}
                 </div>
               ),
             )}
@@ -1072,6 +1279,14 @@ export default function App() {
               <HelpCircle size={17} />
             </button>
           </div>
+          <ResizeHandle
+            value={sidebarWidth}
+            min={190}
+            max={390}
+            variable="--sidebar"
+            label={t("Navigation width")}
+            onChange={setSidebarWidth}
+          />
         </aside>
         <div className="workspace-shell">
           <div className="workspace-toolbar">
@@ -1338,12 +1553,14 @@ export default function App() {
                             }),
                           )
                         }
-                        onDelete={(id) => {
-                          change((p) => {
-                            Object.assign(p, applyProjectCommand(p, previewProjectCommand(p, { kind: "loads.delete", ids: [id] })));
-                          });
-                          if (selected === id) setSelected(undefined);
-                        }}
+                        onDelete={(id) =>
+                          setCommandReview({
+                            preview: previewProjectCommand(project, {
+                              kind: "loads.delete",
+                              ids: [id],
+                            }),
+                          })
+                        }
                         onImport={() => fileInput.current?.click()}
                         onExport={() => exportLoads(project)}
                         onLibrary={() => go("library")}
@@ -1351,12 +1568,15 @@ export default function App() {
                     </>
                   )}
                   {route === "boards" && (
-                    <><ProjectOrganization project={project} change={change}/><Boards
-                      project={project}
-                      result={result}
-                      change={change}
-                      onSelect={setSelected}
-                    /></>
+                    <>
+                      <ProjectOrganization project={project} change={change} />
+                      <Boards
+                        project={project}
+                        result={result}
+                        change={change}
+                        onSelect={setSelected}
+                      />
+                    </>
                   )}
                   {route === "diagram" && (
                     <TopologyEditor
@@ -1369,8 +1589,25 @@ export default function App() {
                   )}
                   {route === "simulation" && (
                     <>
-                      <Simulation project={project} result={result} onComplete={rememberCalendar} />
-                      <AdvancedPlanning project={project} onChange={change} onCalendarComplete={rememberCalendar} />
+                      <Simulation
+                        project={project}
+                        result={result}
+                        onComplete={rememberCalendar}
+                        animationsPaused={motion === "paused"}
+                      />
+                      <details
+                        className="advanced-section"
+                        open={detailMode === "engineering"}
+                      >
+                        <summary>
+                          {t("Advanced schedules, starts and flexible loads")}
+                        </summary>
+                        <AdvancedPlanning
+                          project={project}
+                          onChange={change}
+                          onCalendarComplete={rememberCalendar}
+                        />
+                      </details>
                       <Suspense
                         fallback={
                           <div className="loading">
@@ -1382,8 +1619,16 @@ export default function App() {
                       </Suspense>
                     </>
                   )}
-                  {route === "motors" && <SourceRegistry project={project} change={change} onSelect={setSelected}/>}
-                  {route === "cables" && <FeederAssessment project={project} onChange={change} />}
+                  {route === "motors" && (
+                    <SourceRegistry
+                      project={project}
+                      change={change}
+                      onSelect={setSelected}
+                    />
+                  )}
+                  {route === "cables" && (
+                    <FeederAssessment project={project} onChange={change} />
+                  )}
                   {["cables", "motors", "quality", "tools"].includes(route) && (
                     <Toolbox
                       project={project}
@@ -1476,10 +1721,36 @@ export default function App() {
                           />
                         </Suspense>
                       ) : (
-                        <ReportWorkspace project={project} result={result} locale={locale}
-                          context={{...reportContext, scenarios: records.filter(r => !r.deleted && r.id !== project.id && (r.project.scenarioOf === project.id || r.id === project.scenarioOf || (project.scenarioOf && r.project.scenarioOf === project.scenarioOf))).map(r => ({project: r.project, result: calculateProject(r.project), label: r.project.name}))}}
-                          onDetailsChange={details => change(p => {p.reportDetails = details})}
-                          onOpenBilling={() => setReportTab("billing")} />
+                        <ReportWorkspace
+                          project={project}
+                          result={result}
+                          locale={locale}
+                          context={{
+                            ...reportContext,
+                            scenarios: records
+                              .filter(
+                                (r) =>
+                                  !r.deleted &&
+                                  r.id !== project.id &&
+                                  (r.project.scenarioOf === project.id ||
+                                    r.id === project.scenarioOf ||
+                                    (project.scenarioOf &&
+                                      r.project.scenarioOf ===
+                                        project.scenarioOf)),
+                              )
+                              .map((r) => ({
+                                project: r.project,
+                                result: calculateProject(r.project),
+                                label: r.project.name,
+                              })),
+                          }}
+                          onDetailsChange={(details) =>
+                            change((p) => {
+                              p.reportDetails = details;
+                            })
+                          }
+                          onOpenBilling={() => setReportTab("billing")}
+                        />
                       )}
                     </>
                   )}
@@ -1509,6 +1780,17 @@ export default function App() {
                               ))}
                             </select>
                           </Field>
+                          <Field label={t("Detail level")}>
+                            <select
+                              value={detailMode}
+                              onChange={(e) => setDetailMode(e.target.value)}
+                            >
+                              <option value="simple">{t("Simple")}</option>
+                              <option value="engineering">
+                                {t("Engineering")}
+                              </option>
+                            </select>
+                          </Field>
                           <Field label={t("Theme")}>
                             <select
                               value={theme}
@@ -1526,19 +1808,57 @@ export default function App() {
                               value={motion}
                               onChange={(e) => setMotion(e.target.value)}
                             >
-                              {["system", "reduced", "full"].map((v) => (
-                                <option key={v} value={v}>
-                                  {t(v[0].toUpperCase() + v.slice(1))}
-                                </option>
-                              ))}
+                              {["system", "reduced", "full", "paused"].map(
+                                (v) => (
+                                  <option key={v} value={v}>
+                                    {t(v[0].toUpperCase() + v.slice(1))}
+                                  </option>
+                                ),
+                              )}
                             </select>
                           </Field>
                         </div>
+                        <div className="form-grid three">
+                          <Field label={t("Navigation width")} unit="px">
+                            <input
+                              type="range"
+                              min="190"
+                              max="390"
+                              value={sidebarWidth}
+                              onChange={(e) =>
+                                setSidebarWidth(Number(e.target.value))
+                              }
+                            />
+                          </Field>
+                          <Field label={t("Inspector width")} unit="px">
+                            <input
+                              type="range"
+                              min="250"
+                              max="550"
+                              value={inspectorWidth}
+                              onChange={(e) =>
+                                setInspectorWidth(Number(e.target.value))
+                              }
+                            />
+                          </Field>
+                          <button
+                            className="button"
+                            onClick={() => {
+                              setSidebarWidth(240);
+                              setInspectorWidth(300);
+                              setCollapsedGroups([]);
+                              setSidebar(innerWidth > 900);
+                              setDetailMode("engineering");
+                            }}
+                          >
+                            {t("Reset layout")}
+                          </button>
+                        </div>
                         <Notice>
-                          {t("Local only")}. Exported engineering projects and
-                          separate billing backups are stored wherever you
-                          download them. Local browser storage is not a remote
-                          backup.
+                          {t("Local only")}.{" "}
+                          {t(
+                            "Use Workspace backup to export projects, histories, bills and measurements together. Local browser storage is not a remote backup.",
+                          )}
                         </Notice>
                         <div className="button-row">
                           <button
@@ -1606,6 +1926,15 @@ export default function App() {
             </main>
             {(selectedObject || showTrace) && (
               <aside className="inspector">
+                <ResizeHandle
+                  value={inspectorWidth}
+                  min={250}
+                  max={550}
+                  variable="--inspector"
+                  label={t("Inspector width")}
+                  reverse
+                  onChange={setInspectorWidth}
+                />
                 <div className="inspector-head">
                   <span>
                     {t(showTrace ? "Calculation trace" : "Selected object")}
@@ -1656,7 +1985,51 @@ export default function App() {
                     </div>
                   </>
                 ) : selectedObject && !selectedLoad ? (
-                  <div className="inspector-section"><span className="tag">{t(selectedBoard ? "Board" : selectedCircuit ? "Circuit" : "Source equipment")}</span><h3>{selectedObject.name}</h3><dl className="detail-list">{Object.entries(selectedObject).filter(([key]) => key !== "id" && key !== "name").map(([key,value]) => <div key={key}><dt>{t(key)}</dt><dd>{typeof value === "object" ? <details><summary>{t("Show details")}</summary><pre className="comparison-value">{JSON.stringify(value,null,2)}</pre></details> : String(value ?? "—")}</dd></div>)}</dl><button className="button" onClick={() => go(selectedSource ? "motors" : "boards")}>{t("Edit selected object")}</button><button className="text-button" onClick={() => setShowTrace(true)}>{t("Calculation trace")}</button></div>
+                  <div className="inspector-section">
+                    <span className="tag">
+                      {t(
+                        selectedBoard
+                          ? "Board"
+                          : selectedCircuit
+                            ? "Circuit"
+                            : "Source equipment",
+                      )}
+                    </span>
+                    <h3>{selectedObject.name}</h3>
+                    <dl className="detail-list">
+                      {Object.entries(selectedObject)
+                        .filter(([key]) => key !== "id" && key !== "name")
+                        .map(([key, value]) => (
+                          <div key={key}>
+                            <dt>{t(key)}</dt>
+                            <dd>
+                              {typeof value === "object" ? (
+                                <details>
+                                  <summary>{t("Show details")}</summary>
+                                  <pre className="comparison-value">
+                                    {JSON.stringify(value, null, 2)}
+                                  </pre>
+                                </details>
+                              ) : (
+                                String(value ?? "—")
+                              )}
+                            </dd>
+                          </div>
+                        ))}
+                    </dl>
+                    <button
+                      className="button"
+                      onClick={() => go(selectedSource ? "motors" : "boards")}
+                    >
+                      {t("Edit selected object")}
+                    </button>
+                    <button
+                      className="text-button"
+                      onClick={() => setShowTrace(true)}
+                    >
+                      {t("Calculation trace")}
+                    </button>
+                  </div>
                 ) : (
                   selectedLoad && (
                     <>
@@ -1732,6 +2105,9 @@ export default function App() {
               · {t("Revision")} {project.revision}
             </span>
             <span className="spacer" />
+            <span>
+              {t("Engine")} {result.engineVersion}
+            </span>
             <span>{t("Engineering estimate, not installation approval.")}</span>
             <button onClick={() => go("history")} className="status-issues">
               <AlertTriangle size={13} />
@@ -1977,6 +2353,19 @@ export default function App() {
             </div>
           </Modal>
         )}
+        {commandReview && (
+          <CommandReview
+            project={project}
+            preview={commandReview.preview}
+            change={change}
+            onClose={() => setCommandReview(undefined)}
+            onApplied={() => {
+              setSelected(commandReview.selectedId);
+              setCommandReview(undefined);
+              go("loads");
+            }}
+          />
+        )}
         {dialog === "import" && preview && (
           <Modal
             title={t("Preview import")}
@@ -1984,6 +2373,109 @@ export default function App() {
             wide
           >
             <div className="modal-body">
+              {csvFile && (
+                <details open={preview.errors.length > 0}>
+                  <summary>{t("CSV column and unit mapping")}</summary>
+                  <div className="form-grid three">
+                    {[
+                      "name",
+                      "rating",
+                      "quantity",
+                      "entrymode",
+                      "voltage",
+                      "connection",
+                      "pf",
+                      "phase",
+                      "hoursperday",
+                      "starthour",
+                      "duty",
+                      "utilization",
+                      "efficiency",
+                      "reactive",
+                      "standbyw",
+                      "pfkind",
+                      "reactivekvar",
+                      "phasepair",
+                      "source",
+                    ].map((field) => (
+                      <Field key={field} label={field}>
+                        <select
+                          value={csvMapping.columns?.[field] ?? ""}
+                          onChange={(e) => {
+                            const columns = { ...csvMapping.columns };
+                            if (e.target.value === "") delete columns[field];
+                            else columns[field] = Number(e.target.value);
+                            setCSVMapping({ ...csvMapping, columns });
+                            setMappingDirty(true);
+                          }}
+                        >
+                          <option value="">{t("Use default / omit")}</option>
+                          {csvHeaders.map((header, index) => (
+                            <option key={index} value={index}>
+                              {header}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ))}
+                    <Field label={t("Imported rating unit")}>
+                      <select
+                        value={csvMapping.ratingUnit ?? "native"}
+                        onChange={(e) => {
+                          setCSVMapping({
+                            ...csvMapping,
+                            ratingUnit: e.target
+                              .value as CSVImportMapping["ratingUnit"],
+                          });
+                          setMappingDirty(true);
+                        }}
+                      >
+                        {["native", "W", "kW", "VA", "kVA", "A"].map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit === "native"
+                              ? t("Use entry-mode column (default kW)")
+                              : unit}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                  <p className="small muted">
+                    {t(
+                      "CSV numeric values use decimal points. Explicit rating units override the entry-mode column; W and VA are converted to kW and kVA.",
+                    )}
+                  </p>
+                  <button
+                    className="button"
+                    disabled={importBusy}
+                    onClick={async () => {
+                      setImportBusy(true);
+                      try {
+                        const next = await previewImport(csvFile, csvMapping);
+                        next.project = {
+                          ...createProject(
+                            csvFile.name.replace(/\.[^.]+$/, ""),
+                          ),
+                          loads: next.loads,
+                        };
+                        setPreview(next);
+                        setMappingDirty(false);
+                        setImportTarget({
+                          id: project.id,
+                          revision: project.revision,
+                        });
+                        setError("");
+                      } catch (error) {
+                        setError((error as Error).message);
+                      } finally {
+                        setImportBusy(false);
+                      }
+                    }}
+                  >
+                    {t("Refresh import preview")}
+                  </button>
+                </details>
+              )}
               <div className="metric-strip">
                 <div>
                   <span>{t("Valid rows")}</span>
@@ -2008,10 +2500,40 @@ export default function App() {
                   {e}
                 </p>
               ))}
-              <Field label={t("Import destination")}><select value={importMode} onChange={e => setImportMode(e.target.value as typeof importMode)}><option value="new">{t("New project")}</option><option value="merge">{t("Merge into current project")}</option><option value="replace">{t("Replace current project contents")}</option></select></Field>
-              <p>{importMode === "new" ? preview.project?.name : project.name} · {t("Revision")} {importTarget?.revision}</p>
-              <Notice tone={importMode === "replace" ? "warning" : "info"}>{t(importMode === "merge" ? "Imports objects with new IDs and their dependencies. Current supply, tariff, energy, baseline and diagram settings are retained." : importMode === "replace" ? "Replaces the current project contents. The prior state remains available through Undo and saved history." : "Creates a separate project. Imported object IDs and evidence are preserved.")}</Notice>
-              <p className="small muted">{preview.project?.boards.length ?? 0} {t("Boards")} · {preview.project?.circuits.length ?? 0} {t("Circuits")} · {preview.project?.loads.length ?? 0} {t("Loads")}</p>
+              <Field label={t("Import destination")}>
+                <select
+                  value={importMode}
+                  onChange={(e) =>
+                    setImportMode(e.target.value as typeof importMode)
+                  }
+                >
+                  <option value="new">{t("New project")}</option>
+                  <option value="merge">
+                    {t("Merge into current project")}
+                  </option>
+                  <option value="replace">
+                    {t("Replace current project contents")}
+                  </option>
+                </select>
+              </Field>
+              <p>
+                {importMode === "new" ? preview.project?.name : project.name} ·{" "}
+                {t("Revision")} {importTarget?.revision}
+              </p>
+              <Notice tone={importMode === "replace" ? "warning" : "info"}>
+                {t(
+                  importMode === "merge"
+                    ? "Imports objects with new IDs and their dependencies. Current supply, tariff, energy, baseline and diagram settings are retained."
+                    : importMode === "replace"
+                      ? "Replaces the current project contents. The prior state remains available through Undo and saved history."
+                      : "Creates a separate project. Imported object IDs and evidence are preserved.",
+                )}
+              </Notice>
+              <p className="small muted">
+                {preview.project?.boards.length ?? 0} {t("Boards")} ·{" "}
+                {preview.project?.circuits.length ?? 0} {t("Circuits")} ·{" "}
+                {preview.project?.loads.length ?? 0} {t("Loads")}
+              </p>
               {error && <Notice tone="error">{error}</Notice>}
               <div className="table-wrap">
                 <table>
@@ -2042,7 +2564,9 @@ export default function App() {
               </button>
               <button
                 className="button primary"
-                disabled={preview.errors.length > 0 || importBusy}
+                disabled={
+                  preview.errors.length > 0 || importBusy || mappingDirty
+                }
                 onClick={() => void applyImport()}
               >
                 {t("Apply import")}
@@ -2117,7 +2641,44 @@ export default function App() {
                         <ChevronRight size={14} />
                       </button>
                     ))}
-                {!!query && [...project.boards.map(row => ({...row,route:"boards"})),...project.circuits.map(row => ({...row,route:"boards"})),...(project.sources??[]).map(row => ({...row,route:"motors"})),...(project.equipmentLibrary??[]).map(row => ({...row,route:"library"}))].filter(row => row.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())).slice(0,12).map(row => <button key={row.id} onClick={() => {setSelected(row.id);go(row.route);}}><Network size={17}/>{row.name}<ChevronRight size={14}/></button>)}
+                {!!query &&
+                  [
+                    ...project.boards.map((row) => ({
+                      ...row,
+                      route: "boards",
+                    })),
+                    ...project.circuits.map((row) => ({
+                      ...row,
+                      route: "boards",
+                    })),
+                    ...(project.sources ?? []).map((row) => ({
+                      ...row,
+                      route: "motors",
+                    })),
+                    ...(project.equipmentLibrary ?? []).map((row) => ({
+                      ...row,
+                      route: "library",
+                    })),
+                  ]
+                    .filter((row) =>
+                      row.name
+                        .toLocaleLowerCase()
+                        .includes(query.toLocaleLowerCase()),
+                    )
+                    .slice(0, 12)
+                    .map((row) => (
+                      <button
+                        key={row.id}
+                        onClick={() => {
+                          setSelected(row.id);
+                          go(row.route);
+                        }}
+                      >
+                        <Network size={17} />
+                        {row.name}
+                        <ChevronRight size={14} />
+                      </button>
+                    ))}
               </div>
             </div>
           </Modal>
@@ -2219,43 +2780,37 @@ function ProjectSettings({
           ["limitA", "Supply limit", "A"],
         ].map(([key, label, unit]) => (
           <Field key={key} label={t(label)} unit={unit}>
-            <input
+            <LocaleNumberInput
               required
-              min=".01"
-              type="number"
-              step="any"
+              min={0.01}
               value={draft.supply[key as keyof typeof draft.supply]}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setDraft({
                   ...draft,
-                  supply: { ...draft.supply, [key]: Number(e.target.value) },
+                  supply: { ...draft.supply, [key]: value },
                 })
               }
             />
           </Field>
         ))}
         <Field label={t("Coincidence factor")} unit="0–1">
-          <input
-            min="0"
-            max="1"
+          <LocaleNumberInput
             required
-            type="number"
-            step="any"
+            min={0}
+            max={1}
             value={draft.coincidence}
-            onChange={(e) =>
-              setDraft({ ...draft, coincidence: Number(e.target.value) })
+            onValueChange={(value) =>
+              setDraft({ ...draft, coincidence: value })
             }
           />
         </Field>
         <Field label={t("Growth allowance")} unit="%">
-          <input
-            min="0"
+          <LocaleNumberInput
             required
-            type="number"
-            step="any"
+            min={0}
             value={draft.growthPercent}
-            onChange={(e) =>
-              setDraft({ ...draft, growthPercent: Number(e.target.value) })
+            onValueChange={(value) =>
+              setDraft({ ...draft, growthPercent: value })
             }
           />
         </Field>

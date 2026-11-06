@@ -348,23 +348,60 @@ describe("reviewable clipboard rows", () => {
 describe("data-bound radial graph and export", () => {
   it("shows planning source records without inventing a live feed, and preserves them on board removal", () => {
     const project = fixture();
-    const source: SourceEquipment = { id: "source-inverter", name: "Entered planning inverter", type: "inverter", boardId: "board-a", connection: "single", phase: "L1", voltageV: 230, continuousKW: 5, continuousKVA: 5, derating: 1, islandCapable: false, gridForming: false, transferIsolationVerified: false, blackStart: false, restartSeconds: 0, source: { kind: "user", reference: "Independent entered fixture" }, notes: "Planning only" };
+    const source: SourceEquipment = {
+      id: "source-inverter",
+      name: "Entered planning inverter",
+      type: "inverter",
+      boardId: "board-a",
+      connection: "single",
+      phase: "L1",
+      voltageV: 230,
+      continuousKW: 5,
+      continuousKVA: 5,
+      derating: 1,
+      islandCapable: false,
+      gridForming: false,
+      transferIsolationVerified: false,
+      blackStart: false,
+      restartSeconds: 0,
+      source: { kind: "user", reference: "Independent entered fixture" },
+      notes: "Planning only",
+    };
     project.sources = [source];
-    const graph = buildDiagramSnapshot(project), node = graph.nodes.find((item) => item.objectId === source.id)!;
+    const graph = buildDiagramSnapshot(project),
+      node = graph.nodes.find((item) => item.objectId === source.id)!;
     expect(node).toMatchObject({ planning: true, symbol: "I" });
-    expect(graph.edges.some((edge) => edge.from === node.id || edge.to === node.id)).toBe(false);
-    const preview = previewProjectCommand(project, { kind: "board.remove", id: "board-a", strategy: "detach" });
+    expect(
+      graph.edges.some((edge) => edge.from === node.id || edge.to === node.id),
+    ).toBe(false);
+    const preview = previewProjectCommand(project, {
+      kind: "board.remove",
+      id: "board-a",
+      strategy: "detach",
+    });
     expect(preview.errors).toEqual([]);
-    expect(preview.changes.some((item) => item.objectId === source.id && item.field === "boardId")).toBe(true);
+    expect(
+      preview.changes.some(
+        (item) => item.objectId === source.id && item.field === "boardId",
+      ),
+    ).toBe(true);
     const next = applyProjectCommand(project, preview);
     expect(next.sources![0].boardId).toBeUndefined();
     expect(next.sources![0].source).toEqual(source.source);
   });
   it("prevents connection changes from bypassing a phase lock", () => {
-    const project = fixture(); project.loads[0].locked = true;
-    const preview = previewProjectCommand(project, { kind: "loads.patch", ids: ["load-a"], patch: { connection: "three", voltage: 400, locked: false } });
+    const project = fixture();
+    project.loads[0].locked = true;
+    const preview = previewProjectCommand(project, {
+      kind: "loads.patch",
+      ids: ["load-a"],
+      patch: { connection: "three", voltage: 400, locked: false },
+    });
     expect(preview.errors.join(" ")).toMatch(/unlock the phase/);
-    expect(project.loads[0]).toMatchObject({ connection: "single", locked: true });
+    expect(project.loads[0]).toMatchObject({
+      connection: "single",
+      locked: true,
+    });
   });
   it("renders each board-only load once and honors the upstream hierarchy", () => {
     const project = fixture();

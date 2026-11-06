@@ -30,11 +30,16 @@ import type {
   Phase,
   Circuit,
 } from "../domain/types";
-import { createBoard, createCircuit } from "../domain/project";
+import {
+  createBoard,
+  createCircuit,
+  validateProjectImport,
+} from "../domain/project";
 import { previewPhaseBalance, applyPhaseBalance } from "../engine/planning";
 import { assessCircuit } from "../engine/assessments";
 import type { CalendarResult, RangeOptions } from "../engine/simulation";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
+import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
 import { Field, Notice, Modal, Empty, LineChart } from "./ui";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
 type Change = (mutator: (draft: Project) => void) => void;
@@ -704,32 +709,27 @@ export function Boards({
             <div className="panel-pad">
               <div className="form-grid">
                 <Field label={t("Supply limit")} unit="A">
-                  <input
-                    type="number"
-                    min="1"
+                  <LocaleNumberInput
+                    min={1}
                     value={board.ratedA}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (v > 0)
-                        change((p) => {
-                          p.boards.find((b) => b.id === board.id)!.ratedA = v;
-                        });
-                    }}
+                    onValueChange={(value) =>
+                      change((p) => {
+                        p.boards.find((b) => b.id === board.id)!.ratedA = value;
+                      })
+                    }
                   />
                 </Field>
                 <Field label={t("Ways")}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="200"
+                  <LocaleNumberInput
+                    min={1}
+                    max={200}
+                    integer
                     value={board.ways}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (Number.isInteger(v) && v > 0 && v <= 200)
-                        change((p) => {
-                          p.boards.find((b) => b.id === board.id)!.ways = v;
-                        });
-                    }}
+                    onValueChange={(value) =>
+                      change((p) => {
+                        p.boards.find((b) => b.id === board.id)!.ways = value;
+                      })
+                    }
                   />
                 </Field>
               </div>
@@ -1144,16 +1144,11 @@ export function Boards({
                   ["protectiveA", "Protective device rating", "A"],
                 ].map(([k, label, unit]) => (
                   <Field key={k} label={label} unit={unit}>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={cableDraft[k as keyof typeof cableDraft]}
-                      onChange={(e) =>
-                        setCableDraft((d) => ({
-                          ...d,
-                          [k]: Number(e.target.value),
-                        }))
+                    <LocaleNumberInput
+                      min={0}
+                      value={Number(cableDraft[k as keyof typeof cableDraft])}
+                      onValueChange={(value) =>
+                        setCableDraft((d) => ({ ...d, [k]: value }))
                       }
                     />
                   </Field>
@@ -1495,10 +1490,12 @@ export function Simulation({
   project,
   result,
   onComplete,
+  animationsPaused = false,
 }: {
   project: Project;
   result: CalculationResult;
   onComplete?: (result: CalendarResult, inputs: RangeOptions) => void;
+  animationsPaused?: boolean;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -1512,6 +1509,27 @@ export function Simulation({
   const [error, setError] = useState("");
   const [cursor, setCursor] = useState(0);
   const [play, setPlay] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [completedRange, setCompletedRange] = useState<{
+    start: string;
+    end: string;
+    interval: number;
+  }>();
+  const timelineLength = calendar?.points.length || result.profile.length;
+  const stride = Math.max(1, Math.ceil(timelineLength / 200));
+  const timelinePoints = calendar
+    ? calendar.points
+        .filter((_, i) => i % stride === 0)
+        .map((point, i) => ({ x: i * stride, y: point.kw }))
+    : result.profile.map((point) => ({ x: point.hour, y: point.kw }));
+  const timelineCursor = Math.min(cursor, Math.max(0, timelineLength - 1));
+  const cursorValue =
+    calendar?.points[timelineCursor]?.kw ??
+    result.profile[timelineCursor]?.kw ??
+    0;
+  const cursorLabel =
+    calendar?.points[timelineCursor]?.localTime ??
+    `${String(timelineCursor).padStart(2, "0")}:00`;
   const worker = useRef<Worker | null>(null);
   const requestId = useRef(0);
   const currentRange = useRef({ start, end, interval });
@@ -1531,14 +1549,24 @@ export function Simulation({
     worker.current?.terminate();
     worker.current = null;
     setBusy(false);
-    setCalendar(undefined);
     setPlay(false);
   }, [project.revision, project.id, start, end, interval]);
   useEffect(() => {
-    if (!play) return;
-    const handle = setInterval(() => setCursor((c) => (c + 1) % 24), 500);
+    setCalendar(undefined);
+    setCompletedRange(undefined);
+    setCursor(0);
+  }, [project.id, project.revision]);
+  useEffect(() => {
+    if (animationsPaused) setPlay(false);
+  }, [animationsPaused]);
+  useEffect(() => {
+    if (!play || animationsPaused || !timelineLength) return;
+    const handle = setInterval(
+      () => setCursor((c) => (c + 1) % timelineLength),
+      500 / speed,
+    );
     return () => clearInterval(handle);
-  }, [play]);
+  }, [play, speed, timelineLength, animationsPaused]);
   function run() {
     setBusy(true);
     setError("");
@@ -1566,7 +1594,13 @@ export function Simulation({
       if (e.data.error) setError(e.data.error);
       else if (e.data.result.revision === context.revision) {
         setCalendar(e.data.result);
-        onComplete?.(e.data.result, {start: midnight(start, project.timezone), end: midnight(end, project.timezone), intervalMinutes: interval});
+        setCompletedRange({ start, end, interval });
+        setCursor(0);
+        onComplete?.(e.data.result, {
+          start: midnight(start, project.timezone),
+          end: midnight(end, project.timezone),
+          intervalMinutes: interval,
+        });
       }
       worker.current = null;
       w.terminate();
@@ -1607,7 +1641,6 @@ export function Simulation({
               value={start}
               onChange={(e) => {
                 setStart(e.target.value);
-                setCalendar(undefined);
               }}
             />
           </Field>
@@ -1618,7 +1651,6 @@ export function Simulation({
               min={start}
               onChange={(e) => {
                 setEnd(e.target.value);
-                setCalendar(undefined);
               }}
             />
           </Field>
@@ -1627,7 +1659,6 @@ export function Simulation({
               value={interval}
               onChange={(e) => {
                 setIntervalValue(Number(e.target.value) as 15 | 60);
-                setCalendar(undefined);
               }}
             >
               <option value="15">15 min</option>
@@ -1639,6 +1670,19 @@ export function Simulation({
           </Field>
         </div>
         <div className="button-row">
+          <button
+            className="button"
+            onClick={() => {
+              const validation = validateProjectImport(project);
+              setError(
+                validation.valid
+                  ? t("Inputs validated for the supported model.")
+                  : validation.errors.join(" "),
+              );
+            }}
+          >
+            {t("Validate inputs")}
+          </button>
           <button
             className="button primary"
             onClick={run}
@@ -1714,6 +1758,16 @@ export function Simulation({
               {t("Revision")} {calendar.revision}
             </span>
           </div>
+          <p className="panel-pad small muted">
+            {completedRange?.start} → {completedRange?.end} ·{" "}
+            {completedRange?.interval} min ·{" "}
+            {completedRange &&
+            (completedRange.start !== start ||
+              completedRange.end !== end ||
+              completedRange.interval !== interval)
+              ? t("Previous completed range")
+              : t("Completed range")}
+          </p>
           <div className="metric-strip">
             <div>
               <span>{t("Energy")}</span>
@@ -1748,38 +1802,75 @@ export function Simulation({
       )}
       <section className="panel">
         <div className="panel-head">
-          <h3>{t("24-hour estimate")}</h3>
+          <h3>
+            {t(calendar ? "Completed simulation timeline" : "24-hour estimate")}
+          </h3>
           <button
             className="button"
             onClick={() => setPlay((p) => !p)}
-            disabled={!project.loads.length}
+            disabled={!project.loads.length || animationsPaused}
           >
             {play ? <Pause size={15} /> : <Play size={15} />}{" "}
             {t(play ? "Pause" : "Play")}
           </button>
         </div>
         <LineChart
-          points={result.profile.map((p) => ({ x: p.hour, y: p.kw }))}
-          selected={cursor}
-          onSelect={setCursor}
+          points={timelinePoints}
+          selected={Math.floor(timelineCursor / stride)}
+          onSelect={(index) => setCursor(index * stride)}
         />
+        <div className="button-row panel-pad">
+          <button
+            className="button"
+            disabled={timelineCursor === 0}
+            onClick={() => {
+              setPlay(false);
+              setCursor((c) => Math.max(0, c - 1));
+            }}
+          >
+            {t("Step backward")}
+          </button>
+          <button
+            className="button"
+            disabled={timelineCursor >= timelineLength - 1}
+            onClick={() => {
+              setPlay(false);
+              setCursor((c) => Math.min(timelineLength - 1, c + 1));
+            }}
+          >
+            {t("Step forward")}
+          </button>
+          <Field label={t("Playback speed")}>
+            <select
+              value={speed}
+              onChange={(e) => setSpeed(Number(e.target.value))}
+            >
+              {[0.5, 1, 2, 4, 8].map((value) => (
+                <option key={value} value={value}>
+                  {value}×
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
         <div className="timeline">
           <input
             aria-label={t("Timeline hour")}
             type="range"
             min="0"
-            max="23"
+            max={Math.max(0, timelineLength - 1)}
             step="1"
-            value={cursor}
+            value={timelineCursor}
             onChange={(e) => setCursor(Number(e.target.value))}
           />
           <strong>
-            {String(cursor).padStart(2, "0")}:00 ·{" "}
-            {numberFormat(result.profile[cursor]?.kw || 0, 3, locale)} kW
+            {cursorLabel} · {numberFormat(cursorValue, 3, locale)} kW
           </strong>
         </div>
         <details className="panel-pad">
-          <summary>{t("Show details")}</summary>
+          <summary>
+            {t("24-hour estimate")} · {t("Show details")}
+          </summary>
           <div className="table-wrap">
             <table>
               <thead>

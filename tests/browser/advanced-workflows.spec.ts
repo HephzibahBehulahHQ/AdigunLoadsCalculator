@@ -296,7 +296,10 @@ test("tool result applies explicit fields with undo and preserves incomplete evi
   await page
     .getByRole("button", { name: "Load worked example", exact: true })
     .click();
-  await page.locator(".tool-workspace").getByRole("button", { name: "Calculate", exact: true }).click();
+  await page
+    .locator(".tool-workspace")
+    .getByRole("button", { name: "Calculate", exact: true })
+    .click();
   await page
     .getByLabel("Application target", { exact: true })
     .selectOption(`load:${lighting.id}`);
@@ -322,7 +325,10 @@ test("tool result applies explicit fields with undo and preserves incomplete evi
   await page
     .getByRole("button", { name: "Load worked example", exact: true })
     .click();
-  await page.locator(".tool-workspace").getByRole("button", { name: "Calculate", exact: true }).click();
+  await page
+    .locator(".tool-workspace")
+    .getByRole("button", { name: "Calculate", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "Preview application", exact: true }),
   ).toBeDisabled();

@@ -69,7 +69,11 @@ export function LoadEditor({
       setError(normalized.issues.map((i) => i.message).join(" "));
       return;
     }
-    onSave(l);
+    try {
+      onSave(l);
+    } catch (error) {
+      setError((error as Error).message);
+    }
   }
   return (
     <Modal

@@ -226,7 +226,16 @@ function remapProject(source: Project, ids: Record<string, string>): Project {
     baselineId?: string;
     scenarioBaseline?: { projectId: string; project: Project };
   };
+  const originalId = project.id;
   project.id = ids[project.id] ?? project.id;
+  if (
+    project.diagram?.positions[`source:${originalId}`] &&
+    project.id !== originalId
+  ) {
+    project.diagram.positions[`source:${project.id}`] =
+      project.diagram.positions[`source:${originalId}`];
+    delete project.diagram.positions[`source:${originalId}`];
+  }
   if (project.scenarioOf)
     project.scenarioOf = ids[project.scenarioOf] ?? project.scenarioOf;
   if (project.baselineId)
@@ -241,6 +250,27 @@ function remapProject(source: Project, ids: Record<string, string>): Project {
     );
   }
   return project;
+}
+
+function remapBill(
+  source: ArchivedProject["bill"],
+  ids: Record<string, string>,
+): ArchivedProject["bill"] {
+  if (!source) return null;
+  const bill = structuredClone(source);
+  for (const line of bill.lines) {
+    if (line.source?.projectId && ids[line.source.projectId])
+      line.source.projectId = ids[line.source.projectId];
+    for (const [oldId, newId] of Object.entries(ids))
+      for (const prefix of ["bom:", "bom-labour:", "bom-contingency:"]) {
+        if (
+          line.id === prefix + oldId ||
+          line.id.startsWith(prefix + oldId + ":")
+        )
+          line.id = prefix + newId + line.id.slice((prefix + oldId).length);
+      }
+  }
+  return parseBillJson(JSON.stringify(bill));
 }
 
 export async function restoreWorkspaceBackup(
@@ -282,7 +312,13 @@ export async function restoreWorkspaceBackup(
       history.push(remapProject(entry.project, ids));
     if (!history.some((p) => p.revision === project.revision))
       history.push(project);
-    return { ...entry, project, history, billRevision: crypto.randomUUID() };
+    return {
+      ...entry,
+      project,
+      history,
+      bill: remapBill(entry.bill, ids),
+      billRevision: crypto.randomUUID(),
+    };
   });
   const db = await openPowerLabDatabase();
   await new Promise<void>((resolve, reject) => {

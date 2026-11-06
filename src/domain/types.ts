@@ -243,6 +243,11 @@ export interface EVSession {
   siteLimitKW: number;
   phase?: Phase;
   minimumKW?: number;
+  connection?: "single" | "three";
+  energyBasis?: "required" | "soc";
+  usableCapacityKWh?: number;
+  initialSoc?: number;
+  targetSoc?: number;
 }
 export interface FlexibleLoad {
   id: string;

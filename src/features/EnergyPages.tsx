@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState, useEffect } from "react";
+import { useContext, useMemo, useState, useEffect, useRef } from "react";
 import {
   Plus,
   Save,
@@ -15,7 +15,7 @@ import type {
   EnergySettings,
   Phase,
 } from "../domain/types";
-import { createLoad, duplicateProject } from "../domain/project";
+import { createLoad, duplicateProject, validateProjectImport } from "../domain/project";
 import { calculateProject } from "../engine/electrical";
 import {
   simulateEnergy,
@@ -23,19 +23,23 @@ import {
   tariffRate,
   validateTariff,
 } from "../engine/simulation";
-import type { EnergyResult } from "../engine/simulation";
+import type { EnergyResult, EnergyOptions } from "../engine/simulation";
+import type { EVPlan } from "../engine/planning";
+import { EnergySettingsFields } from "./EnergySettingsFields";
 import { scheduleEV, conservativeDemandProfile } from "../engine/planning";
 import { Field, Notice, Modal, LineChart } from "./ui";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
 import type { ProjectRecord } from "../storage/projects";
-type Change = (mutator: (draft: Project) => void) => void;
+type Change = (mutator: (draft: Project) => void) => void | boolean;
 export function Renewables({
   project,
   change,
+  onComplete,
 }: {
   project: Project;
   change: Change;
+  onComplete?: (result: EnergyResult, inputs: Record<string, unknown>) => void;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -45,6 +49,15 @@ export function Renewables({
   const [profile, setProfile] = useState(
     project.energy.pvHourlyProfile?.join(", ") || "",
   );
+  const [wind, setWind] = useState(project.energy.windHourlyKW?.join(", ") ?? "");
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [actualRange, setActualRange] = useState(false);
+  const [range, setRange] = useState({ start: `${today}T00:00:00Z`, end: new Date(Date.parse(`${today}T00:00:00Z`) + 86400000).toISOString() });
+  const [outageRange, setOutageRange] = useState({ start: `${today}T18:00:00Z`, end: `${today}T22:00:00Z` });
+  const [busy, setBusy] = useState(false);
+  const job = useRef<Worker | null>(null), runToken = useRef(0), latest = useRef(project);
+  latest.current = project;
   const [outage, setOutage] = useState({
     enabled: false,
     startHour: 18,
@@ -52,13 +65,19 @@ export function Renewables({
   });
   const [result, setResult] = useState<EnergyResult>();
   const [error, setError] = useState("");
+  const inputKey = JSON.stringify({ energy: { ...draft, pvHourlyProfile: profile.trim() ? profile.split(/[,;\s]+/).map(Number) : undefined, windHourlyKW: wind.trim() ? wind.split(/[,;\s]+/).map(Number) : undefined }, date, actualRange, range, outageRange, outage });
+  const lastRunInput = useRef("");
   const energyKey = JSON.stringify(project.energy);
   useEffect(() => {
     setDraft(structuredClone(project.energy));
     setProfile(project.energy.pvHourlyProfile?.join(", ") || "");
+    setWind(project.energy.windHourlyKW?.join(", ") ?? "");
     setError("");
   }, [project.id, energyKey]);
+  useEffect(() => { if (lastRunInput.current !== inputKey) { runToken.current++; job.current?.terminate(); job.current = null; setBusy(false); setResult(undefined); } }, [inputKey]);
+  useEffect(() => () => { runToken.current++; job.current?.terminate(); }, []);
   useEffect(() => {
+    runToken.current++; job.current?.terminate(); job.current = null; setBusy(false);
     setResult((previous) =>
       previous?.revision === project.revision ? previous : undefined,
     );
@@ -67,11 +86,13 @@ export function Renewables({
   function run(e: React.FormEvent) {
     e.preventDefault();
     try {
+      lastRunInput.current = inputKey;
       const energy = {
         ...draft,
         pvHourlyProfile: profile.trim()
           ? profile.split(/[,;\s]+/).map(Number)
           : undefined,
+        windHourlyKW: wind.trim() ? wind.split(/[,;\s]+/).map(Number) : undefined,
       };
       if (
         energy.pvHourlyProfile &&
@@ -84,16 +105,31 @@ export function Renewables({
           "Enter exactly 24 normalized hourly PV values from 0 to 1.",
         );
       const p = { ...project, revision: project.revision + 1, energy };
-      const next = simulateEnergy(p, {
-        outage: outage.enabled
+      const options: EnergyOptions = {
+        date,
+        range: actualRange ? range : undefined,
+        outageRange: actualRange && outage.enabled ? outageRange : undefined,
+        outage: !actualRange && outage.enabled
           ? { startHour: outage.startHour, durationHours: outage.durationHours }
           : undefined,
-      });
-      change((d) => {
-        d.energy = energy;
-      });
-      setResult(next);
-      setError("");
+      };
+      const checked = validateProjectImport(p);
+      if (!checked.valid) throw new Error(checked.errors.join(" "));
+      const baseRevision = project.revision, projectId = project.id, token = ++runToken.current;
+      const accept = (next: EnergyResult) => {
+        if (token !== runToken.current || latest.current.id !== projectId || latest.current.revision !== baseRevision) return;
+        const accepted = change((d) => { if (d.revision !== baseRevision) throw new Error("Project changed while dispatch was running; run it again."); d.energy = energy; });
+        if (accepted === false) return;
+        setResult(next); setError(""); setBusy(false); onComplete?.(next, { ...options, energy: structuredClone(energy) });
+      };
+      job.current?.terminate();
+      if (actualRange && typeof Worker !== "undefined") {
+        setBusy(true); setResult(undefined);
+        const worker = new Worker(new URL("../workers/energy.ts", import.meta.url), { type: "module" }); job.current = worker;
+        worker.onmessage = (event: MessageEvent<{ result?: EnergyResult; error?: string }>) => { if (token !== runToken.current || worker !== job.current) return; if (event.data.error) { setError(event.data.error); setBusy(false); } else if (event.data.result) accept(event.data.result); worker.terminate(); job.current = null; };
+        worker.onerror = () => { if (token === runToken.current) { setError("Dispatch worker failed. Your project is unchanged."); setBusy(false); } worker.terminate(); };
+        worker.postMessage({ project: p, options });
+      } else accept(simulateEnergy(p, options));
     } catch (e) {
       setResult(undefined);
       setError((e as Error).message);
@@ -189,6 +225,10 @@ export function Renewables({
             }}
           />
         </Field>
+        <EnergySettingsFields project={project} energy={draft} setEnergy={setDraft} wind={wind} setWind={setWind} />
+        <h3>{t("Dispatch period")}</h3>
+        <div className="check-row"><label><input type="checkbox" checked={actualRange} onChange={(e) => setActualRange(e.target.checked)} />{t("Use actual timestamped calendar range")}</label></div>
+        {actualRange ? <div className="form-grid"><Field label={t("Dispatch range start (explicit offset)")}><input value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} /></Field><Field label={t("Dispatch range end (explicit offset)")}><input value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} /></Field></div> : <Field label={t("Representative local date for rules and tariffs")}><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>}
         <div className="check-row">
           <label>
             <input
@@ -218,7 +258,8 @@ export function Renewables({
             {t("Simulate grid outage")}
           </label>
         </div>
-        {outage.enabled && (
+        {outage.enabled && actualRange && <div className="form-grid"><Field label={t("Outage starts (explicit offset)")}><input value={outageRange.start} onChange={(e) => setOutageRange({ ...outageRange, start: e.target.value })} /></Field><Field label={t("Outage ends (explicit offset)")}><input value={outageRange.end} onChange={(e) => setOutageRange({ ...outageRange, end: e.target.value })} /></Field></div>}
+        {outage.enabled && !actualRange && (
           <div className="form-grid">
             <Field label={t("Start hour")} unit="h">
               <input
@@ -255,10 +296,11 @@ export function Renewables({
           </div>
         )}
         <div className="button-row">
-          <button className="button primary">
+          <button className="button primary" disabled={busy}>
             <Save size={16} />
             {t("Save")} & {t("Run simulation")}
           </button>
+          {busy && <button type="button" className="button" onClick={() => { runToken.current++; job.current?.terminate(); job.current = null; setBusy(false); }}>{t("Cancel simulation")}</button>}
         </div>
         {error && (
           <p className="error-text" role="alert">
@@ -273,6 +315,8 @@ export function Renewables({
       </Notice>
       {result && result.revision === project.revision && (
         <>
+          <Notice>{t(result.method)}</Notice>
+          <div className="metric-strip"><div><span>{t("Deliberately shed energy")}</span><strong>{f(result.shedKWh)} kWh</strong></div><div><span>{t("Critical unserved energy")}</span><strong>{f(result.criticalUnservedKWh)} kWh</strong></div><div><span>{t("Grid charging")}</span><strong>{f(result.gridChargeKWh)} kWh</strong></div></div>
           <div className="kpi-grid">
             {[
               ["PV generation", result.generationKWh],

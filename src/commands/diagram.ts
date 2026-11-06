@@ -60,7 +60,15 @@ function graph(project: Project, result?: CalculationResult) {
     label = "",
   ) => {
     const id = `${kind}:${objectId}`;
-    const node: Omit<DiagramNode, "x" | "y"> = { id, objectId, kind, name, detail, width: 240, height: 76 };
+    const node: Omit<DiagramNode, "x" | "y"> = {
+      id,
+      objectId,
+      kind,
+      name,
+      detail,
+      width: 240,
+      height: 76,
+    };
     nodes.push(node);
     if (from) edges.push({ from, to: id, label });
     return node;
@@ -72,10 +80,21 @@ function graph(project: Project, result?: CalculationResult) {
     `${project.supply.voltageLN}/${project.supply.voltageLL} V · ${project.supply.frequency} Hz · ${project.supply.limitA} A`,
   );
   for (const equipment of project.sources ?? []) {
-    const node = add("source", equipment.id, equipment.name, `Planning ${equipment.type} · ${equipment.continuousKW}/${equipment.continuousKVA} kW/kVA · no active feed`);
+    const node = add(
+      "source",
+      equipment.id,
+      equipment.name,
+      `Planning ${equipment.type} · ${equipment.continuousKW}/${equipment.continuousKVA} kW/kVA · no active feed`,
+    );
     node.id = `source:equipment:${equipment.id}`;
     node.planning = true;
-    node.symbol = { grid: "~", transformer: "T", generator: "G", inverter: "I", ups: "U" }[equipment.type];
+    node.symbol = {
+      grid: "~",
+      transformer: "T",
+      generator: "G",
+      inverter: "I",
+      ups: "U",
+    }[equipment.type];
   }
   for (const board of project.boards)
     add(
@@ -201,7 +220,10 @@ export function buildDiagramSnapshot(
       )?.parentId;
     }
   }
-  if (options.isolateBoardId) for (const equipment of project.sources ?? []) if (equipment.boardId && included.has(`board:${equipment.boardId}`)) included.add(`source:equipment:${equipment.id}`);
+  if (options.isolateBoardId)
+    for (const equipment of project.sources ?? [])
+      if (equipment.boardId && included.has(`board:${equipment.boardId}`))
+        included.add(`source:equipment:${equipment.id}`);
   const visible = nodes.filter((node) => included.has(node.id));
   const offsetX =
     40 -

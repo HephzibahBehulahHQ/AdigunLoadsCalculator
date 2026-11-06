@@ -1456,7 +1456,7 @@ tfoot td {
   box-shadow: var(--shadow);
 }
 .inspector {
-  width: 270px;
+  width: var(--inspector, 300px);
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   background: #0c1626;
@@ -3089,22 +3089,130 @@ details p {
 }
 
 @media print {
-  body.engineering-report-print-mode #root { display: block; }
+  body.engineering-report-print-mode #root {
+    display: block;
+  }
   body.engineering-report-print-mode header,
   body.engineering-report-print-mode .sidebar,
   body.engineering-report-print-mode .page-head,
   body.engineering-report-print-mode .tab-bar,
   body.engineering-report-print-mode .inspector,
-  body.engineering-report-print-mode .report-controls { display: none !important; }
+  body.engineering-report-print-mode .report-controls {
+    display: none !important;
+  }
   body.engineering-report-print-mode .app-shell,
   body.engineering-report-print-mode .main-area,
   body.engineering-report-print-mode .workspace,
-  body.engineering-report-print-mode .content-scroll { display: block !important; width: auto !important; height: auto !important; overflow: visible !important; margin: 0 !important; }
-  body.engineering-report-print-mode #engineering-report-preview { display: block !important; position: static; background: white; color: black; width: 100%; }
-  body.engineering-report-print-mode #engineering-report-preview header { display: block !important; }
-  body.engineering-report-print-mode .report-workspace > :not(#engineering-report-preview) { display: none !important; }
-  body.engineering-report-print-mode #engineering-report-preview .table-wrap { overflow: visible !important; }
-  body.engineering-report-print-mode #engineering-report-preview table { min-width: 0; width: 100%; }
-  body.engineering-report-print-mode #engineering-report-preview table { break-inside: auto; }
-  body.engineering-report-print-mode #engineering-report-preview tr { break-inside: avoid; }
+  body.engineering-report-print-mode .content-scroll {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+  }
+  body.engineering-report-print-mode #engineering-report-preview {
+    display: block !important;
+    position: static;
+    background: white;
+    color: black;
+    width: 100%;
+  }
+  body.engineering-report-print-mode #engineering-report-preview header {
+    display: block !important;
+  }
+  body.engineering-report-print-mode
+    .report-workspace
+    > :not(#engineering-report-preview) {
+    display: none !important;
+  }
+  body.engineering-report-print-mode #engineering-report-preview .table-wrap {
+    overflow: visible !important;
+  }
+  body.engineering-report-print-mode #engineering-report-preview table {
+    min-width: 0;
+    width: 100%;
+  }
+  body.engineering-report-print-mode #engineering-report-preview table {
+    break-inside: auto;
+  }
+  body.engineering-report-print-mode #engineering-report-preview tr {
+    break-inside: avoid;
+  }
+}
+
+.sidebar,
+.inspector {
+  position: relative;
+}
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  z-index: 10;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resize-right {
+  right: -3px;
+}
+.resize-left {
+  left: -3px;
+}
+.resize-handle:hover,
+.resize-handle:focus-visible {
+  background: var(--cyan);
+  opacity: 0.5;
+  outline: 2px solid var(--cyan);
+}
+.nav-group-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.chart-data {
+  font-size: 12px;
+  padding: 8px 16px;
+}
+.chart-keyboard {
+  width: calc(100% - 32px);
+  margin: 0 16px;
+}
+.advanced-section {
+  margin: 16px 0;
+}
+.advanced-section > summary {
+  padding: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+:root[data-motion="paused"] *,
+:root[data-motion="paused"] *::before,
+:root[data-motion="paused"] *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+@media (max-width: 900px) {
+  .resize-handle {
+    display: none;
+  }
+  .inspector {
+    max-width: 100vw;
+  }
+  .nav-group-toggle {
+    min-height: 40px;
+  }
+}
+@media print {
+  .resize-handle,
+  .chart-keyboard,
+  .chart-data {
+    display: none !important;
+  }
 }

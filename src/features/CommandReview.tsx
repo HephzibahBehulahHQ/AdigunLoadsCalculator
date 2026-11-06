@@ -67,10 +67,32 @@ export function CommandReview({
                     <td>{item.name}</td>
                     <td>{item.field}</td>
                     <td>
-                      {item.before.length > 300 ? <details><summary>{t("Read complete value")} · {item.before.length} {t("characters")}</summary><p style={{ whiteSpace: "pre-wrap" }}>{item.before}</p></details> : <span>{item.before}</span>}
+                      {item.before.length > 300 ? (
+                        <details>
+                          <summary>
+                            {t("Read complete value")} · {item.before.length}{" "}
+                            {t("characters")}
+                          </summary>
+                          <p style={{ whiteSpace: "pre-wrap" }}>
+                            {item.before}
+                          </p>
+                        </details>
+                      ) : (
+                        <span>{item.before}</span>
+                      )}
                     </td>
                     <td>
-                      {item.after.length > 300 ? <details><summary>{t("Read complete value")} · {item.after.length} {t("characters")}</summary><p style={{ whiteSpace: "pre-wrap" }}>{item.after}</p></details> : <span>{item.after}</span>}
+                      {item.after.length > 300 ? (
+                        <details>
+                          <summary>
+                            {t("Read complete value")} · {item.after.length}{" "}
+                            {t("characters")}
+                          </summary>
+                          <p style={{ whiteSpace: "pre-wrap" }}>{item.after}</p>
+                        </details>
+                      ) : (
+                        <span>{item.after}</span>
+                      )}
                     </td>
                   </tr>
                 ))}

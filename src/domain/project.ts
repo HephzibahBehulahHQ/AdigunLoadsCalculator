@@ -284,7 +284,13 @@ export function validateProjectExtensions(candidate: Record<string, unknown>): s
       }
     }
   }
-  if (Array.isArray(candidate.evSessions)) for (const session of candidate.evSessions) if (record(session) && session.minimumKW !== undefined && (!finite(session.minimumKW) || session.minimumKW < 0)) errors.push("EV minimum power must be finite and nonnegative.");
+  if (Array.isArray(candidate.evSessions)) for (const session of candidate.evSessions) if (record(session)) {
+    if (session.minimumKW !== undefined && (!finite(session.minimumKW) || session.minimumKW < 0)) errors.push("EV minimum power must be finite and nonnegative.");
+    if (session.connection !== undefined && !["single", "three"].includes(String(session.connection))) errors.push("Invalid EV phase connection.");
+    if (session.phase !== undefined && !["L1", "L2", "L3"].includes(String(session.phase))) errors.push("Invalid EV phase.");
+    if (session.energyBasis !== undefined && !["required", "soc"].includes(String(session.energyBasis))) errors.push("Invalid EV required-energy basis.");
+    if (session.energyBasis === "soc" && (!finite(session.usableCapacityKWh) || session.usableCapacityKWh <= 0 || !finite(session.initialSoc) || session.initialSoc < 0 || session.initialSoc > 1 || !finite(session.targetSoc) || session.targetSoc < 0 || session.targetSoc > 1 || session.targetSoc < session.initialSoc)) errors.push("SOC charging requires positive usable capacity and increasing SOC values from 0 to 1.");
+  }
   if (candidate.diagram !== undefined) {
     const d = candidate.diagram;
     if (!record(d) || d.version !== 1 || !["a4", "a3"].includes(String(d.pageSize)) || !["landscape", "portrait"].includes(String(d.orientation)) || typeof d.showLabels !== "boolean" || typeof d.showRatings !== "boolean" || !record(d.positions) || Object.keys(d.positions).length > 10000 || !Array.isArray(d.notes) || d.notes.length > 1000) errors.push("Invalid diagram layout settings.");
