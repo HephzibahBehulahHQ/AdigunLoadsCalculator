@@ -12,6 +12,7 @@ export const ARCHIVE_STORES = [
 ] as const;
 let connection: Promise<IDBDatabase> | undefined;
 let opened: IDBDatabase | undefined;
+let blockedOpenError: Error | undefined;
 
 function legacyRows(name: string, store: string): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
@@ -66,6 +67,8 @@ function validLegacyMeasurements(value: unknown): boolean {
     !value.projectId ||
     typeof value.rawCSV !== "string" ||
     typeof value.filename !== "string" ||
+    !value.filename.trim() ||
+    value.filename.length > 240 ||
     !object(value.options) ||
     !Number.isSafeInteger(value.revision) ||
     Number(value.revision) < 1 ||
@@ -169,6 +172,9 @@ async function migrateLegacyStores(db: IDBDatabase): Promise<void> {
 }
 
 export function openPowerLabDatabase(): Promise<IDBDatabase> {
+  // A blocked native open cannot be cancelled until the older connection closes.
+  // Reject retries promptly instead of queuing them behind that pending request.
+  if (blockedOpenError) return Promise.reject(blockedOpenError);
   if (connection) return connection;
   connection = new Promise<IDBDatabase>((resolve, reject) => {
     if (!globalThis.indexedDB) {
@@ -181,7 +187,15 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
     }
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     let rejected = false;
+    let blockedFailure: Error | undefined;
+    const releaseBlockedOpen = () => {
+      if (blockedOpenError === blockedFailure) blockedOpenError = undefined;
+    };
     request.onupgradeneeded = () => {
+      if (rejected) {
+        request.transaction?.abort();
+        return;
+      }
       const db = request.result;
       for (const [name, keyPath] of [
         ["projects", "id"],
@@ -197,15 +211,18 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
     };
     request.onblocked = () => {
       rejected = true;
-      reject(
-        new Error(
-          "Close the older PowerLab tab to update local storage. Existing records remain unchanged.",
-        ),
+      blockedFailure = new Error(
+        "Close the older PowerLab tab to update local storage. Existing records remain unchanged.",
       );
+      blockedOpenError = blockedFailure;
+      reject(blockedFailure);
     };
-    request.onerror = () =>
+    request.onerror = () => {
+      releaseBlockedOpen();
       reject(request.error ?? new Error("Local storage could not be opened."));
+    };
     request.onsuccess = () => {
+      releaseBlockedOpen();
       const db = request.result;
       if (rejected) {
         db.close();

@@ -50,9 +50,11 @@ const messages: Record<
 export function UpdateBanner({
   save,
   version,
+  projectNeedsSave,
 }: {
   save: () => Promise<void>;
   version: string;
+  projectNeedsSave?: () => boolean;
 }) {
   const t = useT(),
     locale = useContext(LanguageContext),
@@ -64,7 +66,7 @@ export function UpdateBanner({
   const activated = useRef(false);
   const waitingWorker = useRef<ServiceWorker | null>(null);
   current.current = version;
-  useReloadProtection();
+  useReloadProtection(projectNeedsSave);
   useEffect(
     () =>
       registerUpdateGuard(() =>

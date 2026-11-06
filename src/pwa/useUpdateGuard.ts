@@ -13,10 +13,12 @@ export function useUpdateGuard(blocked: boolean, label: string) {
   );
 }
 
-export function useReloadProtection() {
+export function useReloadProtection(projectNeedsSave?: () => boolean) {
+  const pendingProject = useRef(projectNeedsSave);
+  pendingProject.current = projectNeedsSave;
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (updateBlockers().length) {
+      if (pendingProject.current?.() || updateBlockers().length) {
         event.preventDefault();
         event.returnValue = "";
       }
