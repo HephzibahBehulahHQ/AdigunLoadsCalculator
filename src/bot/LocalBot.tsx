@@ -234,12 +234,57 @@ export default function LocalBot({
   const commandId = useRef(0);
   const latest = useRef({ project, selectedId });
   latest.current = { project, selectedId };
+  const windowRef = useRef<HTMLElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const returnFocus = useRef(
+    document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  );
+  const composing = useRef(false);
   const log = useRef<HTMLDivElement>(null);
   const lastSuggestion = useRef(0);
   const lastSeenRevision = useRef(project.revision);
   const firstProject = useRef(project.id);
   const format = (value: number, digits = 2) =>
     Number.isFinite(value) ? numberFormat(value, digits, locale) : "—";
+
+  useEffect(() => {
+    if (!windowRef.current?.closest("[inert]"))
+      (composerRef.current ?? headerRef.current)?.focus({
+        preventScroll: true,
+      });
+  }, []);
+
+  const close = () => {
+    const botWindow = windowRef.current;
+    onClose();
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active !== document.documentElement &&
+        !botWindow?.contains(active)
+      )
+        return;
+      const candidates = [
+        returnFocus.current,
+        document.querySelector<HTMLButtonElement>(".bot-launcher"),
+      ];
+      candidates
+        .find(
+          (target) =>
+            target?.isConnected &&
+            !target.closest("[inert]") &&
+            !target.matches(":disabled") &&
+            target.getClientRects().length > 0,
+        )
+        ?.focus({ preventScroll: true });
+    });
+  };
 
   useEffect(() => {
     if (firstProject.current !== project.id) {
@@ -608,12 +653,27 @@ export default function LocalBot({
 
   return (
     <section
+      ref={windowRef}
       className={`local-bot ${minimized ? "is-minimized" : ""}`}
       style={style}
       aria-label="Adigun BOT"
       role="region"
+      onKeyDown={(event) => {
+        if (
+          event.key === "Escape" &&
+          !event.defaultPrevented &&
+          !composing.current &&
+          !event.nativeEvent.isComposing &&
+          event.nativeEvent.keyCode !== 229
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          close();
+        }
+      }}
     >
       <header
+        ref={headerRef}
         className="bot-header"
         onPointerDown={startDrag}
         tabIndex={0}
@@ -694,7 +754,7 @@ export default function LocalBot({
             className="icon-button"
             title={t("Close")}
             aria-label={t("Close")}
-            onClick={onClose}
+            onClick={close}
           >
             ×
           </button>
@@ -712,6 +772,7 @@ export default function LocalBot({
               <label>
                 {l("Live assistance")}
                 <select
+                  aria-label={l("Live assistance")}
                   value={live}
                   onChange={(event) =>
                     setLive(event.target.value as typeof live)
@@ -834,6 +895,7 @@ export default function LocalBot({
             }}
           >
             <textarea
+              ref={composerRef}
               className="field"
               value={input}
               onChange={(event) => setInput(event.target.value)}
@@ -841,8 +903,23 @@ export default function LocalBot({
               aria-label={t("Ask about your project")}
               rows={2}
               maxLength={2000}
+              onBlur={() => {
+                composing.current = false;
+              }}
+              onCompositionStart={() => {
+                composing.current = true;
+              }}
+              onCompositionEnd={() => {
+                composing.current = false;
+              }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !composing.current &&
+                  !event.nativeEvent.isComposing &&
+                  event.nativeEvent.keyCode !== 229
+                ) {
                   event.preventDefault();
                   send();
                 }

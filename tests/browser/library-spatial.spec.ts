@@ -195,12 +195,13 @@ test("responsive layouts, persisted split widths, reduced motion and keyboard co
   await page.getByRole("slider", { name: /Navigation width/ }).fill("300");
   await page.getByRole("slider", { name: /Inspector width/ }).fill("340");
   await page.getByLabel("Motion", { exact: true }).selectOption("paused");
-  await page.getByLabel("Detail level", { exact: true }).selectOption("simple");
+  const detailLevel = page
+    .locator(".page-heading")
+    .getByLabel("Detail level", { exact: true });
+  await detailLevel.selectOption("simple");
   await expect(page.locator("html")).toHaveAttribute("data-motion", "paused");
   await page.reload();
-  await expect(page.getByLabel("Detail level", { exact: true })).toHaveValue(
-    "simple",
-  );
+  await expect(detailLevel).toHaveValue("simple");
   expect(
     await page.evaluate(() =>
       getComputedStyle(document.documentElement)
