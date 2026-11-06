@@ -87,6 +87,7 @@ export function useProjectDraft<T>(
 
 export interface ReportDraft {
   details: NonNullable<Project["reportDetails"]>;
+  savedDetails: NonNullable<Project["reportDetails"]>;
   detailsDirty: boolean;
   selected: EngineeringReportSection[];
   sectionsDirty: boolean;
