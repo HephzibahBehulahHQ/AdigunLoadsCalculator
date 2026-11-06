@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
 import type { Project } from "../domain/types";
 import type { ProjectRecord } from "../storage/projects";
 import {
@@ -15,6 +15,7 @@ import type {
 import { calculateProject } from "../engine/electrical";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
 import { Field, Notice } from "./ui";
+import { parseLocaleNumberList, formatEditableNumber } from "../i18n/numbers";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
 
 const displayValue = (value: unknown) =>
@@ -278,7 +279,18 @@ export function ScenarioWorkspace({
   } | null>(null);
   const [parameter, setParameter] =
     useState<SensitivityParameter>("growthPercent");
-  const [values, setValues] = useState("0, 10, 20");
+  const [values, setValues] = useState("0; 10; 20");
+  const previousLocale = useRef(locale);
+  useEffect(() => {
+    const parsed = parseLocaleNumberList(values, previousLocale.current);
+    if (parsed.ok)
+      setValues(
+        parsed.values
+          .map((value) => formatEditableNumber(value, locale))
+          .join("; "),
+      );
+    previousLocale.current = locale;
+  }, [locale]);
   const [loadId, setLoadId] = useState("");
   const [sweep, setSweep] = useState<ReturnType<typeof runSensitivity> | null>(
     null,
@@ -559,16 +571,10 @@ export function ScenarioWorkspace({
           onSubmit={(e) => {
             e.preventDefault();
             try {
+              const parsed = parseLocaleNumberList(values, locale);
+              if (!parsed.ok) throw new Error(parsed.message);
               setSweep(
-                runSensitivity(
-                  project,
-                  parameter,
-                  values
-                    .split(/[;,\s]+/)
-                    .filter(Boolean)
-                    .map(Number),
-                  loadId,
-                ),
+                runSensitivity(project, parameter, parsed.values, loadId),
               );
               setError("");
             } catch (e) {
@@ -587,8 +593,14 @@ export function ScenarioWorkspace({
                   setValues(
                     e.target.value === "coincidence" ||
                       e.target.value === "duty"
-                      ? "0.5, 0.75, 1"
-                      : "0, 10, 20",
+                      ? [0.5, 0.75, 1]
+                          .map((value) => formatEditableNumber(value, locale))
+                          .join("; ")
+                      : e.target.value === "importRate"
+                        ? [0.1, 0.2, 0.3]
+                            .map((value) => formatEditableNumber(value, locale))
+                            .join("; ")
+                        : "0; 10; 20",
                   );
                 }}
               >
@@ -600,7 +612,12 @@ export function ScenarioWorkspace({
                 <option value="duty">{t("Energy duty")}</option>
               </select>
             </Field>
-            <Field label={t("Sweep values")}>
+            <Field
+              label={t("Sweep values")}
+              hint={t(
+                "Separate values with semicolons; use the selected language decimal separator.",
+              )}
+            >
               <input
                 required
                 value={values}
@@ -626,6 +643,14 @@ export function ScenarioWorkspace({
           </div>
           <button className="button">{t("Run sensitivity")}</button>
         </form>
+        {parameter === "importRate" &&
+          Boolean(project.tariff.bands?.length) && (
+            <Notice>
+              {t(
+                "This sweep changes the fallback import price. Entered time-of-use bands keep their own prices.",
+              )}
+            </Notice>
+          )}
         {sweep && sweep[0]?.revision === project.revision && (
           <>
             <div className="table-wrap">

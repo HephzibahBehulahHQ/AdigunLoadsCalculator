@@ -228,7 +228,10 @@ export function runSensitivity(
     if (parameter === "duty" || parameter === "coincidence") {
       if (value < 0 || value > 1)
         throw new Error("Fractions must be between 0 and 1.");
-    } else if (value < 0 || value > 100000)
+    } else if (
+      value < (parameter === "importRate" ? -100000 : 0) ||
+      value > 100000
+    )
       throw new Error(
         "Sensitivity values must be non-negative and within the supported range.",
       );

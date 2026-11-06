@@ -9,6 +9,8 @@ import { LanguageContext, money, numberFormat, useT } from "../i18n";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
 import { Field, LineChart, Notice } from "./ui";
 import "./advanced-planning.css";
+import { PlanningNumberList, validPlanningInputs } from "./PlanningInputs";
+import { parseLocaleNumberList } from "../i18n/numbers";
 
 export type AdvancedPlanningTab = "schedules" | "starts" | "flexible" | "billing";
 export interface AdvancedPlanningProps {
@@ -22,7 +24,7 @@ const parseList = (value: string) => value.trim() ? value.split(/[,;\s]+/).map(N
 function WindowEditor({ windows, onChange }: { windows: ScheduleWindow[]; onChange: (rows: ScheduleWindow[]) => void }) {
   const t = useT();
   const edit = (i: number, values: Partial<ScheduleWindow>) => onChange(windows.map((row, index) => index === i ? { ...row, ...values } : row));
-  return <div className="advanced-window-list">{windows.map((row, index) => <fieldset className="advanced-window" key={row.id}><legend>{t("Operating window")} {index + 1}</legend><div className="form-grid three"><Field label={t("Start hour")} unit="h"><LocaleNumberInput min={0} max={23.999} step="any" value={row.startHour} onValueChange={(value) => edit(index, { startHour: value })} /></Field><Field label={t("Duration")} unit="h"><LocaleNumberInput min={0.001} max={24} step="any" value={row.durationHours} onValueChange={(value) => edit(index, { durationHours: value })} /></Field><Field label={t("Weekdays (0 Sunday–6 Saturday)")} hint={t("Leave empty for every day.")}><input value={row.weekdays?.join(", ") ?? ""} onChange={(e) => edit(index, { weekdays: parseList(e.target.value) })} /></Field><Field label={t("Months (1–12)")} hint={t("Leave empty for every month.")}><input value={row.months?.join(", ") ?? ""} onChange={(e) => edit(index, { months: parseList(e.target.value) })} /></Field><Field label={t("Effective from")}><input type="date" value={row.effectiveFrom ?? ""} onChange={(e) => edit(index, { effectiveFrom: e.target.value || undefined })} /></Field><Field label={t("Effective to")}><input type="date" value={row.effectiveTo ?? ""} onChange={(e) => edit(index, { effectiveTo: e.target.value || undefined })} /></Field></div><button type="button" className="button danger" onClick={() => onChange(windows.filter((_, i) => i !== index))}>{t("Remove window")}</button></fieldset>)}<button type="button" className="button" onClick={() => onChange([...windows, { id: newId("window"), startHour: 8, durationHours: 1 }])}>{t("Add operating window")}</button></div>;
+  return <div className="advanced-window-list">{windows.map((row, index) => <fieldset className="advanced-window" key={row.id}><legend>{t("Operating window")} {index + 1}</legend><div className="form-grid three"><Field label={t("Start hour")} unit="h"><LocaleNumberInput min={0} max={23.999} step="any" value={row.startHour} onValueChange={(value) => edit(index, { startHour: value })} /></Field><Field label={t("Duration")} unit="h"><LocaleNumberInput min={0.001} max={24} step="any" value={row.durationHours} onValueChange={(value) => edit(index, { durationHours: value })} /></Field><Field label={t("Weekdays (0 Sunday–6 Saturday)")} hint={t("Leave empty for every day.")}><PlanningNumberList value={row.weekdays} min={0} max={6} integer onValueChange={(values) => edit(index, { weekdays: values })} /></Field><Field label={t("Months (1–12)")} hint={t("Leave empty for every month.")}><PlanningNumberList value={row.months} min={1} max={12} integer onValueChange={(values) => edit(index, { months: values })} /></Field><Field label={t("Effective from")}><input type="date" value={row.effectiveFrom ?? ""} onChange={(e) => edit(index, { effectiveFrom: e.target.value || undefined })} /></Field><Field label={t("Effective to")}><input type="date" value={row.effectiveTo ?? ""} onChange={(e) => edit(index, { effectiveTo: e.target.value || undefined })} /></Field></div><button type="button" className="button danger" onClick={() => onChange(windows.filter((_, i) => i !== index))}>{t("Remove window")}</button></fieldset>)}<button type="button" className="button" onClick={() => onChange([...windows, { id: newId("window"), startHour: 8, durationHours: 1 }])}>{t("Add operating window")}</button></div>;
 }
 
 export function AdvancedPlanning({ project, onChange, initialTab = "schedules", onCalendarComplete, onStartComplete }: AdvancedPlanningProps) {
@@ -45,6 +47,7 @@ export function AdvancedPlanning({ project, onChange, initialTab = "schedules", 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const worker = useRef<Worker | null>(null), generation = useRef(0);
+  const container = useRef<HTMLElement>(null);
   const rangeKey = JSON.stringify(range);
   const f = (n: number) => numberFormat(n, 3, locale);
   useEffect(() => { setTab(initialTab); }, [initialTab]);
@@ -57,10 +60,12 @@ export function AdvancedPlanning({ project, onChange, initialTab = "schedules", 
   }, [project.id, project.revision, rangeKey]);
   useEffect(() => { setPlan(undefined); }, [strategy, siteLimitKW, solar]);
   function commit(mutator: (draft: Project) => void) {
+    if (!validPlanningInputs(container.current)) { setError(t("Correct invalid draft values before applying changes.")); return; }
     try { const candidate = structuredClone(project); mutator(candidate); const checked = validateProjectImport(candidate); if (!checked.valid) throw new Error(checked.errors.join(" ")); onChange(mutator); setError(""); setMessage(t("Changes saved. Undo is available in the workspace.")); }
     catch (caught) { setError((caught as Error).message); }
   }
   function runCalendar() {
+    if (!validPlanningInputs(container.current)) return;
     setError(""); setMessage(""); setResult(undefined); worker.current?.terminate(); const token = ++generation.current; const id = project.id, revision = project.revision; const inputs = structuredClone(range);
     const accept = (next: CalendarResult) => { if (token !== generation.current || next.revision !== revision) return; setResult(next); setBusy(false); onCalendarComplete?.(next, { ...inputs, projectId: id, timezone: project.timezone }); };
     try {
@@ -72,11 +77,11 @@ export function AdvancedPlanning({ project, onChange, initialTab = "schedules", 
       task.postMessage({ project, options: inputs });
     } catch (caught) { setError((caught as Error).message); setBusy(false); }
   }
-  function runStarts() { try { const inputs = { start: range.start, end: range.end }; const next = simulateStartEvents(project, inputs); setStarts(next); onStartComplete?.(next, inputs); setError(""); } catch (caught) { setStarts(undefined); setError((caught as Error).message); } }
-  function previewFlexible() { try { setPlan(scheduleFlexibleLoads(project, { ...range, strategy, siteLimitKW, generationKW: strategy === "solar" ? parseList(solar) : undefined })); setError(""); } catch (caught) { setPlan(undefined); setError((caught as Error).message); } }
+  function runStarts() { if (!validPlanningInputs(container.current)) return; try { const inputs = { start: range.start, end: range.end }; const next = simulateStartEvents(project, inputs); setStarts(next); onStartComplete?.(next, inputs); setError(""); } catch (caught) { setStarts(undefined); setError((caught as Error).message); } }
+  function previewFlexible() { if (!validPlanningInputs(container.current)) return; try { const generation = strategy === "solar" ? parseLocaleNumberList(solar, locale, { min: 0 }) : undefined; if (generation && !generation.ok) throw new Error(generation.message); setPlan(scheduleFlexibleLoads(project, { ...range, strategy, siteLimitKW, generationKW: generation?.ok ? generation.values : undefined })); setError(""); } catch (caught) { setPlan(undefined); setError((caught as Error).message); } }
   const requirementsDirty = JSON.stringify(requirements) !== JSON.stringify(project.flexibleLoads ?? []);
   const eventDirty = JSON.stringify(events) !== JSON.stringify(project.startEvents ?? []);
-  return <section className="advanced-planning panel panel-pad" aria-label={t("Advanced planning")}>
+  return <section ref={container} className="advanced-planning panel panel-pad" aria-label={t("Advanced planning")}>
     <div className="section-title"><div><span className="eyebrow">{t("Calendar and constrained planning")}</span><h2>{t("Advanced planning")}</h2></div></div>
     <div className="button-row advanced-tabs" role="tablist" aria-label={t("Planning workspaces")}>{(["schedules", "starts", "flexible", "billing"] as const).map((id) => <button role="tab" aria-selected={tab === id} key={id} className={`button ${tab === id ? "primary" : ""}`} onClick={() => setTab(id)}>{t({ schedules: "Calendar rules", starts: "Start sequences", flexible: "Flexible loads", billing: "Calendar bill" }[id])}</button>)}</div>
     {error && <p className="error-text" role="alert">{t(error)}</p>}{message && <p role="status">{message}</p>}

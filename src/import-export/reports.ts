@@ -699,6 +699,18 @@ export function parseBillJson(text: string): BillDocument {
     ids.add(line.id);
   }
   const bill = b as unknown as BillDocument;
+  if (bill.numericDrafts) {
+    const allowed = new Set([
+      "discountPercent",
+      "taxPercent",
+      ...bill.lines.flatMap((line) => [
+        `line:${line.id}:quantity`,
+        `line:${line.id}:unitPrice`,
+      ]),
+    ]);
+    if (Object.keys(bill.numericDrafts).some((key) => !allowed.has(key)))
+      throw new Error("Numeric draft refers to a missing bill field.");
+  }
   currencyDigits(bill.currency);
   return structuredClone(bill);
 }

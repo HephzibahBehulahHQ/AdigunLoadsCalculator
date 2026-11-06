@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   billCsv,
   calculateBill,
+  currencyDigits,
   createBillPdf,
   decimalInteger,
   downloadReport,
@@ -450,7 +451,26 @@ export function Billing({
   }, [bill]);
   const errors = useMemo(() => validateBill(bill), [bill]);
   const update = (field: keyof BillDocument, value: unknown) => {
-    setBill((current) => ({ ...current, [field]: value }));
+    setBill((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "lines" && next.numericDrafts) {
+        const allowed = new Set([
+          "discountPercent",
+          "taxPercent",
+          ...next.lines.flatMap((line) => [
+            `line:${line.id}:quantity`,
+            `line:${line.id}:unitPrice`,
+          ]),
+        ]);
+        next.numericDrafts = Object.fromEntries(
+          Object.entries(next.numericDrafts).filter(([key]) =>
+            allowed.has(key),
+          ),
+        );
+        if (!Object.keys(next.numericDrafts).length) delete next.numericDrafts;
+      }
+      return next;
+    });
     setDirty(true);
     setStatus("");
   };
@@ -848,14 +868,7 @@ export function Billing({
                           maxLength={32}
                           value={line.unitPrice}
                           locale={locale}
-                          decimalPlaces={
-                            result.totals?.digits ??
-                            (bill.currency === "JPY"
-                              ? 0
-                              : bill.currency === "KWD"
-                                ? 3
-                                : 2)
-                          }
+                          decimalPlaces={currencyDigits(bill.currency)}
                           draft={
                             bill.numericDrafts?.[`line:${line.id}:unitPrice`]
                           }

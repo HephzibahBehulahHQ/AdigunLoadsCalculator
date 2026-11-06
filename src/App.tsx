@@ -130,7 +130,7 @@ import { TopologyEditor } from "./features/TopologyEditor";
 import { AdvancedPlanning } from "./features/AdvancedPlanning";
 import { FeederAssessment } from "./features/FeederAssessment";
 import { SourceRegistry, ProjectOrganization } from "./features/SourceRegistry";
-import { ReportWorkspace } from "./features/ReportWorkspace";
+
 import type { ReportContext } from "./import-export/reportSnapshot";
 import type {
   CalendarResult,
@@ -143,6 +143,7 @@ import {
 } from "./commands/projectCommands";
 import { tools } from "./tools";
 import { resetBotWindowState } from "./bot/windowState";
+const ReportWorkspace = lazy(() => import("./features/ReportWorkspace").then(module => ({default:module.ReportWorkspace})));
 const Billing = lazy(() =>
   import("./features/Billing").then((m) => ({ default: m.Billing })),
 );
@@ -1815,6 +1816,7 @@ export default function App() {
                           />
                         </Suspense>
                       ) : (
+                        <Suspense fallback={<div className="loading"><LoaderCircle className="spin"/></div>}>
                         <ReportWorkspace
                           project={project}
                           result={result}
@@ -1845,6 +1847,8 @@ export default function App() {
                           }
                           onOpenBilling={() => setReportTab("billing")}
                         />
+
+                        </Suspense>
                       )}
                     </>
                   )}
@@ -2249,6 +2253,7 @@ export default function App() {
           <LoadEditor
             load={editor.load}
             project={project}
+            detailMode={detailMode === "simple" ? "simple" : "engineering"}
             onSave={saveLoad}
             onClose={() => setEditor(null)}
           />

@@ -27,6 +27,7 @@ import {
 import type { EnergyResult, EnergyOptions } from "../engine/simulation";
 import type { EVPlan } from "../engine/planning";
 import { EnergySettingsFields } from "./EnergySettingsFields";
+import { formatEditableNumber, parseLocaleNumberList } from "../i18n/numbers";
 import { scheduleEV, conservativeDemandProfile } from "../engine/planning";
 import { Field, Notice, Modal, LineChart } from "./ui";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
@@ -48,9 +49,9 @@ export function Renewables({
     structuredClone(project.energy),
   );
   const [profile, setProfile] = useState(
-    project.energy.pvHourlyProfile?.join(", ") || "",
+    project.energy.pvHourlyProfile?.map((n) => formatEditableNumber(n, locale)).join("; ") || "",
   );
-  const [wind, setWind] = useState(project.energy.windHourlyKW?.join(", ") ?? "");
+  const [wind, setWind] = useState(project.energy.windHourlyKW?.map((n) => formatEditableNumber(n, locale)).join("; ") ?? "");
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
   const [actualRange, setActualRange] = useState(false);
@@ -66,15 +67,25 @@ export function Renewables({
   });
   const [result, setResult] = useState<EnergyResult>();
   const [error, setError] = useState("");
-  const inputKey = JSON.stringify({ energy: { ...draft, pvHourlyProfile: profile.trim() ? profile.split(/[,;\s]+/).map(Number) : undefined, windHourlyKW: wind.trim() ? wind.split(/[,;\s]+/).map(Number) : undefined }, date, actualRange, range, outageRange, outage });
+  const profileLocale = useRef(locale), windLocale = useRef(locale);
+  const parsedProfile = profile.trim() ? parseLocaleNumberList(profile, profileLocale.current, { min: 0, max: 1 }) : undefined;
+  const parsedWind = wind.trim() ? parseLocaleNumberList(wind, windLocale.current, { min: 0 }) : undefined;
+  const inputKey = JSON.stringify({ energy: { ...draft, pvHourlyProfile: parsedProfile?.ok ? parsedProfile.values : profile || undefined, windHourlyKW: parsedWind?.ok ? parsedWind.values : wind || undefined }, date, actualRange, range, outageRange, outage });
   const lastRunInput = useRef("");
   const energyKey = JSON.stringify(project.energy);
   useEffect(() => {
+    profileLocale.current = locale; windLocale.current = locale;
     setDraft(structuredClone(project.energy));
-    setProfile(project.energy.pvHourlyProfile?.join(", ") || "");
-    setWind(project.energy.windHourlyKW?.join(", ") ?? "");
+    setProfile(project.energy.pvHourlyProfile?.map((n) => formatEditableNumber(n, locale)).join("; ") || "");
+    setWind(project.energy.windHourlyKW?.map((n) => formatEditableNumber(n, locale)).join("; ") ?? "");
     setError("");
   }, [project.id, energyKey]);
+  useEffect(() => {
+    const pv = parseLocaleNumberList(profile, profileLocale.current, { min: 0, max: 1 });
+    if (pv.ok) { setProfile(pv.values.map((n) => formatEditableNumber(n, locale)).join("; ")); profileLocale.current = locale; }
+    const windValues = parseLocaleNumberList(wind, windLocale.current, { min: 0 });
+    if (windValues.ok) { setWind(windValues.values.map((n) => formatEditableNumber(n, locale)).join("; ")); windLocale.current = locale; }
+  }, [locale]);
   useEffect(() => { if (lastRunInput.current !== inputKey) { runToken.current++; job.current?.terminate(); job.current = null; setBusy(false); setResult(undefined); } }, [inputKey]);
   useEffect(() => () => { runToken.current++; job.current?.terminate(); }, []);
   useEffect(() => {
@@ -88,12 +99,12 @@ export function Renewables({
     e.preventDefault();
     try {
       lastRunInput.current = inputKey;
+      if (parsedProfile && !parsedProfile.ok) throw new Error(parsedProfile.message);
+      if (parsedWind && !parsedWind.ok) throw new Error(parsedWind.message);
       const energy = {
         ...draft,
-        pvHourlyProfile: profile.trim()
-          ? profile.split(/[,;\s]+/).map(Number)
-          : undefined,
-        windHourlyKW: wind.trim() ? wind.split(/[,;\s]+/).map(Number) : undefined,
+        pvHourlyProfile: parsedProfile?.ok ? parsedProfile.values : undefined,
+        windHourlyKW: parsedWind?.ok ? parsedWind.values : undefined,
       };
       if (
         energy.pvHourlyProfile &&
@@ -219,12 +230,12 @@ export function Renewables({
             rows={2}
             value={profile}
             onChange={(e) => {
-              setProfile(e.target.value);
+              profileLocale.current = locale; setProfile(e.target.value);
               setResult(undefined);
             }}
           />
         </Field>
-        <EnergySettingsFields project={project} energy={draft} setEnergy={setDraft} wind={wind} setWind={setWind} />
+        <EnergySettingsFields project={project} energy={draft} setEnergy={setDraft} wind={wind} setWind={(value) => { windLocale.current = locale; setWind(value); }} />
         <h3>{t("Dispatch period")}</h3>
         <div className="check-row"><label><input type="checkbox" checked={actualRange} onChange={(e) => setActualRange(e.target.checked)} />{t("Use actual timestamped calendar range")}</label></div>
         {actualRange ? <div className="form-grid"><Field label={t("Dispatch range start (explicit offset)")}><input value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} /></Field><Field label={t("Dispatch range end (explicit offset)")}><input value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} /></Field></div> : <Field label={t("Representative local date for rules and tariffs")}><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>}
@@ -301,7 +312,7 @@ export function Renewables({
         </div>
         {error && (
           <p className="error-text" role="alert">
-            {error}
+            {t(error)}
           </p>
         )}
       </form>
@@ -316,7 +327,7 @@ export function Renewables({
           <div className="metric-strip"><div><span>{t("Deliberately shed energy")}</span><strong>{f(result.shedKWh)} kWh</strong></div><div><span>{t("Critical unserved energy")}</span><strong>{f(result.criticalUnservedKWh)} kWh</strong></div><div><span>{t("Grid charging")}</span><strong>{f(result.gridChargeKWh)} kWh</strong></div></div>
           <div className="kpi-grid">
             {[
-              ["PV generation", result.generationKWh],
+              [project.energy.windHourlyKW?.some((kw) => kw > 0) ? "PV + wind generation" : "PV generation", result.generationKWh],
               ["Grid import", result.importKWh],
               ["Grid export", result.exportKWh],
               ["Battery stored", result.finalStoredKWh],
@@ -333,20 +344,20 @@ export function Renewables({
           <section className="panel">
             <div className="panel-head">
               <h3>
-                {t("PV generation")} / {t("Load Schedule")}
+                {t(project.energy.windHourlyKW?.some((kw) => kw > 0) ? "PV + wind generation" : "PV generation")} / {t("Load Schedule")}
               </h3>
               <span className="tag cyan">15 min</span>
             </div>
             <LineChart
               points={result.points.map((p) => ({
-                x: p.hour,
+                x: p.timestamp ? (Date.parse(p.timestamp) - Date.parse(result.points[0].timestamp!)) / 3600000 : p.hour,
                 y: p.generationKW,
               }))}
-              secondary={result.points.map((p) => ({ x: p.hour, y: p.loadKW }))}
+              secondary={result.points.map((p) => ({ x: p.timestamp ? (Date.parse(p.timestamp) - Date.parse(result.points[0].timestamp!)) / 3600000 : p.hour, y: p.loadKW }))}
               color="var(--gold)"
             />
             <div className="chart-footer">
-              <span>{t("Gold: PV · Violet: load")}</span>
+              <span>{t("Gold: supplied generation · Violet: load")}</span>
               <button
                 className="text-button"
                 onClick={() =>
@@ -363,6 +374,7 @@ export function Renewables({
                         "losses_kWh",
                         "unserved_kWh",
                         "balance_error_kWh",
+                        "timestamp", "duration_hours", "curtailed_kWh", "grid_charge_kWh", "shed_kWh", "critical_unserved_kWh", "served_load_ids", "unserved_load_ids",
                       ],
                       ...result.points.map((p) => [
                         p.hour,
@@ -374,6 +386,7 @@ export function Renewables({
                         p.lossesKWh,
                         p.unservedKWh,
                         p.balanceErrorKWh,
+                        p.timestamp ?? "", p.durationHours, p.curtailedKWh, p.gridChargeKWh, p.shedKWh, p.criticalUnservedKWh, p.servedLoadIds?.join(";") ?? "", p.unservedLoadIds?.join(";") ?? "",
                       ]),
                     ]),
                     "text/csv",
@@ -391,7 +404,7 @@ export function Renewables({
               <span>{money(result.totalCost, project.currency, locale)}</span>
             </div>
             <LineChart
-              points={result.points.map((p) => ({ x: p.hour, y: p.storedKWh }))}
+              points={result.points.map((p) => ({ x: p.timestamp ? (Date.parse(p.timestamp) - Date.parse(result.points[0].timestamp!)) / 3600000 : p.hour, y: p.storedKWh }))}
               color="var(--violet)"
               label="kWh"
             />
@@ -419,7 +432,7 @@ export function Renewables({
           </section>
           {result.issues.map((i) => (
             <Notice key={i.id} tone="warning">
-              {i.message}
+              {t(i.message)}
             </Notice>
           ))}
         </>
@@ -727,7 +740,7 @@ export function EVPlanner({
               </div>
               {error && (
                 <p role="alert" className="error-text">
-                  {error}
+                  {t(error)}
                 </p>
               )}
             </div>
@@ -955,7 +968,7 @@ export function Costs({
         </div>
         {error && (
           <p className="error-text" role="alert">
-            {error}
+            {t(error)}
           </p>
         )}
       </form>

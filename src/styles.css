@@ -3216,3 +3216,29 @@ details p {
     display: none !important;
   }
 }
+
+.object-context-menu {
+  position: fixed;
+  z-index: 120;
+  width: 190px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: var(--shadow);
+}
+.object-context-menu button {
+  display: block;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  padding: 10px;
+}
+.object-context-menu button:hover,
+.object-context-menu button:focus-visible {
+  background: var(--surface2);
+  outline: 2px solid var(--cyan);
+}

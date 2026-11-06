@@ -1,4 +1,10 @@
 import { createContext, useContext } from "react";
+import { uiMessages } from "./uiMessages";
+import { reportMessages } from "./reportMessages";
+import {
+  engineeringMessages,
+  engineeringTemplates,
+} from "./engineeringMessages";
 export type Locale = "en" | "de" | "yo" | "pcm";
 export const languages: Record<Locale, string> = {
   en: "English",
@@ -1532,7 +1538,11 @@ Object.assign(words, {
 export function hasTranslation(key: string, locale: Locale): boolean {
   return (
     locale === "en" ||
-    Boolean(words[key]?.[locale === "de" ? 0 : locale === "yo" ? 1 : 2]?.trim())
+    Boolean(
+      words[key]?.[locale === "de" ? 0 : locale === "yo" ? 1 : 2]?.trim(),
+    ) ||
+    messageTemplates.some((item) => item.pattern.test(key)) ||
+    validationTemplates.some(([pattern]) => pattern.test(key))
   );
 }
 const validationTemplates: Array<[RegExp, [string, string, string]]> = [
@@ -1618,10 +1628,109 @@ const validationTemplates: Array<[RegExp, [string, string, string]]> = [
     ],
   ],
 ];
-export function translate(key: string, locale: Locale): string {
+Object.assign(words, engineeringMessages, uiMessages, reportMessages);
+const uiTemplates: Array<[string, [string, string, string]]> = [
+  ["Value {0}: {1}", ["Wert {0}: {1}", "Iye {0}: {1}", "Value {0}: {1}"]],
+  [
+    "Use at most {0} decimal places.",
+    [
+      "Höchstens {0} Dezimalstellen verwenden.",
+      "Lo ó pọ̀ jù ẹyọ kékeré {0}.",
+      "Use at most {0} decimal places.",
+    ],
+  ],
+  ["{0} is too long.", ["{0} ist zu lang.", "{0} gùn jù.", "{0} too long."]],
+  ["{0} is too large.", ["{0} ist zu groß.", "{0} tóbi jù.", "{0} too large."]],
+  [
+    "{0} must be a non-negative decimal number.",
+    [
+      "{0} muss eine nicht negative Dezimalzahl sein.",
+      "{0} gbọdọ̀ jẹ́ nọ́ńbà ẹyọ kékeré tí kò jẹ́ òdì.",
+      "{0} must be decimal number wey no negative.",
+    ],
+  ],
+  [
+    "{0} allows at most {1} decimal places.",
+    [
+      "{0} erlaubt höchstens {1} Dezimalstellen.",
+      "{0} gba ó pọ̀ jù ẹyọ kékeré {1}.",
+      "{0} allows at most {1} decimal places.",
+    ],
+  ],
+  [
+    "Quantity {0} must be greater than zero.",
+    [
+      "Menge {0} muss größer als null sein.",
+      "Iye {0} gbọdọ̀ ju òdo lọ.",
+      "Quantity {0} must pass zero.",
+    ],
+  ],
+  ["Quantity {0}", ["Menge {0}", "Iye {0}", "Quantity {0}"]],
+  ["Unit price {0}", ["Einzelpreis {0}", "Owó ẹyọ {0}", "Unit price {0}"]],
+  [
+    "Description {0} is required.",
+    [
+      "Beschreibung {0} ist erforderlich.",
+      "Àpèjúwe {0} ṣe pàtàkì.",
+      "Description {0} dey required.",
+    ],
+  ],
+  [
+    "Invalid {0}.",
+    ["Ungültige Angabe: {0}.", "Àlàyé àìtọ́: {0}.", "Invalid {0}."],
+  ],
+  [
+    "Project {0}: {1}",
+    ["Projekt {0}: {1}", "Iṣẹ́ {0}: {1}", "Project {0}: {1}"],
+  ],
+  [
+    "The {0} evidence belongs to another project/revision or lacks provenance. Run it again before reporting.",
+    [
+      "Der Nachweis für {0} gehört zu einem anderen Projekt/einer anderen Revision oder enthält keine Herkunft. Vor dem Bericht erneut ausführen.",
+      "Ẹ̀rí {0} jẹ́ ti iṣẹ́/àtúnṣe mìíràn tàbí kò ní orísun. Tún ìṣírò ṣe ṣáájú ìròyìn.",
+      "The {0} evidence belongs to another project/revision or source no dey. Run am again before report.",
+    ],
+  ],
+];
+const messageTemplates = [...engineeringTemplates, ...uiTemplates].map(
+  ([source, messages]) => {
+    const ids: number[] = [];
+    let previous = 0,
+      pattern = "^";
+    const escape = (value: string) =>
+      value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const match of source.matchAll(/\{(\d+)\}/g)) {
+      pattern += escape(source.slice(previous, match.index)) + "([\\s\\S]*?)";
+      ids.push(Number(match[1]));
+      previous = match.index! + match[0].length;
+    }
+    pattern += escape(source.slice(previous)) + "$";
+    return { pattern: new RegExp(pattern), ids, messages };
+  },
+);
+export function translationCatalogKeys(): string[] {
+  return Object.keys(words);
+}
+export function translate(key: string, locale: Locale, depth = 0): string {
   if (locale === "en") return key;
   const index = locale === "de" ? 0 : locale === "yo" ? 1 : 2;
   if (words[key]) return words[key][index];
+  if (depth < 4)
+    for (const item of messageTemplates) {
+      const match = key.match(item.pattern);
+      if (!match) continue;
+      const values: Record<number, string> = {};
+      let consistent = true;
+      item.ids.forEach((id, position) => {
+        const value = match[position + 1];
+        if (id in values && values[id] !== value) consistent = false;
+        values[id] = value;
+      });
+      if (consistent)
+        return item.messages[index].replace(/\{(\d+)\}/g, (_, id: string) =>
+          translate(values[Number(id)] ?? `{${id}}`, locale, depth + 1),
+        );
+    }
   for (const [pattern, templates] of validationTemplates) {
     const match = key.match(pattern);
     if (match)

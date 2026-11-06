@@ -39,6 +39,12 @@ import { previewPhaseBalance, applyPhaseBalance } from "../engine/planning";
 import { assessCircuit } from "../engine/assessments";
 import type { CalendarResult, RangeOptions } from "../engine/simulation";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
+import { parseLocaleNumberList, formatEditableNumber } from "../i18n/numbers";
+import {
+  applyProjectCommand,
+  previewProjectCommand,
+  type ProjectCommand,
+} from "../commands/projectCommands";
 import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
 import { Field, Notice, Modal, Empty, LineChart } from "./ui";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
@@ -396,6 +402,31 @@ export function Loads({
   const [query, setQuery] = useState("");
   const [phase, setPhase] = useState("");
   const [page, setPage] = useState(0);
+  const [context, setContext] = useState<{
+    load: Load;
+    x: number;
+    y: number;
+  }>();
+  const menu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!context) return;
+    const prior = document.activeElement as HTMLElement | null;
+    menu.current?.querySelector<HTMLElement>("button")?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!menu.current?.contains(event.target as Node)) setContext(undefined);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      prior?.focus();
+    };
+  }, [context]);
+  const openContext = (load: Load, x: number, y: number) =>
+    setContext({
+      load,
+      x: Math.min(x, innerWidth - 200),
+      y: Math.min(y, innerHeight - 190),
+    });
   const filtered = project.loads.filter(
     (l) =>
       (!phase || l.phase === phase) &&
@@ -408,6 +439,59 @@ export function Loads({
   const visible = filtered.slice(page * 75, (page + 1) * 75);
   return (
     <>
+      {context && (
+        <div
+          ref={menu}
+          role="menu"
+          aria-label={t("Load actions")}
+          className="object-context-menu"
+          style={{ left: Math.max(8, context.x), top: Math.max(8, context.y) }}
+          onKeyDown={(event) => {
+            const buttons = Array.from(
+              menu.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+            );
+            const index = buttons.indexOf(
+              document.activeElement as HTMLButtonElement,
+            );
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setContext(undefined);
+            } else if (
+              ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
+            ) {
+              event.preventDefault();
+              buttons[
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? buttons.length - 1
+                    : (index +
+                        (event.key === "ArrowDown" ? 1 : -1) +
+                        buttons.length) %
+                      buttons.length
+              ]?.focus();
+            }
+          }}
+        >
+          {[
+            ["Inspect", () => onSelect(context.load.id)],
+            ["Edit load", () => onEdit(context.load)],
+            ["Duplicate", () => onDuplicate(context.load)],
+            ["Delete", () => onDelete(context.load.id)],
+          ].map(([label, action]) => (
+            <button
+              key={label as string}
+              role="menuitem"
+              onClick={() => {
+                setContext(undefined);
+                (action as () => void)();
+              }}
+            >
+              {t(label as string)}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="page-actions">
         <div className="search-field">
           <Search size={17} />
@@ -485,12 +569,27 @@ export function Loads({
                   return (
                     <tr
                       key={load.id}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        openContext(load, event.clientX, event.clientY);
+                      }}
                       className={selected === load.id ? "selected-row" : ""}
                     >
                       <td>
                         <button
                           className="load-name"
                           onClick={() => onSelect(load.id)}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === "ContextMenu" ||
+                              (event.shiftKey && event.key === "F10")
+                            ) {
+                              event.preventDefault();
+                              const rect =
+                                event.currentTarget.getBoundingClientRect();
+                              openContext(load, rect.x, rect.bottom);
+                            }
+                          }}
                         >
                           <span className="load-icon">
                             <Zap size={15} />
@@ -646,6 +745,14 @@ export function Boards({
   onSelect: (id: string) => void;
 }) {
   const t = useT();
+  const locale = useContext(LanguageContext);
+  const execute = (command: ProjectCommand) =>
+    change((draft) =>
+      Object.assign(
+        draft,
+        applyProjectCommand(draft, previewProjectCommand(draft, command)),
+      ),
+    );
   const [newBoard, setNewBoard] = useState("");
   const [newCircuit, setNewCircuit] = useState("");
   const [boardId, setBoardId] = useState(project.boards[0]?.id || "");
@@ -713,8 +820,10 @@ export function Boards({
                     min={1}
                     value={board.ratedA}
                     onValueChange={(value) =>
-                      change((p) => {
-                        p.boards.find((b) => b.id === board.id)!.ratedA = value;
+                      execute({
+                        kind: "board.patch",
+                        id: board.id,
+                        patch: { ratedA: value },
                       })
                     }
                   />
@@ -726,8 +835,10 @@ export function Boards({
                     integer
                     value={board.ways}
                     onValueChange={(value) =>
-                      change((p) => {
-                        p.boards.find((b) => b.id === board.id)!.ways = value;
+                      execute({
+                        kind: "board.patch",
+                        id: board.id,
+                        patch: { ways: value },
                       })
                     }
                   />
@@ -746,9 +857,10 @@ export function Boards({
         onSubmit={(e) => {
           e.preventDefault();
           if (newBoard.trim()) {
-            change((p) =>
-              p.boards.push(createBoard({ name: newBoard.trim() })),
-            );
+            execute({
+              kind: "board.add",
+              board: createBoard({ name: newBoard.trim() }),
+            });
             setNewBoard("");
           }
         }}
@@ -818,31 +930,10 @@ export function Boards({
                             : undefined
                         }
                         onChange={(e) =>
-                          change((p) => {
-                            const phase = e.target.value as Phase;
-                            if (
-                              p.loads.some(
-                                (l) =>
-                                  l.circuitId === c.id &&
-                                  l.locked &&
-                                  l.connection === "single" &&
-                                  l.phase !== phase,
-                              )
-                            )
-                              throw new Error(
-                                "An assigned load has a locked phase.",
-                              );
-                            p.circuits.find((v) => v.id === c.id)!.phase =
-                              phase;
-                            p.loads
-                              .filter(
-                                (l) =>
-                                  l.circuitId === c.id &&
-                                  l.connection === "single",
-                              )
-                              .forEach((l) => {
-                                l.phase = phase;
-                              });
+                          execute({
+                            kind: "circuit.patch",
+                            id: c.id,
+                            patch: { phase: e.target.value as Phase },
                           })
                         }
                       >
@@ -869,7 +960,11 @@ export function Boards({
                             source: c.cable?.source || "",
                             protectiveA: c.protectiveA || 0,
                             correctionFactors:
-                              c.cable?.correctionFactors?.join(", ") || "",
+                              c.cable?.correctionFactors
+                                ?.map((value) =>
+                                  formatEditableNumber(value, locale),
+                                )
+                                .join("; ") || "",
                           });
                           setCableError("");
                         }}
@@ -884,9 +979,10 @@ export function Boards({
                             type="checkbox"
                             checked={c.locked}
                             onChange={(e) =>
-                              change((p) => {
-                                p.circuits.find((v) => v.id === c.id)!.locked =
-                                  e.target.checked;
+                              execute({
+                                kind: "circuit.patch",
+                                id: c.id,
+                                patch: { locked: e.target.checked },
                               })
                             }
                           />
@@ -901,17 +997,7 @@ export function Boards({
                                 `${t("Delete")} ${c.name}? ${loads.length} ${t("Load Schedule")} → ${t("Unassigned")}`,
                               )
                             )
-                              change((p) => {
-                                p.circuits = p.circuits.filter(
-                                  (v) => v.id !== c.id,
-                                );
-                                p.loads
-                                  .filter((l) => l.circuitId === c.id)
-                                  .forEach((l) => {
-                                    delete l.circuitId;
-                                    delete l.boardId;
-                                  });
-                              });
+                              execute({ kind: "circuit.remove", id: c.id });
                           }}
                         >
                           <Trash2 size={15} />
@@ -929,11 +1015,10 @@ export function Boards({
           onSubmit={(e) => {
             e.preventDefault();
             if (newCircuit.trim() && boardId) {
-              change((p) =>
-                p.circuits.push(
-                  createCircuit(boardId, { name: newCircuit.trim() }),
-                ),
-              );
+              execute({
+                kind: "circuit.add",
+                circuit: createCircuit(boardId, { name: newCircuit.trim() }),
+              });
               setNewCircuit("");
             }
           }}
@@ -981,19 +1066,10 @@ export function Boards({
                       (c) => c.id === e.target.value,
                     );
                     if (c)
-                      change((p) => {
-                        const load = p.loads.find((x) => x.id === l.id)!;
-                        if (
-                          load.locked &&
-                          load.connection === "single" &&
-                          load.phase !== c.phase
-                        )
-                          throw new Error(
-                            "Unlock this load before assigning a differently phased circuit.",
-                          );
-                        load.circuitId = c.id;
-                        load.boardId = c.boardId;
-                        if (load.connection === "single") load.phase = c.phase;
+                      execute({
+                        kind: "loads.assign",
+                        ids: [l.id],
+                        circuitId: c.id,
                       });
                   }}
                 >
@@ -1080,12 +1156,16 @@ export function Boards({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const factors = cableDraft.correctionFactors.trim()
-                ? cableDraft.correctionFactors
-                    .trim()
-                    .split(/[,;\s]+/)
-                    .map(Number)
+              const parsed = cableDraft.correctionFactors.trim()
+                ? parseLocaleNumberList(cableDraft.correctionFactors, locale, {
+                    min: 0.000001,
+                  })
                 : undefined;
+              if (parsed && !parsed.ok) {
+                setCableError(parsed.message);
+                return;
+              }
+              const factors = parsed?.ok ? parsed.values : undefined;
               if (
                 (cableDraft.baseAmpacityA > 0 && !factors) ||
                 factors?.some((v) => !Number.isFinite(v) || v <= 0)
@@ -1107,21 +1187,24 @@ export function Boards({
                 );
                 return;
               }
-              change((p) => {
-                const c = p.circuits.find((c) => c.id === circuit.id)!;
-                c.cable = {
-                  lengthM: cableDraft.lengthM,
-                  resistanceOhmPerKm: cableDraft.resistanceOhmPerKm,
-                  reactanceOhmPerKm: cableDraft.reactanceOhmPerKm,
-                  baseAmpacityA: cableDraft.baseAmpacityA,
-                  voltageDropLimitPercent: cableDraft.voltageDropLimitPercent,
-                  source: cableDraft.source,
-                  correctionFactors: factors,
-                };
-                c.protectiveA =
-                  cableDraft.protectiveA > 0
-                    ? cableDraft.protectiveA
-                    : undefined;
+              execute({
+                kind: "circuit.patch",
+                id: circuit.id,
+                patch: {
+                  cable: {
+                    lengthM: cableDraft.lengthM,
+                    resistanceOhmPerKm: cableDraft.resistanceOhmPerKm,
+                    reactanceOhmPerKm: cableDraft.reactanceOhmPerKm,
+                    baseAmpacityA: cableDraft.baseAmpacityA,
+                    voltageDropLimitPercent: cableDraft.voltageDropLimitPercent,
+                    source: cableDraft.source,
+                    correctionFactors: factors,
+                  },
+                  protectiveA:
+                    cableDraft.protectiveA > 0
+                      ? cableDraft.protectiveA
+                      : undefined,
+                },
               });
               setCableId(undefined);
             }}
@@ -1156,7 +1239,9 @@ export function Boards({
               </div>
               <Field
                 label="Correction factors"
-                hint="Separate positive factors with commas. Enter 1 explicitly only when no correction applies."
+                hint={t(
+                  "Separate positive factors with semicolons. Enter 1 explicitly only when no correction applies.",
+                )}
               >
                 <input
                   value={cableDraft.correctionFactors}

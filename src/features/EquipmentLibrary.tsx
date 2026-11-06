@@ -50,6 +50,8 @@ export function EquipmentLibrary({
   } | null>(null);
   const [preview, setPreview] = useState<{
     templates: Load[];
+    versions?: Project["equipmentVersions"];
+    favorites?: string[];
     projectId: string;
     revision: number;
   } | null>(null);
@@ -81,11 +83,15 @@ export function EquipmentLibrary({
         );
       const candidate = createProject("Equipment import");
       candidate.loads = data.templates;
+      candidate.equipmentVersions = data.versions;
+      candidate.equipmentFavorites = data.favorites;
       const validated = validateProjectImport(candidate);
       if (!validated.project || validated.errors.length)
         throw new Error(validated.errors.join(" "));
       setPreview({
         templates: validated.project.loads,
+        versions: validated.project.equipmentVersions,
+        favorites: validated.project.equipmentFavorites,
         projectId: project.id,
         revision: project.revision,
       });
@@ -232,6 +238,8 @@ export function EquipmentLibrary({
                   format: "AdigunPowerLab.equipment",
                   schemaVersion: 1,
                   templates,
+                  versions: project.equipmentVersions ?? [],
+                  favorites: project.equipmentFavorites ?? [],
                 },
                 null,
                 2,
@@ -631,13 +639,51 @@ export function EquipmentLibrary({
                       "Project changed. Preview the import again.",
                     );
                   draft.equipmentLibrary ??= [];
+                  const ids = new Map<string, string>();
+                  for (const id of [
+                    ...preview.templates.map((row) => row.id),
+                    ...(preview.versions ?? []).map((row) => row.templateId),
+                  ])
+                    if (!ids.has(id)) ids.set(id, newId("equipment"));
                   draft.equipmentLibrary.push(
                     ...preview.templates.map((template) => ({
                       ...structuredClone(template),
-                      id: newId("equipment"),
-                      libraryRef: undefined,
+                      id: ids.get(template.id)!,
+                      libraryRef: {
+                        templateId: ids.get(template.id)!,
+                        version: template.libraryRef?.version ?? 1,
+                      },
                     })),
                   );
+                  if (preview.versions?.length)
+                    (draft.equipmentVersions ??= []).push(
+                      ...preview.versions.map((version) => ({
+                        ...structuredClone(version),
+                        templateId: ids.get(version.templateId)!,
+                        record: {
+                          ...structuredClone(version.record),
+                          id: ids.get(version.templateId)!,
+                          libraryRef: version.record.libraryRef
+                            ? {
+                                ...version.record.libraryRef,
+                                templateId: ids.get(version.templateId)!,
+                              }
+                            : undefined,
+                        },
+                      })),
+                    );
+                  if (preview.favorites?.length)
+                    draft.equipmentFavorites = [
+                      ...new Set([
+                        ...(draft.equipmentFavorites ?? []),
+                        ...preview.favorites
+                          .map((id) => ids.get(id))
+                          .filter((id): id is string => Boolean(id)),
+                      ]),
+                    ];
+                  const validation = validateProjectImport(draft);
+                  if (!validation.valid)
+                    throw new Error(validation.errors.join(" "));
                 });
                 if (result !== false) setPreview(null);
               }}

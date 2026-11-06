@@ -250,7 +250,7 @@ describe("shared, atomic project commands", () => {
     duplicated.loads[3].source.reference = "Changed";
     expect(project.loads[1].source.reference).not.toBe("Changed");
   });
-  it("revalidates mutated previews and rejects stale revisions and foreign projects", () => {
+  it("rejects mutated preview commands, stale revisions and foreign projects", () => {
     const project = fixture(),
       preview = previewProjectCommand(project, {
         kind: "loads.patch",
@@ -268,7 +268,29 @@ describe("shared, atomic project commands", () => {
     ).toThrow(/stale/);
     if (preview.command.kind === "loads.patch")
       preview.command.patch.rating = Infinity;
-    expect(() => applyProjectCommand(project, preview)).toThrow(/finite/);
+    expect(() => applyProjectCommand(project, preview)).toThrow(/command changed/);
+  });
+  it("rejects same-revision source tampering and preserves its private validated candidate", () => {
+    const project = fixture();
+    const preview = previewProjectCommand(project, { kind: "loads.patch", ids: ["load-a"], patch: { rating: 4 } });
+    const changed = structuredClone(project); changed.loads[1].rating = 700;
+    expect(() => applyProjectCommand(changed, preview)).toThrow(/data changed/);
+    const first = applyProjectCommand(structuredClone(project), preview);
+    first.loads[0].rating = 900;
+    first.loads[0].source.reference = "Changed outside the cache";
+    const second = applyProjectCommand(project, preview);
+    expect(second.loads[0].rating).toBe(4);
+    expect(second.loads[0].source.reference).toBe(project.loads[0].source.reference);
+    expect(() => applyProjectCommand(project, structuredClone(preview))).toThrow(/fresh preview/);
+  });
+  it("does not trust a caller clearing preview errors or changing a valid command", () => {
+    const project = fixture();
+    const invalid = previewProjectCommand(project, { kind: "loads.patch", ids: ["load-a"], patch: { rating: -1 } });
+    invalid.errors = [];
+    expect(() => applyProjectCommand(project, invalid)).toThrow(/negative|rating/i);
+    const valid = previewProjectCommand(project, { kind: "loads.patch", ids: ["load-a"], patch: { rating: 4 } });
+    if (valid.command.kind === "loads.patch") valid.command.patch.rating = 5;
+    expect(() => applyProjectCommand(project, valid)).toThrow(/command changed/);
   });
   it("rejects hidden identifier patches and partially valid batches atomically", () => {
     const project = fixture();

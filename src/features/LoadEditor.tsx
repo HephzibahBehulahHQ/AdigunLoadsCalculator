@@ -13,12 +13,14 @@ export function LoadEditor({
   onSave,
   onClose,
   purpose = "load",
+  detailMode = "engineering",
 }: {
   load?: Load;
   project: Project;
   onSave: (load: Load) => void;
   onClose: () => void;
   purpose?: "load" | "template";
+  detailMode?: "simple" | "engineering";
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -89,6 +91,13 @@ export function LoadEditor({
     >
       <form onSubmit={submit}>
         <div className="modal-body">
+          {detailMode === "simple" && (
+            <Notice>
+              {t(
+                "Enter electrical input power, supply voltage and operating time. Power factor affects current; energy duty affects consumption. Source evidence and every failed or incomplete check remain visible.",
+              )}
+            </Notice>
+          )}
           <div className="form-grid">
             <Field label={t("Name")}>
               <input
@@ -247,8 +256,11 @@ export function LoadEditor({
             {num("hoursPerDay", "Operating hours", "h/day", 0, 24)}
             {num("startHour", "Start hour", "h", 0, 23.999)}
             {num("duty", "Energy duty", "0–1", 0, 1)}
-            {num("utilization", "Utilization", "0–1", 0, 1)}
-            {num("standbyW", "Standby power", "W")}
+            <details open={detailMode === "engineering"}>
+              <summary>{t("Utilization and standby assumptions")}</summary>
+              {num("utilization", "Utilization", "0–1", 0, 1)}
+              {num("standbyW", "Standby power", "W")}
+            </details>
             <Field label={t("Circuit")}>
               <select
                 value={draft.circuitId || ""}
