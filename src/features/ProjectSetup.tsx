@@ -37,8 +37,11 @@ const hasPendingFields = (draft: Draft) =>
 // Drafts outlive Overview, including the memory fallback when storage fails.
 registerUpdateGuard(() => {
   if (![...drafts.values()].some(hasPendingFields)) return undefined;
-  const language = typeof document === "undefined" ? "en" : document.documentElement.lang;
-  const locale = Object.hasOwn(languages, language) ? language as Locale : "en";
+  const language =
+    typeof document === "undefined" ? "en" : document.documentElement.lang;
+  const locale = Object.hasOwn(languages, language)
+    ? (language as Locale)
+    : "en";
   return setupText("Project setup", locale);
 });
 
@@ -132,8 +135,11 @@ export function ProjectSetup({
     drafts.set(project.id, clean);
     setDraft(clean);
     setErrors({});
-    try { sessionStorage.removeItem(storageKey(project.id)); }
-    catch { /* Discard still clears the in-memory draft when storage is blocked. */ }
+    try {
+      sessionStorage.removeItem(storageKey(project.id));
+    } catch {
+      /* Discard still clears the in-memory draft when storage is blocked. */
+    }
   };
   const value = (key: SetupKey) =>
     draft.fields[key] ??
@@ -346,7 +352,12 @@ export function ProjectSetup({
           <button className="button primary" type="submit">
             {l("Save project setup")}
           </button>
-          <button className="button secondary" type="button" onClick={discard} disabled={!pending && !Object.keys(errors).length}>
+          <button
+            className="button secondary"
+            type="button"
+            onClick={discard}
+            disabled={!pending && !Object.keys(errors).length}
+          >
             {l("Discard setup draft")}
           </button>
           <span className="muted small">
