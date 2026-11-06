@@ -28,6 +28,7 @@ export type BillingProps = {
   currency: string;
   projectId?: string;
   locale?: ReportLocale;
+  onSaveProject?: () => Promise<void>;
   totals?: {
     installedKW?: number;
     demandKW?: number;
@@ -353,6 +354,7 @@ export function Billing({
   currency,
   projectId,
   locale = "en",
+  onSaveProject,
 }: BillingProps) {
   const key = projectId ?? projectName;
   const l = reportLabels[locale];
@@ -418,9 +420,31 @@ export function Billing({
     setBill((current) => ({ ...current, projectName, locale }));
   }, [projectName, locale]);
   useEffect(() => {
-    if (busy !== "load" && loadedKey.current === key && documentKey === key)
+    if (busy !== "load" && loadedKey.current === key && documentKey === key) {
       liveDrafts.set(key, { bill: structuredClone(bill), revision, dirty });
+      window.dispatchEvent(
+        new CustomEvent("powerlab-billing-changed", {
+          detail: { projectId: key },
+        }),
+      );
+    }
   }, [key, documentKey, bill, revision, dirty, busy]);
+  useEffect(() => {
+    const checkpoint = (event: Event) => {
+      if (
+        (event as CustomEvent<{ projectId: string }>).detail.projectId !== key
+      )
+        return;
+      const live = liveDrafts.get(key);
+      if (!live) return;
+      setRevision(live.revision);
+      setDirty(live.dirty);
+      if (!live.dirty) setStatus(ui[locale].saved);
+    };
+    window.addEventListener("powerlab-billing-checkpoint", checkpoint);
+    return () =>
+      window.removeEventListener("powerlab-billing-checkpoint", checkpoint);
+  }, [key, locale]);
   useEffect(() => {
     const restored = (event: Event) => {
       if (
@@ -523,14 +547,20 @@ export function Billing({
     setBusy("save");
     setFailure("");
     try {
-      const next = await saveDraft(forKey, snapshot, revision);
+      let next: string | null;
+      if (onSaveProject) {
+        liveDrafts.set(forKey, { bill: snapshot, revision, dirty: true });
+        await onSaveProject();
+        next = liveDrafts.get(forKey)?.revision ?? revision;
+      } else next = await saveDraft(forKey, snapshot, revision);
       if (currentKey.current === forKey) {
         setRevision(next);
-        setDirty(
-          JSON.stringify(liveDrafts.get(forKey)?.bill ?? snapshot) !==
-            JSON.stringify(snapshot),
-        );
-        setStatus(u.saved);
+        const stillDirty = onSaveProject
+          ? (liveDrafts.get(forKey)?.dirty ?? true)
+          : JSON.stringify(liveDrafts.get(forKey)?.bill ?? snapshot) !==
+            JSON.stringify(snapshot);
+        setDirty(stillDirty);
+        setStatus(stillDirty ? u.unsaved : u.saved);
       }
     } catch (error) {
       if (currentKey.current === forKey) actionError(error);

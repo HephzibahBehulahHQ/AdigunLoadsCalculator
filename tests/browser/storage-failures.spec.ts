@@ -37,13 +37,17 @@ test("fresh startup ignores the old active selection until a saved project is re
   });
   await page.reload();
   await expect(page.locator(".save-badge")).toContainText("Not saved");
-  await expect(page.locator(".project-switch")).toContainText("Untitled project");
+  await expect(page.locator(".project-switch")).toContainText(
+    "Untitled project",
+  );
   await resumeProject(page, first.name);
   await expect(page.locator(".project-switch")).toContainText(first.name);
   await expect(page.locator(".save-badge")).toContainText("Saved locally");
   expect(first.id).not.toBe(second.id);
   await page.reload();
-  await expect(page.locator(".project-switch")).toContainText("Untitled project");
+  await expect(page.locator(".project-switch")).toContainText(
+    "Untitled project",
+  );
   await expect(page.locator(".save-badge")).toContainText("Not saved");
   await resumeProject(page, second.name);
   await expect(page.locator(".project-switch")).toContainText(second.name);
@@ -51,7 +55,9 @@ test("fresh startup ignores the old active selection until a saved project is re
     const storage = await import(
       /* @vite-ignore */ "/src/storage/projects.ts" as string
     );
-    return (await storage.listProjects()).map((row: { project: unknown }) => row.project);
+    return (await storage.listProjects()).map(
+      (row: { project: unknown }) => row.project,
+    );
   });
   expect(records).toHaveLength(2);
   expect(records).toEqual(expect.arrayContaining([first, second]));
@@ -68,12 +74,10 @@ test("real quota rejection preserves the saved project and exports the current w
     const store = await import(
       /* @vite-ignore */ "/src/storage/projects.ts" as string
     );
-    const id = JSON.parse(localStorage.getItem("powerlab:ui:currentProject")!);
+    const row = (await store.listProjects())[0];
     return {
-      row: (await store.listProjects()).find(
-        (row: { id: string }) => row.id === id,
-      ),
-      history: await store.projectHistory(id),
+      row,
+      history: await store.projectHistory(row.id),
     };
   });
   const cdp = await page.context().newCDPSession(page);
@@ -300,7 +304,7 @@ test("blocked storage shows the failure and exports a working draft while the or
   await expect(app.locator(".app-alert")).toContainText(
     "Close the older PowerLab tab",
   );
-  await expect(app.locator(".save-badge")).toContainText("Save failed");
+  await expect(app.locator(".save-badge")).toContainText("Not saved");
   await app
     .getByRole("button", { name: "Add load", exact: true })
     .first()
@@ -347,7 +351,10 @@ test("blocked storage shows the failure and exports a working draft while the or
   app.once("dialog", (dialog) => dialog.accept());
   await app.reload();
   await resumeProject(app, original.name);
-  await app.locator(".sidebar").getByRole("button", { name: /^Load Schedule/ }).click();
+  await app
+    .locator(".sidebar")
+    .getByRole("button", { name: /^Load Schedule/ })
+    .click();
   await expect(app.locator(".load-table")).toContainText(
     "Preserved original heater",
   );

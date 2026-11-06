@@ -62,11 +62,21 @@ try {
   await context.setOffline(true);
   await page.reload();
   await expect(page.locator(".save-badge")).toContainText("Not saved");
-  await expect(page.locator(".overview-banner")).not.toContainText("Offline analytical heater");
-  await page.getByRole("button", { name: "Resume project", exact: true }).click();
-  await page.getByRole("dialog", { name: "Open project", exact: true })
-    .locator(".project-list > div > button:first-child").first().click();
-  await page.locator(".sidebar").getByRole("button", { name: /^Load Schedule/ }).click();
+  await expect(page.locator(".overview-banner")).not.toContainText(
+    "Offline analytical heater",
+  );
+  await page
+    .getByRole("button", { name: "Resume project", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Open project", exact: true })
+    .locator(".project-list > div > button:first-child")
+    .first()
+    .click();
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: /^Load Schedule/ })
+    .click();
   try {
     await page.locator(".load-table").waitFor({ timeout: 12000 });
   } catch (error) {
@@ -98,10 +108,17 @@ try {
     )
   )
     throw new Error("Offline saved project was not recovered.");
-  await page.getByRole("button", { name: "Help & Support", exact: true }).first().click();
-  await expect(page.getByRole("dialog", { name: "Help & Support", exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Help & Support", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Help & Support", exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.locator(".load-table")).toContainText("Offline analytical heater");
+  await expect(page.locator(".load-table")).toContainText(
+    "Offline analytical heater",
+  );
   await page
     .locator(".sidebar")
     .getByRole("button", { name: /^Engineering Toolbox/ })

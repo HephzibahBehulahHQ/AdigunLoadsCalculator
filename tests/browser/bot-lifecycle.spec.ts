@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, saveProject, resumeProject } from "./fixtures";
+import { test, expect, saveProject } from "./fixtures";
 
 async function ready(page: Page) {
   await page.goto("/");

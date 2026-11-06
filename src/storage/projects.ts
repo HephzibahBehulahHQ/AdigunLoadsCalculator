@@ -2,10 +2,7 @@ import type { Project } from "../domain/types";
 import { validateProjectImport } from "../domain/project";
 import { openPowerLabDatabase as db } from "./database";
 import { readCommitted } from "./transactions";
-import {
-  validateProjectSession,
-  type ProjectSession,
-} from "./projectSession";
+import { validateProjectSession, type ProjectSession } from "./projectSession";
 import { acceptRestoredBilling, liveDrafts } from "./billing";
 import { parseBillJson, type BillDocument } from "../import-export/reports";
 import {
@@ -18,7 +15,9 @@ function warnOnce(key: string, detail: string) {
   if (reported.has(key)) return;
   reported.add(key);
   if (typeof window !== "undefined")
-    window.dispatchEvent(new CustomEvent("powerlab-storage-warning", { detail }));
+    window.dispatchEvent(
+      new CustomEvent("powerlab-storage-warning", { detail }),
+    );
 }
 function safeRecords(items: unknown[]): ProjectRecord[] {
   return items.flatMap((item) => {
@@ -34,7 +33,8 @@ function safeRecords(items: unknown[]): ProjectRecord[] {
       const id = String(row?.id || "unknown");
       warnOnce(
         id,
-        "A saved project record could not be validated and was left intact for recovery: " + id,
+        "A saved project record could not be validated and was left intact for recovery: " +
+          id,
       );
       return [];
     }
@@ -47,7 +47,8 @@ function safeRecords(items: unknown[]): ProjectRecord[] {
         delete clean.session;
         warnOnce(
           `${row.id}:session`,
-          "The saved project is available, but its interview or BOT session could not be opened. The original record remains intact for recovery: " + row.id,
+          "The saved project is available, but its interview or BOT session could not be opened. The original record remains intact for recovery: " +
+            row.id,
         );
       }
     }
@@ -83,10 +84,15 @@ export interface ProjectSaveOptions {
 }
 
 /** Capture at the click, before a queued save or a database open can yield. */
-export function captureBillingCheckpoint(projectId: string): BillingCheckpoint | undefined {
+export function captureBillingCheckpoint(
+  projectId: string,
+): BillingCheckpoint | undefined {
   const current = liveDrafts.get(projectId);
   return current
-    ? { bill: structuredClone(current.bill), expectedRevision: current.revision }
+    ? {
+        bill: structuredClone(current.bill),
+        expectedRevision: current.revision,
+      }
     : undefined;
 }
 
@@ -109,15 +115,27 @@ export async function saveProject(
 ): Promise<ProjectRecord> {
   const validation = validateProjectImport(project);
   if (!validation.valid)
-    throw new Error("Project could not be saved: " + validation.errors.join(" "));
+    throw new Error(
+      "Project could not be saved: " + validation.errors.join(" "),
+    );
   const snapshot = structuredClone(project);
-  const session = options.session === undefined
-    ? undefined
-    : validateProjectSession(options.session);
-  const billing = options.billing ?? (options.includeBilling ? captureBillingCheckpoint(project.id) : undefined);
-  const savedBill = billing ? parseBillJson(JSON.stringify(billing.bill)) : undefined;
+  const session =
+    options.session === undefined
+      ? undefined
+      : validateProjectSession(options.session);
+  const inputBilling =
+    options.billing ??
+    (options.includeBilling ? captureBillingCheckpoint(project.id) : undefined);
+  const billing = inputBilling ? structuredClone(inputBilling) : undefined;
+  const savedBill = billing
+    ? parseBillJson(JSON.stringify(billing.bill))
+    : undefined;
   const measurements = options.measurements
-    ? { payload: validateMeasurementPayload(options.measurements.payload).payload, expectedRevision: options.measurements.expectedRevision }
+    ? {
+        payload: validateMeasurementPayload(options.measurements.payload)
+          .payload,
+        expectedRevision: options.measurements.expectedRevision,
+      }
     : undefined;
   const expectedCheckpointId = options.expectedCheckpointId;
   const record: ProjectRecord = {
@@ -140,8 +158,13 @@ export async function saveProject(
     let settled = false;
     const timeout = setTimeout(() => {
       if (settled) return;
-      conflict = "Saving timed out. Your previous saved project remains unchanged; retry Save project or export a backup.";
-      try { tx.abort(); } catch { /* It may already have completed. */ }
+      conflict =
+        "Saving timed out and could not be confirmed. Keep this page open, retry Save project or export a backup.";
+      try {
+        tx.abort();
+      } catch {
+        /* It may already have completed. */
+      }
       finish(new Error(conflict));
     }, 8000);
     function finish(error?: Error) {
@@ -155,7 +178,8 @@ export async function saveProject(
       conflict = message;
       tx.abort();
     }
-    const projectConflict = "This project was changed or moved to trash in another tab. Export your changes or save a copy before reopening it.";
+    const projectConflict =
+      "This project was changed or moved to trash in another tab. Export your changes or save a copy before reopening it.";
     get.onsuccess = () => {
       const old = get.result as ProjectRecord | undefined;
       if (old?.deleted) {
@@ -191,20 +215,30 @@ export async function saveProject(
       });
     };
     if (billing && savedBill) {
-      const bills = tx.objectStore("bills"), read = bills.get(snapshot.id);
+      const bills = tx.objectStore("bills"),
+        read = bills.get(snapshot.id);
       read.onsuccess = () => {
         if ((read.result?.revision ?? null) !== billing.expectedRevision) {
-          abort("The customer bill changed in another tab. No part of this project save was committed. Reopen the saved bill or export your current bill before retrying.");
+          abort(
+            "The customer bill changed in another tab. No part of this project save was committed. Reopen the saved bill or export your current bill before retrying.",
+          );
           return;
         }
-        bills.put({ key: snapshot.id, revision: record.checkpointId!, bill: savedBill });
+        bills.put({
+          key: snapshot.id,
+          revision: record.checkpointId!,
+          bill: savedBill,
+        });
       };
     }
     if (measurements) {
-      const datasets = tx.objectStore("measurements"), read = datasets.get(snapshot.id);
+      const datasets = tx.objectStore("measurements"),
+        read = datasets.get(snapshot.id);
       read.onsuccess = () => {
         if ((read.result?.revision ?? null) !== measurements.expectedRevision) {
-          abort("The measured data changed in another tab. No part of this project save was committed. Reopen the saved measurements before retrying.");
+          abort(
+            "The measured data changed in another tab. No part of this project save was committed. Reopen the saved measurements before retrying.",
+          );
           return;
         }
         datasets.put({
@@ -216,7 +250,13 @@ export async function saveProject(
       };
     }
     tx.oncomplete = () => finish();
-    tx.onerror = tx.onabort = () => finish(new Error(conflict || "Local save failed. Export your project to keep a backup."));
+    tx.onerror = tx.onabort = () =>
+      finish(
+        new Error(
+          conflict ||
+            "Local save failed. Export your project to keep a backup.",
+        ),
+      );
   });
   if (billing && savedBill) {
     const live = liveDrafts.get(snapshot.id);
@@ -224,9 +264,17 @@ export async function saveProject(
       if (JSON.stringify(live.bill) === JSON.stringify(savedBill))
         acceptRestoredBilling(snapshot.id, savedBill, record.checkpointId!);
       else {
-        liveDrafts.set(snapshot.id, { ...live, revision: record.checkpointId!, dirty: true });
+        liveDrafts.set(snapshot.id, {
+          ...live,
+          revision: record.checkpointId!,
+          dirty: true,
+        });
         if (typeof window !== "undefined")
-          window.dispatchEvent(new CustomEvent("powerlab-billing-checkpoint", { detail: { projectId: snapshot.id, revision: record.checkpointId } }));
+          window.dispatchEvent(
+            new CustomEvent("powerlab-billing-checkpoint", {
+              detail: { projectId: snapshot.id, revision: record.checkpointId },
+            }),
+          );
       }
     }
   }

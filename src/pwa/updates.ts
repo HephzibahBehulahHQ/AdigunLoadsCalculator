@@ -13,10 +13,19 @@ export function updateBlockers(): string[] {
 
 /** Only edited data should trigger the browser's leave warning. */
 export function unsavedBlockers(): string[] {
-  return [...new Set([...guards.values()].map((guard) => guard()).filter((value): value is string => !!value))];
+  return [
+    ...new Set(
+      [...guards.values()]
+        .map((guard) => guard())
+        .filter((value): value is string => !!value),
+    ),
+  ];
 }
 
-export function registerUpdateGuard(guard: UpdateGuard, unsaved: UpdateGuard = guard): () => void {
+export function registerUpdateGuard(
+  guard: UpdateGuard,
+  unsaved: UpdateGuard = guard,
+): () => void {
   guards.set(guard, unsaved);
   return () => {
     guards.delete(guard);

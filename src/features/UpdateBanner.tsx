@@ -63,6 +63,8 @@ export function UpdateBanner({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const current = useRef(version);
+  const needsSave = useRef(projectNeedsSave);
+  needsSave.current = projectNeedsSave;
   const activated = useRef(false);
   const waitingWorker = useRef<ServiceWorker | null>(null);
   current.current = version;
@@ -116,7 +118,7 @@ export function UpdateBanner({
         setError(`${u.finish} ${pending.join(", ")}`);
         return;
       }
-      if (current.current !== beforeSave) {
+      if (current.current !== beforeSave || needsSave.current?.()) {
         setError(u.changed);
         return;
       }
@@ -129,7 +131,7 @@ export function UpdateBanner({
         setError(`${u.finish} ${lateDrafts.join(", ")}`);
         return;
       }
-      if (current.current !== beforeSave) {
+      if (current.current !== beforeSave || needsSave.current?.()) {
         setError(u.changed);
         return;
       }

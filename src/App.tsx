@@ -70,6 +70,7 @@ import {
 import {
   listProjects,
   saveProject,
+  captureBillingCheckpoint,
   setTrashed,
   projectHistory,
   readPreference,
@@ -120,9 +121,13 @@ import {
   restoreProjectSession,
   projectContentFingerprint,
   projectSessionFingerprint,
+  remapProjectSession,
   type ProjectSession,
 } from "./storage/projectSession";
-import { ProjectInterview, type InterviewProgress } from "./features/ProjectInterview";
+import {
+  ProjectInterview,
+  type InterviewProgress,
+} from "./features/ProjectInterview";
 import { HelpSupport } from "./features/HelpSupport";
 import {
   Overview,
@@ -298,9 +303,13 @@ export default function App() {
   const [records, setRecords] = useState<ProjectRecord[]>([]);
   const [route, setRoute] = useState("overview");
   const [saveState, setSaveState] = useState("Not saved");
-  const [interview, setInterview] = useState<InterviewProgress>({ step: 1, completed: false });
+  const [interview, setInterview] = useState<InterviewProgress>({
+    step: 1,
+    completed: false,
+  });
   const [helpOpen, setHelpOpen] = useState(false);
   const [sessionTick, setSessionTick] = useState(0);
+  const [workspaceEpoch, setWorkspaceEpoch] = useState(0);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(() => readPreference("theme", "dark"));
@@ -366,6 +375,12 @@ export default function App() {
     id: string;
     revision: number;
   }>();
+  useUpdateGuard(
+    (dialog === "rename" && name !== project.name) ||
+      (dialog === "projects" && name.trim() !== "") ||
+      (dialog === "import" && (mappingDirty || Boolean(preview))),
+    t("Project dialog"),
+  );
   const [botOpen, setBotOpen] = useState(false);
   const [reportTab, setReportTab] = useState<"engineering" | "billing">(
     "engineering",
@@ -414,12 +429,23 @@ export default function App() {
   const baseline = useRef(new Map<string, string>());
   const initialProject = useRef(project.id);
   const saving = useRef(0);
+  const navigationTicket = useRef(0);
+  const inputRevision = useRef(0);
   const sessionMeta = useRef({ interview, route, selected, botOpen });
   sessionMeta.current = { interview, route, selected, botOpen };
   const fingerprint = (p: Project, session: ProjectSession) =>
     projectContentFingerprint(p) + projectSessionFingerprint(session);
-  if (!baseline.current.has(initialProject.current) && project.id === initialProject.current)
-    baseline.current.set(project.id, fingerprint(project, captureProjectSession(project.id, sessionMeta.current)));
+  if (
+    !baseline.current.has(initialProject.current) &&
+    project.id === initialProject.current
+  )
+    baseline.current.set(
+      project.id,
+      fingerprint(
+        project,
+        captureProjectSession(project.id, sessionMeta.current),
+      ),
+    );
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const channel = useRef<BroadcastChannel | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -444,11 +470,23 @@ export default function App() {
     history.replaceState(null, "", "#/overview");
     let alive = true;
     listProjects(true)
-      .then((all) => { if (alive) setRecords(all); })
-      .catch((cause) => { if (alive) setError((cause as Error).message); });
-    return () => { alive = false; };
+      .then((all) => {
+        if (alive) setRecords(all);
+      })
+      .catch((cause) => {
+        if (alive) setError((cause as Error).message);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
-  useEffect(() => botSessions.subscribe(project.id, () => setSessionTick((tick) => tick + 1)), [project.id]);
+  useEffect(
+    () =>
+      botSessions.subscribe(project.id, () =>
+        setSessionTick((tick) => tick + 1),
+      ),
+    [project.id],
+  );
   useEffect(() => {
     const changed = () => setSessionTick((tick) => tick + 1);
     window.addEventListener("powerlab-billing-changed", changed);
@@ -462,11 +500,23 @@ export default function App() {
   }, []);
   function hasUnsavedProject() {
     const current = latest.current;
-    return baseline.current.get(current.id) !== fingerprint(current, captureProjectSession(current.id, sessionMeta.current)) ||
-      Boolean(liveDrafts.get(current.id)?.dirty);
+    return (
+      baseline.current.get(current.id) !==
+        fingerprint(
+          current,
+          captureProjectSession(current.id, sessionMeta.current),
+        ) || Boolean(liveDrafts.get(current.id)?.dirty)
+    );
   }
   useEffect(() => {
-    if (!saving.current) setSaveState(hasUnsavedProject() ? "Unsaved changes" : lastSaved.current.has(project.id) ? "Saved locally" : "Not saved");
+    if (!saving.current)
+      setSaveState(
+        hasUnsavedProject()
+          ? "Unsaved changes"
+          : lastSaved.current.has(project.id)
+            ? "Saved locally"
+            : "Not saved",
+      );
   }, [project, interview, sessionTick]);
   useEffect(() => {
     const media = matchMedia("(max-width: 800px)");
@@ -493,47 +543,91 @@ export default function App() {
     return () => mq.removeEventListener("change", apply);
   }, [locale, theme, motion, sidebar]);
   function persist(p: Project = latest.current): Promise<void> {
-    const pending = unsavedBlockers().filter((label) => label !== t("Customer bill"));
-    if (pending.length) {
-      const cause = new Error(t("Finish or apply the open entries before saving the project.") + " " + pending.join(", "));
-      setError(cause.message);
+    try {
+      if (saving.current) {
+        const cause = new Error(t("Wait for the current save to finish."));
+        setError(cause.message);
+        const rejected = Promise.reject(cause);
+        void rejected.catch(() => {});
+        return rejected;
+      }
+      const pending = unsavedBlockers().filter(
+        (label) => label !== t("Customer bill"),
+      );
+      if (pending.length) {
+        const cause = new Error(
+          t("Finish or apply the open entries before saving the project.") +
+            " " +
+            pending.join(", "),
+        );
+        setError(cause.message);
+        setSaveState("Save failed");
+        const rejected = Promise.reject(cause);
+        void rejected.catch(() => {});
+        return rejected;
+      }
+      const snapshot = structuredClone(p);
+      const session = captureProjectSession(snapshot.id, sessionMeta.current);
+      const billing = captureBillingCheckpoint(snapshot.id);
+      const savedFingerprint = fingerprint(snapshot, session);
+      saving.current++;
+      setSaveState("Saving");
+      setError("");
+      const work = saveQueue.current
+        .catch(() => {})
+        .then(async () => {
+          const record = await saveProject(
+            snapshot,
+            lastSaved.current.get(snapshot.id),
+            {
+              session,
+              expectedCheckpointId:
+                checkpointIds.current.get(snapshot.id) ?? null,
+              billing,
+            },
+          );
+          lastSaved.current.set(snapshot.id, snapshot.revision);
+          checkpointIds.current.set(
+            snapshot.id,
+            record.checkpointId ?? record.savedAt,
+          );
+          baseline.current.set(snapshot.id, savedFingerprint);
+          channel.current?.postMessage({
+            id: snapshot.id,
+            revision: snapshot.revision,
+            updatedAt: snapshot.updatedAt,
+            checkpointId: record.checkpointId,
+          });
+          setRecords((previous) => [
+            record,
+            ...previous.filter((row) => row.id !== record.id),
+          ]);
+          void refreshRecords();
+        });
+      saveQueue.current = work;
+      void work.then(
+        () => {
+          saving.current--;
+          if (latest.current.id === snapshot.id && !saving.current) {
+            const dirty = hasUnsavedProject();
+            setSaveState(dirty ? "Unsaved changes" : "Saved locally");
+            if (!dirty) setMessage(t("Saved locally"));
+          }
+        },
+        (cause) => {
+          saving.current--;
+          setSaveState("Save failed");
+          setError((cause as Error).message);
+        },
+      );
+      return work;
+    } catch (cause) {
       setSaveState("Save failed");
+      setError((cause as Error).message);
       const rejected = Promise.reject(cause);
       void rejected.catch(() => {});
       return rejected;
     }
-    const snapshot = structuredClone(p);
-    const session = captureProjectSession(snapshot.id, sessionMeta.current);
-    const savedFingerprint = fingerprint(snapshot, session);
-    saving.current++;
-    setSaveState("Saving");
-    setError("");
-    const work = saveQueue.current.catch(() => {}).then(async () => {
-      const record = await saveProject(snapshot, lastSaved.current.get(snapshot.id), {
-        session,
-        expectedCheckpointId: checkpointIds.current.get(snapshot.id) ?? null,
-        includeBilling: true,
-      });
-      lastSaved.current.set(snapshot.id, snapshot.revision);
-      checkpointIds.current.set(snapshot.id, record.checkpointId ?? record.savedAt);
-      baseline.current.set(snapshot.id, savedFingerprint);
-      channel.current?.postMessage({ id: snapshot.id, revision: snapshot.revision, updatedAt: snapshot.updatedAt, checkpointId: record.checkpointId });
-      await refreshRecords();
-    });
-    saveQueue.current = work;
-    void work.then(() => {
-      saving.current--;
-      if (latest.current.id === snapshot.id && !saving.current) {
-        const dirty = hasUnsavedProject();
-        setSaveState(dirty ? "Unsaved changes" : "Saved locally");
-        if (!dirty) setMessage(t("Saved locally"));
-      }
-    }, (cause) => {
-      saving.current--;
-      setSaveState("Save failed");
-      setError((cause as Error).message);
-    });
-    return work;
   }
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
@@ -542,8 +636,10 @@ export default function App() {
     c.onmessage = (e) => {
       if (
         e.data.id === latest.current.id &&
-        e.data.updatedAt !== latest.current.updatedAt &&
-        e.data.revision >= latest.current.revision
+        ((e.data.checkpointId &&
+          e.data.checkpointId !== checkpointIds.current.get(e.data.id)) ||
+          (e.data.updatedAt !== latest.current.updatedAt &&
+            e.data.revision >= latest.current.revision))
       ) {
         setError(
           "Another tab has changed this project. Export your work, save a copy, or reopen the saved project.",
@@ -569,7 +665,10 @@ export default function App() {
       setError((e as Error).message);
       return false;
     }
-    if (projectContentFingerprint(draft) === projectContentFingerprint(previous)) return true;
+    if (
+      projectContentFingerprint(draft) === projectContentFingerprint(previous)
+    )
+      return true;
     draft.revision = previous.revision + 1;
     draft.updatedAt = new Date().toISOString();
     undo.current.push(previous);
@@ -609,7 +708,13 @@ export default function App() {
     setProject(restored);
     setHistoryTick((n) => n + 1);
   }
+  function showProjects() {
+    setName("");
+    setDialog("projects");
+    void refreshRecords();
+  }
   function go(r: string) {
+    navigationTicket.current++;
     setRoute(r);
     history.replaceState(null, "", "#/" + r);
     setDialog(null);
@@ -620,16 +725,40 @@ export default function App() {
         .then(setRevisions)
         .catch((e) => setError(e.message));
   }
-  function canLeaveProject() {
+  function workspaceStamp() {
+    return (
+      latest.current.id +
+      fingerprint(
+        latest.current,
+        captureProjectSession(latest.current.id, sessionMeta.current),
+      ) +
+      JSON.stringify(liveDrafts.get(latest.current.id)?.bill ?? null) +
+      ":" +
+      inputRevision.current
+    );
+  }
+  function canLeaveProject(ignoreProjectDialog = false) {
     if (saving.current) {
       setError(t("Wait for the current save to finish."));
       return false;
     }
-    if (hasUnsavedProject() || unsavedBlockers().length)
-      return confirm(t("Unsaved changes will be discarded. Continue? Save project first to keep them."));
+    if (
+      hasUnsavedProject() ||
+      unsavedBlockers().some(
+        (label) => !ignoreProjectDialog || label !== t("Project dialog"),
+      )
+    )
+      return confirm(
+        t(
+          "Unsaved changes will be discarded. Continue? Save project first to keep them.",
+        ),
+      );
     return true;
   }
   function installProject(next: Project, saved?: ProjectRecord, fresh = false) {
+    navigationTicket.current++;
+    setWorkspaceEpoch((epoch) => epoch + 1);
+    setMessage("");
     const sourceId = latest.current.id;
     // Discard the abandoned in-memory copy, never the durable saved record.
     liveDrafts.delete(sourceId);
@@ -642,18 +771,34 @@ export default function App() {
     restoreProjectSession(next.id, session);
     const progress: InterviewProgress = session?.interview ?? {
       step: 1,
-      completed: Boolean(saved || next.loads.length || next.referenceCase || next.scenarioOf),
+      completed: Boolean(
+        saved || next.loads.length || next.referenceCase || next.scenarioOf,
+      ),
     };
-    const nextRoute = session && routes.some((entry) => entry.id === session.route) ? session.route : "overview";
-    const activeRoute = progress.completed ? nextRoute : "overview";
-    const meta = { interview: progress, route: activeRoute, selected: session?.selected, botOpen: session?.botOpen ?? false };
+    const nextRoute =
+      session && routes.some((entry) => entry.id === session.route)
+        ? session.route
+        : "overview";
+    const activeRoute = nextRoute;
+    const meta = {
+      interview: progress,
+      route: activeRoute,
+      selected: session?.selected,
+      botOpen: session?.botOpen ?? false,
+    };
     sessionMeta.current = meta;
     if (saved) {
       lastSaved.current.set(next.id, next.revision);
       checkpointIds.current.set(next.id, saved.checkpointId ?? saved.savedAt);
-      baseline.current.set(next.id, fingerprint(next, captureProjectSession(next.id, meta)));
+      baseline.current.set(
+        next.id,
+        fingerprint(next, captureProjectSession(next.id, meta)),
+      );
     } else if (fresh) {
-      baseline.current.set(next.id, fingerprint(next, captureProjectSession(next.id, meta)));
+      baseline.current.set(
+        next.id,
+        fingerprint(next, captureProjectSession(next.id, meta)),
+      );
     }
     setProject(latest.current);
     setInterview(progress);
@@ -667,15 +812,31 @@ export default function App() {
     setQuery("");
     setRoute(activeRoute);
     history.replaceState(null, "", "#/" + activeRoute);
-    setSaveState(saved ? "Saved locally" : fresh ? "Not saved" : "Unsaved changes");
+    setSaveState(
+      saved ? "Saved locally" : fresh ? "Not saved" : "Unsaved changes",
+    );
     setError("");
   }
   async function openProject(next: Project) {
+    const ticket = ++navigationTicket.current;
     if (!canLeaveProject()) return;
+    const stamp = workspaceStamp();
     try {
       const all = await listProjects(true);
+      if (ticket !== navigationTicket.current) return;
+      if (stamp !== workspaceStamp()) {
+        setError(
+          t(
+            "The workspace changed while opening. Your current work is intact; select the saved project again.",
+          ),
+        );
+        return;
+      }
       const saved = all.find((row) => row.id === next.id && !row.deleted);
-      if (!saved) throw new Error("The saved project is unavailable. Refresh the project list or restore it from trash.");
+      if (!saved)
+        throw new Error(
+          "The saved project is unavailable. Refresh the project list or restore it from trash.",
+        );
       setRecords(all);
       installProject(saved.project, saved);
     } catch (cause) {
@@ -683,31 +844,74 @@ export default function App() {
     }
   }
   async function createAndOpen(next: Project) {
-    if (!canLeaveProject()) return;
+    if (!canLeaveProject(true)) return false;
     installProject(next);
+    return true;
   }
   async function closeProject(trash: boolean) {
+    const ticket = ++navigationTicket.current;
     if (!canLeaveProject()) return;
     const source = latest.current;
+    const stamp = workspaceStamp();
     try {
-      if (trash && lastSaved.current.has(source.id)) await setTrashed(source.id, true);
+      if (trash && lastSaved.current.has(source.id))
+        await setTrashed(source.id, true);
+      if (ticket !== navigationTicket.current) return;
+      if (stamp !== workspaceStamp()) {
+        setError(
+          t(
+            "The workspace changed while closing. Your current edits are intact. Resume the saved checkpoint or save a copy.",
+          ),
+        );
+        return;
+      }
       installProject(createProject("Untitled project"), undefined, true);
       await refreshRecords();
-      setMessage(t(trash ? "Project moved to trash" : "Project closed. Saved checkpoints remain available in Resume project."));
+      setMessage(
+        t(
+          trash
+            ? "Project moved to trash"
+            : "Project closed. Saved checkpoints remain available in Resume project.",
+        ),
+      );
     } catch (cause) {
       setError((cause as Error).message);
     }
   }
   async function saveCopy() {
+    if (saving.current) {
+      setError(t("Wait for the current save to finish."));
+      return;
+    }
+    const ticket = ++navigationTicket.current;
+    const stamp = workspaceStamp();
     const source = latest.current;
     const copy = duplicateProject(source, source.name + " · recovered copy");
-    const session = captureProjectSession(source.id, sessionMeta.current);
+    const session = remapProjectSession(
+      captureProjectSession(source.id, sessionMeta.current),
+      { [source.id]: copy.id },
+    );
     const bill = liveDrafts.get(source.id);
-    if (bill) liveDrafts.set(copy.id, { bill: structuredClone(bill.bill), revision: null, dirty: true });
+    if (bill)
+      liveDrafts.set(copy.id, {
+        bill: { ...structuredClone(bill.bill), projectName: copy.name },
+        revision: null,
+        dirty: true,
+      });
     try {
-      const saved = await saveProject(copy, undefined, { session, expectedCheckpointId: null, includeBilling: true });
-      installProject(copy, saved);
+      const saved = await saveProject(copy, undefined, {
+        session,
+        expectedCheckpointId: null,
+        includeBilling: true,
+      });
       await refreshRecords();
+      if (ticket !== navigationTicket.current || stamp !== workspaceStamp()) {
+        setMessage(
+          t("Copy saved. Newer changes remain in the current workspace."),
+        );
+        return;
+      }
+      installProject(copy, saved);
     } catch (cause) {
       liveDrafts.delete(copy.id);
       setError((cause as Error).message);
@@ -803,7 +1007,7 @@ export default function App() {
     }
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [project]);
+  }, [project, locale]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 3500);
@@ -1199,6 +1403,9 @@ export default function App() {
   return (
     <LanguageContext.Provider value={locale}>
       <div
+        onInputCapture={() => {
+          inputRevision.current++;
+        }}
         className={
           "app " +
           (sidebar ? "" : "sidebar-collapsed") +
@@ -1235,8 +1442,7 @@ export default function App() {
           <button
             className="project-switch"
             onClick={() => {
-              setDialog("projects");
-              void refreshRecords();
+              showProjects();
             }}
           >
             <FolderOpen size={16} />
@@ -1244,6 +1450,8 @@ export default function App() {
             <ChevronDown size={14} />
           </button>
           <span
+            role="status"
+            aria-live="polite"
             className={
               "save-badge " + (saveState === "Save failed" ? "bad" : "")
             }
@@ -1259,7 +1467,10 @@ export default function App() {
             <span>{t(saveState)}</span>
           </span>
           <span className="spacer" />
-          <button className="button help-support-button" onClick={() => setHelpOpen(true)}>
+          <button
+            className="button help-support-button"
+            onClick={() => setHelpOpen(true)}
+          >
             <HelpCircle size={17} /> <span>{t("Help & Support")}</span>
           </button>
           <button
@@ -1403,16 +1614,14 @@ export default function App() {
                 <button
                   onClick={() => {
                     setName("");
-                    setDialog("projects");
-                    void refreshRecords();
+                    showProjects();
                   }}
                 >
                   {t("New project")}
                 </button>
                 <button
                   onClick={() => {
-                    setDialog("projects");
-                    void refreshRecords();
+                    showProjects();
                   }}
                 >
                   {t("Open project")}
@@ -1430,7 +1639,12 @@ export default function App() {
                 >
                   {t("Duplicate project")}
                 </button>
-                <button disabled={saveState === "Saving"} onClick={() => void persist()}>{t("Save project")}</button>
+                <button
+                  disabled={saveState === "Saving"}
+                  onClick={() => void persist()}
+                >
+                  {t("Save project")}
+                </button>
                 <button onClick={() => exportProject(project)}>
                   {t("Export project")}
                 </button>
@@ -1442,8 +1656,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setDialog("projects");
-                    void refreshRecords();
+                    showProjects();
                   }}
                 >
                   {t("Restore from trash")}
@@ -1462,8 +1675,15 @@ export default function App() {
                 </button>
               </div>
             </details>
-            <button className="button small-button resume-project-button" aria-label={t("Resume project")} onClick={() => { setDialog("projects"); void refreshRecords(); }}>
-              <FolderOpen size={15} /><span>{t("Resume project")}</span>
+            <button
+              className="button small-button resume-project-button"
+              aria-label={t("Resume project")}
+              onClick={() => {
+                showProjects();
+              }}
+            >
+              <FolderOpen size={15} />
+              <span>{t("Resume project")}</span>
             </button>
             <div className="history-buttons">
               <button
@@ -1544,6 +1764,7 @@ export default function App() {
             projectNeedsSave={hasUnsavedProject}
           />
           <div
+            key={workspaceEpoch}
             className={
               "workspace-content " +
               (selectedObject || showTrace ? "with-inspector" : "")
@@ -1585,16 +1806,22 @@ export default function App() {
                 <>
                   {route === "overview" && (
                     <>
-                    <ProjectInterview key={project.id} project={project} progress={interview}
-                      onProgress={setInterview} change={change} onHelp={() => setHelpOpen(true)} />
-                    <Overview
-                      project={project}
-                      result={result}
-                      detailMode={detailMode}
-                      onAdd={() => setEditor({})}
-                      onReference={() => setDialog("references")}
-                      onRoute={go}
-                    />
+                      <ProjectInterview
+                        key={project.id}
+                        project={project}
+                        progress={interview}
+                        onProgress={setInterview}
+                        change={change}
+                        onHelp={() => setHelpOpen(true)}
+                      />
+                      <Overview
+                        project={project}
+                        result={result}
+                        detailMode={detailMode}
+                        onAdd={() => setEditor({})}
+                        onReference={() => setDialog("references")}
+                        onRoute={go}
+                      />
                     </>
                   )}
                   {route === "loads" && (
@@ -1860,6 +2087,7 @@ export default function App() {
                             projectName={project.name}
                             currency={project.currency}
                             locale={locale}
+                            onSaveProject={() => persist()}
                           />
                         </Suspense>
                       ) : (
@@ -2030,8 +2258,7 @@ export default function App() {
                           <button
                             className="button"
                             onClick={() => {
-                              setDialog("projects");
-                              void refreshRecords();
+                              showProjects();
                             }}
                           >
                             {t("Trash")}
@@ -2040,6 +2267,10 @@ export default function App() {
                       </section>
                       <WorkspaceRecovery
                         activeProject={project}
+                        activeSession={captureProjectSession(
+                          project.id,
+                          sessionMeta.current,
+                        )}
                         onRestored={async ({ activeIds }) => {
                           await refreshRecords();
                           const saved = await listProjects();
@@ -2391,16 +2622,36 @@ export default function App() {
           </Modal>
         )}
         {dialog === "projects" && (
-          <Modal title={t("Open project")} onClose={() => setDialog(null)} wide>
+          <Modal
+            title={t("Open project")}
+            onClose={() => {
+              navigationTicket.current++;
+              setDialog(null);
+            }}
+            wide
+          >
             <div className="modal-body">
-              <p>{t("Saved projects stay on this browser. Choose one to resume; new visits start a fresh interview.")}</p>
-              {!records.some((record) => !record.deleted) && <Notice>{t("No saved projects yet. Use Save project to keep your work.")}</Notice>}
+              <p>
+                {t(
+                  "Saved projects stay on this browser. Choose one to resume; new visits start a fresh interview.",
+                )}
+              </p>
+              {!records.some((record) => !record.deleted) && (
+                <Notice>
+                  {t(
+                    "No saved projects yet. Use Save project to keep your work.",
+                  )}
+                </Notice>
+              )}
               <form
                 className="inline-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void createAndOpen(createProject(name.trim()));
-                  setName("");
+                  void createAndOpen(createProject(name.trim())).then(
+                    (opened) => {
+                      if (opened) setName("");
+                    },
+                  );
                 }}
               >
                 <Field label={t("New project")}>

@@ -5,6 +5,10 @@ import {
   validateMeasurementPayload,
   type MeasurementPayload,
 } from "../storage/measurements";
+import {
+  validateProjectSession,
+  type ProjectSession,
+} from "../storage/projectSession";
 
 export const WORKSPACE_ARCHIVE_LIMIT = 64 * 1024 * 1024;
 export interface RecoveryRecord {
@@ -20,6 +24,8 @@ export interface ArchivedProject {
   savedAt: string;
   history: Project[];
   workingDraft?: Project;
+  session?: ProjectSession;
+  workingSession?: ProjectSession;
   bill: BillDocument | null;
   measurements: MeasurementPayload | null;
 }
@@ -206,6 +212,18 @@ export async function validateWorkspaceArchive(
         if (!draft.valid || draft.project?.id !== project.id)
           errors.push(`${label}: invalid working draft.`);
         else counts.workingDrafts++;
+      }
+      for (const key of ["session", "workingSession"] as const) {
+        if (raw[key] === undefined) continue;
+        try {
+          validateProjectSession(raw[key]);
+          if (key === "workingSession" && raw.workingDraft === undefined)
+            counts.workingDrafts++;
+        } catch (error) {
+          errors.push(
+            `${label}: invalid ${key} (${(error as Error).message}).`,
+          );
+        }
       }
       try {
         if (raw.bill !== null) {

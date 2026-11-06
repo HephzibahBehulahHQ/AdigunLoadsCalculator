@@ -1,14 +1,18 @@
 import { useEffect, useRef } from "react";
 import { registerUpdateGuard, unsavedBlockers } from "./updates";
 
-export function useUpdateGuard(blocked: boolean, label: string, unsaved = blocked) {
+export function useUpdateGuard(
+  blocked: boolean,
+  label: string,
+  unsaved = blocked,
+) {
   const current = useRef({ blocked, label, unsaved });
   current.current = { blocked, label, unsaved };
   useEffect(
     () =>
-      registerUpdateGuard(() =>
-        current.current.blocked ? current.current.label : undefined,
-        () => current.current.unsaved ? current.current.label : undefined,
+      registerUpdateGuard(
+        () => (current.current.blocked ? current.current.label : undefined),
+        () => (current.current.unsaved ? current.current.label : undefined),
       ),
     [],
   );

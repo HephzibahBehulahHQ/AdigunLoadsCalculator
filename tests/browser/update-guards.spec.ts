@@ -1,4 +1,4 @@
-import { test, expect, saveProject, resumeProject } from "./fixtures";
+import { test, expect, resumeProject } from "./fixtures";
 
 test("edits made during worker activation survive and a saved retry reloads safely", async ({
   page,
@@ -67,7 +67,9 @@ test("edits made during worker activation survive and a saved retry reloads safe
     page.waitForEvent("load"),
     page.getByRole("button", { name: "Save and reload", exact: true }).click(),
   ]);
-  await expect(page.locator(".project-switch")).toContainText("Untitled project");
+  await expect(page.locator(".project-switch")).toContainText(
+    "Untitled project",
+  );
   await resumeProject(page);
   await expect(
     page.getByRole("button", {

@@ -189,12 +189,7 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
       page.evaluate(async () => {
         const path = "/src/storage/projects.ts";
         const store = await import(path);
-        const id = JSON.parse(
-          localStorage.getItem("powerlab:ui:currentProject")!,
-        );
-        return (await store.listProjects()).find(
-          (row: { id: string }) => row.id === id,
-        )?.project.loads[0]?.rating;
+        return (await store.listProjects())[0]?.project.loads[0]?.rating;
       }),
     )
     .toBe(2.3);
@@ -202,10 +197,8 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
   await page.evaluate(async () => {
     const path = "/src/storage/projects.ts";
     const store = await import(path);
-    const id = JSON.parse(localStorage.getItem("powerlab:ui:currentProject")!);
-    const record = (await store.listProjects()).find(
-      (row: { id: string }) => row.id === id,
-    );
+    const record = (await store.listProjects())[0];
+    const id = record.id;
     const external = {
       ...structuredClone(record.project),
       name: "Winning saved revision",
@@ -249,10 +242,7 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
   const winner = await page.evaluate(async () => {
     const path = "/src/storage/projects.ts";
     const store = await import(path);
-    const id = JSON.parse(localStorage.getItem("powerlab:ui:currentProject")!);
-    return (await store.listProjects()).find(
-      (row: { id: string }) => row.id === id,
-    ).project;
+    return (await store.listProjects())[0].project;
   });
   expect(winner.name).toBe("Winning saved revision");
   expect(winner.loads[0].rating).toBe(2.3);
@@ -271,9 +261,9 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
     const path = "/src/storage/projects.ts";
     const store = await import(path);
     const records = await store.listProjects();
-    const id = JSON.parse(localStorage.getItem("powerlab:ui:currentProject")!);
     return {
-      current: records.find((row: { id: string }) => row.id === id).project,
+      current: records.find((row: { id: string }) => row.id !== winnerId)
+        .project,
       original: records.find((row: { id: string }) => row.id === winnerId)
         .project,
     };
@@ -283,7 +273,10 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
   expect(recovered.original).toEqual(winner);
   await page.reload();
   await resumeProject(page, recovered.current.name);
-  await page.locator(".sidebar").getByRole("button", { name: /^Load Schedule/ }).click();
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: /^Load Schedule/ })
+    .click();
   await expect(page.locator(".load-table")).toContainText("Recovery heater");
   await expect(page.locator(".load-table")).toContainText("24 kWh");
 });

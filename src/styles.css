@@ -3242,3 +3242,110 @@ details p {
   background: var(--surface2);
   outline: 2px solid var(--cyan);
 }
+
+/* Setup and support stay accessible without replacing the active workspace. */
+.project-interview {
+  margin-bottom: 22px;
+  border-color: color-mix(in srgb, var(--cyan) 38%, var(--border));
+}
+.interview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.interview-heading h3 {
+  margin: 5px 0;
+}
+.project-interview .button-row {
+  margin-top: 18px;
+}
+.interview-review {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) 2fr;
+  gap: 8px 18px;
+}
+.interview-review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.help-support-button {
+  flex-shrink: 0;
+}
+@media (max-width: 1100px) {
+  .topbar {
+    gap: 10px;
+    padding-inline: 16px;
+  }
+  .topbar .command-button kbd {
+    display: none;
+  }
+  .help-support-button {
+    font-size: 11px;
+    padding-inline: 9px;
+  }
+}
+@media (max-width: 800px) {
+  .app {
+    grid-template-rows: 104px minmax(0, 1fr);
+  }
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+    padding: 8px 12px;
+  }
+  .topbar .brand {
+    grid-column: 1;
+    grid-row: 1;
+    gap: 8px;
+    min-width: 0;
+  }
+  .topbar .brand h1 {
+    font-size: 15px;
+  }
+  .topbar .brand-divider,
+  .topbar > .spacer {
+    display: none;
+  }
+  .topbar .help-support-button {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: 116px;
+    white-space: normal;
+  }
+  .topbar .project-switch {
+    grid-column: 1;
+    grid-row: 2;
+    max-width: 100%;
+    justify-self: start;
+  }
+  .topbar .language-select {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+  .sidebar {
+    top: 104px;
+  }
+  .workspace-toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 54px;
+    padding-block: 7px;
+  }
+  .workspace-toolbar .breadcrumb {
+    display: none;
+  }
+  .workspace-toolbar > .resume-project-button span {
+    display: inline;
+    font-size: 10px;
+  }
+  .interview-heading {
+    align-items: start;
+  }
+  .interview-heading .button {
+    max-width: 115px;
+    white-space: normal;
+  }
+}

@@ -869,7 +869,9 @@ export default function LocalBot({
                 )}
               </p>
               <small>
-                {l("Save project keeps this conversation and unfinished command.")}
+                {l(
+                  "Save project keeps this conversation and unfinished command.",
+                )}
               </small>
             </div>
             {messages.map((message) => (

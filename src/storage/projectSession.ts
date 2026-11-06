@@ -39,7 +39,9 @@ export function validateProjectSession(value: unknown): ProjectSession {
     (value.selected !== undefined &&
       (typeof value.selected !== "string" || value.selected.length > 240))
   )
-    throw new Error("The saved project interview or workspace state is invalid.");
+    throw new Error(
+      "The saved project interview or workspace state is invalid.",
+    );
   if (JSON.stringify(value).length > 8_000_000)
     throw new Error(
       "The BOT conversation is too large to save. Clear unneeded history and try Save project again.",
@@ -61,11 +63,11 @@ export function captureProjectSession(
   projectId: string,
   view: SessionView,
 ): ProjectSession {
-  return validateProjectSession({
+  return {
     version: 1,
     ...view,
     bot: snapshotBotSession(projectId),
-  });
+  };
 }
 
 export function restoreProjectSession(
@@ -103,4 +105,29 @@ export function projectSessionFingerprint(session: ProjectSession): string {
 
 export function projectContentFingerprint(project: Project): string {
   return JSON.stringify({ ...project, revision: 0, updatedAt: "" });
+}
+
+/** Restore copies keep their transcript but cannot apply a pre-restore proposal. */
+export function remapProjectSession(
+  source: ProjectSession,
+  ids: Record<string, string>,
+): ProjectSession {
+  const session = validateProjectSession(source);
+  if (session.selected) {
+    if (ids[session.selected]) session.selected = ids[session.selected];
+    else if (session.selected.startsWith("source:")) {
+      const previous = session.selected.slice("source:".length);
+      if (ids[previous]) session.selected = "source:" + ids[previous];
+    }
+  }
+  for (const message of session.bot.messages) {
+    const response = message.response;
+    if (!response) continue;
+    message.restored = true;
+    response.projectId = ids[response.projectId] ?? response.projectId;
+    if (response.proposal)
+      response.proposal.projectId =
+        ids[response.proposal.projectId] ?? response.proposal.projectId;
+  }
+  return session;
 }

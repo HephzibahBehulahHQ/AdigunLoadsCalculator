@@ -1,4 +1,4 @@
-import { test, expect, saveProject, resumeProject } from "./fixtures";
+import { test, expect, saveProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import type { Project } from "../../src/domain/types";

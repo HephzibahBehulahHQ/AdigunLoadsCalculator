@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLoad, createProject } from "../src/domain/project";
+import { captureProjectSession } from "../src/storage/projectSession";
 import {
   canonicalArchiveJson,
   sealWorkspaceArchive,
@@ -16,6 +17,57 @@ const entry = (): ArchivedProject => ({
 });
 
 describe("portable workspace backup validation", () => {
+  it("round-trips optional saved interview and BOT metadata without changing legacy v1 requirements", async () => {
+    const saved = entry();
+    saved.session = captureProjectSession(saved.project.id, {
+      interview: { step: 2, completed: false },
+      route: "overview",
+      botOpen: true,
+    });
+    saved.session.bot.draft = "Continue my engineering question";
+    const archive = await sealWorkspaceArchive([saved]);
+    const validated = await validateWorkspaceArchive(archive);
+    expect(validated.valid).toBe(true);
+    expect(validated.archive?.projects[0].session).toEqual(saved.session);
+    expect(validated.counts.workingDrafts).toBe(0);
+    expect(
+      (await validateWorkspaceArchive(await sealWorkspaceArchive([entry()])))
+        .valid,
+    ).toBe(true);
+  });
+
+  it("preserves a working interview separately from the earlier explicitly saved session", async () => {
+    const saved = entry();
+    saved.session = captureProjectSession(saved.project.id, {
+      interview: { step: 1, completed: false },
+      route: "overview",
+      botOpen: false,
+    });
+    saved.workingSession = {
+      ...structuredClone(saved.session),
+      interview: { step: 3, completed: false },
+    };
+    const validated = await validateWorkspaceArchive(
+      await sealWorkspaceArchive([saved]),
+    );
+    expect(validated.valid).toBe(true);
+    expect(validated.counts.workingDrafts).toBe(1);
+    expect(validated.archive?.projects[0].session?.interview.step).toBe(1);
+    expect(validated.archive?.projects[0].workingSession?.interview.step).toBe(
+      3,
+    );
+  });
+
+  it("rejects invalid optional session metadata even when the archive checksum is valid", async () => {
+    const saved = entry();
+    saved.session = { version: 99 } as never;
+    const validated = await validateWorkspaceArchive(
+      await sealWorkspaceArchive([saved]),
+    );
+    expect(validated.valid).toBe(false);
+    expect(validated.errors.join(" ")).toContain("invalid session");
+  });
+
   it("round-trips current records, trash, history, working drafts, equipment templates and observed CSV", async () => {
     const first = entry();
     first.project.equipmentLibrary = [

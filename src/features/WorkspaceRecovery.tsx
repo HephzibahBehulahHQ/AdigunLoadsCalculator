@@ -13,13 +13,16 @@ import {
   restoreWorkspaceBackup,
 } from "../storage/archive";
 import { listProjects } from "../storage/projects";
+import type { ProjectSession } from "../storage/projectSession";
 import { Field } from "./ui";
 
 export function WorkspaceRecovery({
   activeProject,
+  activeSession,
   onRestored,
 }: {
   activeProject: Project;
+  activeSession?: ProjectSession;
   onRestored?: (result: {
     idMap: Record<string, string>;
     restoredIds: string[];
@@ -61,6 +64,9 @@ export function WorkspaceRecovery({
     try {
       const archive = await collectWorkspaceBackup({
         activeProject: structuredClone(activeProject),
+        activeSession: activeSession
+          ? structuredClone(activeSession)
+          : undefined,
         projectIds: scope === "current" ? [activeProject.id] : undefined,
         includeHistory: history,
       });

@@ -17,6 +17,12 @@ import {
   type WorkspaceArchive,
 } from "../import-export/archive";
 import type { ProjectRecord } from "./projects";
+import {
+  validateProjectSession,
+  remapProjectSession,
+  projectSessionFingerprint,
+  type ProjectSession,
+} from "./projectSession";
 
 type RawWorkspace = Record<(typeof ARCHIVE_STORES)[number], unknown[]>;
 async function readWorkspace(): Promise<RawWorkspace> {
@@ -43,6 +49,7 @@ function relatedIds(project: Project): string[] {
 export async function collectWorkspaceBackup(
   options: {
     activeProject?: Project;
+    activeSession?: ProjectSession;
     projectIds?: string[];
     includeHistory?: boolean;
   } = {},
@@ -164,6 +171,27 @@ export async function collectWorkspaceBackup(
       bill,
       measurements,
     };
+    if (row.session !== undefined) {
+      try {
+        entry.session = validateProjectSession(row.session);
+      } catch {
+        quarantine(
+          "project-session",
+          { projectId: id, session: row.session },
+          "Invalid interview or BOT session retained as inert recovery data; engineering inputs remain available.",
+        );
+      }
+    }
+    if (options.activeProject?.id === id && options.activeSession) {
+      const activeSession = validateProjectSession(options.activeSession);
+      if (
+        !entry.session ||
+        projectSessionFingerprint(activeSession) !==
+          projectSessionFingerprint(entry.session)
+      )
+        entry.workingSession = activeSession;
+      else entry.session = activeSession;
+    }
     if (
       options.activeProject?.id === id &&
       JSON.stringify(options.activeProject) !== JSON.stringify(row.project)
@@ -308,6 +336,10 @@ export async function restoreWorkspaceBackup(
           ...entry.history.map((p) => p.revision),
         ) + 1;
     const history = entry.history.map((p) => remapProject(p, ids));
+    const selectedSession =
+      options.useWorkingDrafts !== false && entry.workingSession
+        ? entry.workingSession
+        : entry.session;
     if (!history.some((p) => p.revision === entry.project.revision))
       history.push(remapProject(entry.project, ids));
     if (!history.some((p) => p.revision === project.revision))
@@ -316,6 +348,10 @@ export async function restoreWorkspaceBackup(
       ...entry,
       project,
       history,
+      session: selectedSession
+        ? remapProjectSession(selectedSession, ids)
+        : undefined,
+      checkpointId: crypto.randomUUID(),
       bill: remapBill(entry.bill, ids),
       billRevision: crypto.randomUUID(),
     };
@@ -331,6 +367,8 @@ export async function restoreWorkspaceBackup(
           project: entry.project,
           deleted: entry.deleted,
           savedAt: timestamp,
+          checkpointId: entry.checkpointId,
+          ...(entry.session ? { session: entry.session } : {}),
         } satisfies ProjectRecord);
         for (const project of entry.history)
           tx.objectStore("history").add({

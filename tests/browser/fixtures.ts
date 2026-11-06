@@ -3,8 +3,16 @@ import { translate, type Locale } from "../../src/i18n";
 
 /** Exercise an explicit user checkpoint; waiting for an autosave is not saving. */
 export async function saveProject(page: Page) {
-  const locale = (await page.locator(".language-select").inputValue()) as Locale;
-  await page.keyboard.press("Control+s");
+  const locale = (await page
+    .locator(".language-select")
+    .inputValue()) as Locale;
+  await page
+    .locator(".workspace-toolbar")
+    .getByRole("button", {
+      name: translate("Save project", locale),
+      exact: true,
+    })
+    .click();
   await expect(page.locator(".save-badge")).toContainText(
     translate("Saved locally", locale),
   );
@@ -12,10 +20,15 @@ export async function saveProject(page: Page) {
 
 /** A new page is always fresh. Previously saved work is opened deliberately. */
 export async function resumeProject(page: Page, name?: string) {
-  const locale = (await page.locator(".language-select").inputValue()) as Locale;
+  const locale = (await page
+    .locator(".language-select")
+    .inputValue()) as Locale;
   await page
     .locator(".workspace-toolbar")
-    .getByRole("button", { name: translate("Resume project", locale), exact: true })
+    .getByRole("button", {
+      name: translate("Resume project", locale),
+      exact: true,
+    })
     .click();
   const dialog = page.getByRole("dialog", {
     name: translate("Open project", locale),

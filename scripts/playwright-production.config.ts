@@ -6,6 +6,7 @@ export default defineConfig({
     "detail-modes.spec.ts",
     "accessibility.spec.ts",
     "update-guards.spec.ts",
+    "save-resume-help.spec.ts",
   ],
   timeout: 45000,
   expect: { timeout: 10000 },

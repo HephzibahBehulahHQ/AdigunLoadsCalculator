@@ -16,13 +16,21 @@ let opened: IDBDatabase | undefined;
 let blockedOpenError: Error | undefined;
 let generation = 0;
 
-const timeoutError = () => new Error(
-  "Local storage did not respond. Your saved records have not been deleted. Close older PowerLab tabs and retry, or export your current work.",
-);
+const timeoutError = () =>
+  new Error(
+    "Local storage did not respond. Your saved records have not been deleted. Close older PowerLab tabs and retry, or export your current work.",
+  );
 
-function legacyRows(name: string, store: string, signal: AbortSignal): Promise<unknown[]> {
+function legacyRows(
+  name: string,
+  store: string,
+  signal: AbortSignal,
+): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
-    if (signal.aborted) { reject(timeoutError()); return; }
+    if (signal.aborted) {
+      reject(timeoutError());
+      return;
+    }
     const request = indexedDB.open(name, 1);
     let absent = false;
     let finished = false;
@@ -37,7 +45,11 @@ function legacyRows(name: string, store: string, signal: AbortSignal): Promise<u
       else resolve(rows);
     };
     const interrupted = () => {
-      try { transaction?.abort(); } catch { /* Already finished. */ }
+      try {
+        transaction?.abort();
+      } catch {
+        /* Already finished. */
+      }
       finish([], timeoutError());
     };
     signal.addEventListener("abort", interrupted, { once: true });
@@ -47,23 +59,33 @@ function legacyRows(name: string, store: string, signal: AbortSignal): Promise<u
     };
     request.onerror = () => finish([], absent ? undefined : request.error);
     request.onblocked = () =>
-      finish([], 
+      finish(
+        [],
         new Error("Close the older PowerLab tab to migrate local storage."),
       );
     request.onsuccess = () => {
       const db = request.result;
-      if (finished || signal.aborted) { db.close(); return; }
+      if (finished || signal.aborted) {
+        db.close();
+        return;
+      }
       database = db;
       if (!db.objectStoreNames.contains(store)) {
         finish([]);
         return;
       }
-      const tx = transaction = db.transaction(store),
+      const tx = (transaction = db.transaction(store)),
         read = tx.objectStore(store).getAll();
       let rows: unknown[] = [];
-      read.onsuccess = () => { rows = read.result; };
+      read.onsuccess = () => {
+        rows = read.result;
+      };
       tx.oncomplete = () => finish(rows);
-      tx.onerror = tx.onabort = () => finish([], tx.error ?? new Error("Legacy storage read was interrupted."));
+      tx.onerror = tx.onabort = () =>
+        finish(
+          [],
+          tx.error ?? new Error("Legacy storage read was interrupted."),
+        );
     };
   });
 }
@@ -119,19 +141,32 @@ function validLegacyMeasurements(value: unknown): boolean {
   );
 }
 
-async function migrateLegacyStores(db: IDBDatabase, signal: AbortSignal): Promise<void> {
+async function migrateLegacyStores(
+  db: IDBDatabase,
+  signal: AbortSignal,
+): Promise<void> {
   if (signal.aborted) throw timeoutError();
   const key = "legacy-billing-measurements-v1";
   const done = await new Promise<boolean>((resolve, reject) => {
-    const tx = db.transaction("metadata"), read = tx.objectStore("metadata").get(key);
+    const tx = db.transaction("metadata"),
+      read = tx.objectStore("metadata").get(key);
     let value = false;
     const interrupted = () => {
-      try { tx.abort(); } catch { /* Already finished. */ }
+      try {
+        tx.abort();
+      } catch {
+        /* Already finished. */
+      }
       reject(timeoutError());
     };
     signal.addEventListener("abort", interrupted, { once: true });
-    read.onsuccess = () => { value = Boolean(read.result); };
-    tx.oncomplete = () => { signal.removeEventListener("abort", interrupted); resolve(value); };
+    read.onsuccess = () => {
+      value = Boolean(read.result);
+    };
+    tx.oncomplete = () => {
+      signal.removeEventListener("abort", interrupted);
+      resolve(value);
+    };
     tx.onerror = tx.onabort = () => {
       signal.removeEventListener("abort", interrupted);
       reject(tx.error ?? new Error("Storage migration could not be checked."));
@@ -150,7 +185,11 @@ async function migrateLegacyStores(db: IDBDatabase, signal: AbortSignal): Promis
       "readwrite",
     );
     const interrupted = () => {
-      try { tx.abort(); } catch { /* Already finished. */ }
+      try {
+        tx.abort();
+      } catch {
+        /* Already finished. */
+      }
       reject(timeoutError());
     };
     signal.addEventListener("abort", interrupted, { once: true });
@@ -296,7 +335,10 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
       // Keep the same deadline for metadata and legacy migration, too.
       migrateLegacyStores(db, aborter.signal).then(() => {
         if (!aborter.signal.aborted && attempt === generation) resolve(db);
-        else { db.close(); reject(timeoutError()); }
+        else {
+          db.close();
+          reject(timeoutError());
+        }
       }, reject);
     };
   })
@@ -306,7 +348,8 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
       if (opened === attemptDatabase) opened = undefined;
       if (attempt === generation) connection = undefined;
       throw error;
-    }).finally(() => clearTimeout(timeout));
+    })
+    .finally(() => clearTimeout(timeout));
   connection = pending;
   return connection;
 }

@@ -145,9 +145,14 @@ try {
   await expect(page.locator(".save-badge")).toContainText("Saved locally");
   async function resumeSaved(targetPage) {
     await expect(targetPage.locator(".save-badge")).toContainText("Not saved");
-    await targetPage.getByRole("button", { name: "Resume project", exact: true }).click();
-    await targetPage.getByRole("dialog", { name: "Open project", exact: true })
-      .locator(".project-list > div > button:first-child").first().click();
+    await targetPage
+      .getByRole("button", { name: "Resume project", exact: true })
+      .click();
+    await targetPage
+      .getByRole("dialog", { name: "Open project", exact: true })
+      .locator(".project-list > div > button:first-child")
+      .first()
+      .click();
   }
   const olderTab = await context.newPage();
   olderTab.on("pageerror", (error) => errors.push(error.message));

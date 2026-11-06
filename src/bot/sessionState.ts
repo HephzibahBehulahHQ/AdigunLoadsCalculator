@@ -91,9 +91,15 @@ const issues = (value: unknown) =>
 function validResponse(value: unknown): value is LocalResponse {
   if (
     !object(value) ||
-    !["summary", "explain", "issues", "balance", "load", "report", "help"].includes(
-      String(value.kind),
-    ) ||
+    ![
+      "summary",
+      "explain",
+      "issues",
+      "balance",
+      "load",
+      "report",
+      "help",
+    ].includes(String(value.kind)) ||
     !text(value.projectId) ||
     !Number.isSafeInteger(value.revision) ||
     !object(value.result)
@@ -136,10 +142,7 @@ function validResponse(value: unknown): value is LocalResponse {
       Array.isArray(plan.moves) &&
       plan.moves.every(
         (move) =>
-          object(move) &&
-          text(move.loadId) &&
-          text(move.from) &&
-          text(move.to),
+          object(move) && text(move.loadId) && text(move.from) && text(move.to),
       )
     );
   }
@@ -159,6 +162,18 @@ function validResponse(value: unknown): value is LocalResponse {
   );
 }
 
+function resumableSession(session: BotSessionSnapshot): BotSessionSnapshot {
+  // Do not restore processing flags, timers or executable stale previews.
+  const result = structuredClone(session);
+  result.messages = result.messages.map((message) =>
+    message.response ? { ...message, restored: true } : message,
+  );
+  const last = result.messages.at(-1);
+  if (!result.draft && last?.role === "user")
+    result.draft = (last.text ?? "").slice(0, 2000);
+  return result;
+}
+
 export function validateBotSession(value: unknown): BotSessionSnapshot {
   if (
     !object(value) ||
@@ -167,7 +182,9 @@ export function validateBotSession(value: unknown): BotSessionSnapshot {
     typeof value.draft !== "string" ||
     value.draft.length > 2000
   )
-    throw new Error("The saved BOT conversation or unfinished command is invalid.");
+    throw new Error(
+      "The saved BOT conversation or unfinished command is invalid.",
+    );
   const ids = new Set<number>();
   for (const message of value.messages) {
     if (
@@ -180,25 +197,18 @@ export function validateBotSession(value: unknown): BotSessionSnapshot {
       (message.response !== undefined && !validResponse(message.response)) ||
       (message.text === undefined && message.response === undefined) ||
       ["applied", "dismissed", "restored"].some(
-        (key) => message[key] !== undefined && typeof message[key] !== "boolean",
+        (key) =>
+          message[key] !== undefined && typeof message[key] !== "boolean",
       )
     )
       throw new Error("A saved BOT message is invalid.");
     ids.add(Number(message.id));
   }
-  // Do not restore processing flags, timers or executable stale previews.
-  const result = structuredClone(value) as unknown as BotSessionSnapshot;
-  result.messages = result.messages.map((message) =>
-    message.response ? { ...message, restored: true } : message,
-  );
-  const last = result.messages.at(-1);
-  if (!result.draft && last?.role === "user")
-    result.draft = (last.text ?? "").slice(0, 2000);
-  return result;
+  return resumableSession(value as unknown as BotSessionSnapshot);
 }
 
 export function snapshotBotSession(projectId: string): BotSessionSnapshot {
-  return validateBotSession(botSessions.snapshot(projectId));
+  return resumableSession(botSessions.get(projectId));
 }
 
 export function restoreBotSession(
@@ -208,13 +218,17 @@ export function restoreBotSession(
   botSessions.restore(projectId, validateBotSession(session));
   if (typeof window !== "undefined")
     window.dispatchEvent(
-      new CustomEvent("powerlab-bot-session-restored", { detail: { projectId } }),
+      new CustomEvent("powerlab-bot-session-restored", {
+        detail: { projectId },
+      }),
     );
 }
 
 export function nextBotMessageId(projectId: string): number {
   return (
-    Math.max(0, ...botSessions.get(projectId).messages.map((message) => message.id)) +
-    1
+    Math.max(
+      0,
+      ...botSessions.get(projectId).messages.map((message) => message.id),
+    ) + 1
   );
 }
