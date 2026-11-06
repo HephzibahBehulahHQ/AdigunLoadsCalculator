@@ -1,8 +1,38 @@
 # Test evidence
 
+## Current continuation: 6 November 2026
+
+Source candidate: `93d5e46b484ac787c0b57249e2eaea10dd179ef8` on local `feat/verified-workflows`. This recovers the continuation based on remote `0905f574216a36207698454501a6b8f6147d76c9`, repairs feeder/circuit evidence and exact tariff boundaries, and updates report capacity visibility and no-op circuit controls. It is not published.
+
+### Numerical and rendered-output checks
+
+- `npm ci`: passed using the pinned lockfile.
+- `npm test`: **331/331 tests across 21 files passed** (6.90 seconds in the working checkout). This includes the independent 1,000-load/35,040-interval annual fixture; Node timing is not browser interaction latency.
+- Independent new regressions cover neutral-conductor overload, mixed AC/DC boundaries, real DC circuit current, missing PF evidence, separate exported capacity checks, fractional import/export tariff boundaries, coverage gaps, demand eligibility and DST transitions.
+- `npm run build`: passed after TypeScript checks.
+- `POWERLAB_PDF_QA_DIR=... npm test -- tests/reports.test.ts`: 5/5 passed and produced actual Yoruba engineering-report and German vector-diagram samples.
+- PDF visual QA: rendered and inspected all 10 report pages and 3 diagram pages. Text/table/Unicode placement remained readable; pdfplumber found zero out-of-page glyphs. Vector diagrams intentionally use overlapping tiles with a separate complete legend. Samples in `docs/examples/` contain analytical inputs only.
+- Desktop workspace and 360 px mobile settings screenshots were inspected. This is sampled layout review, not independent WCAG certification.
+
+### Browser and offline gates
+
+- Initial browser gate: 28 passed, 4 failed. Two failures were stale locale/ambiguous SVG selectors; one exposed an unchanged circuit selection raising a spurious error; recovery failed during concurrent source edits and required a stable rerun. These failures are not counted as passes.
+- The next stable run passed 31/32: a spatial assertion still matched hidden nameplate text rather than displayed hourly power. The assertion was narrowed to the visible power value and independently passed its focused rerun.
+- **Final independent-checkout browser gate: 32/32 passed in 2.1 minutes** at `93d5e46b484ac787c0b57249e2eaea10dd179ef8`, including all 51 toolbox examples and the previously failing recovery/billing/planning/spatial cases. No application source was edited during this run.
+- Production offline checks passed at both `/` and `/AdigunPowerLab/`: service worker control, saved-project recovery, toolbox calculation, lazy billing and actual PDF export, with zero page errors and zero failed requests.
+- Clean-checkout recovery: a new local Git clone at `77d02dc406d384d9a709ef69e2c85282fe9201c6`, with no copied source or node_modules, passed `npm ci`, lint, all 331 tests (7.77 seconds), production build and repository-subpath offline/PDF. The checkout then fast-forwarded to `93d5e46b484ac787c0b57249e2eaea10dd179ef8`, changing only one browser assertion file, and passed lint and all 32 browser cases. Application source, dependencies and build configuration are identical across these revisions. This is local recovery evidence, not proof of a new remote backup.
+
+### Publication and limits
+
+The initial public push was rejected for missing explicit publication authorization. The owner subsequently gave full approval to push, merge into main and deploy publicly on 6 November 2026. The block is resolved; remote heads are being inspected and actual repository validation/publication gates are in progress. No remote result is claimed until observed.
+
+No physical hardware, licensed standards/manufacturer dataset, connected AI, cloud ownership/security, professional language review, full independent accessibility audit or exhaustive original-spec acceptance is claimed. Historical browser performance below belongs to the earlier release.
+
+## Historical initial release
+
 Final candidate verification is being recorded here. No unrun check is counted as passed.
 
-## Verification environment and checks
+### Verification environment and checks
 
 Environment: Node 24.22.1, Linux managed workspace. Dependencies are pinned by the committed lockfile.
 
@@ -12,13 +42,13 @@ Environment: Node 24.22.1, Linux managed workspace. Dependencies are pinned by t
 - PDF QA: seven-page English/Yoruba customer estimates and six-page German engineering report generated from explicit analytical fixtures, rendered and inspected. Repeated headers, totals and Unicode checked. pdfplumber found no out-of-page glyphs.
 - Browser QA: empty project, 2.3 kW heater → 10 A and 18.4 kWh; 50% duty → 9.2 kWh while current remains 10 A; undo, JSON export and saved reload passed. Malformed JSON preserved the current project; valid CSV preview/apply passed.
 
-## Browser runtime
+### Browser runtime
 
 The standard Chromium binary cannot initialize its process-singleton socket in this runtime. The installed headless-shell binary is usable in a single-process configuration. The local Playwright fixture therefore creates a fresh browser per test; ordinary environments use standard Chromium. Development server and browser must share the same execution process tree in this environment.
 
 The first full browser run exposed test-harness lifecycle/selector defects. Those failures were retained and repaired; they were not counted as application successes. The final combined browser result is recorded below after rerun.
 
-## Additional executed checks
+### Additional executed checks
 
 - Workspace: 6 browser tests passed, including every tool example, DST CSV, local BOT confirmation/undo, locale/theme and mobile flows.
 - Recovery: 5 browser tests passed for conflicting tabs, save-copy recovery, trash protection, invalid stored records, calendar cancellation and unsaved input safety.
@@ -27,7 +57,7 @@ The first full browser run exposed test-harness lifecycle/selector defects. Thos
 - Production offline smoke passed: service worker controls the page, saved project survives offline reload, and the toolbox calculates while offline, with no page errors. Machine-readable evidence is `offline-verification.json`.
 - Customer PDFs and print examples in `examples/` are analytical fixtures and contain no real customer data.
 
-## Final candidate gate
+### Final candidate gate
 
 - `npm run lint`: passed, including TypeScript and Prettier.
 - `npm test`: 215/215 passed across eight test files.
@@ -38,14 +68,14 @@ The first full browser run exposed test-harness lifecycle/selector defects. Thos
 - Fresh-checkout verification passed for exact remote source candidate `cdff7e3591b0ab8c28cf3ed280379678834e2677`: `git clone --depth 1 --branch feat/power-studio`, asserted `git rev-parse HEAD`, `npm ci`, lint, all 215 tests (4.89 seconds), production build and repository-subpath offline smoke including actual PDF. No working-tree source files or node_modules were copied into the recovery checkout.
 - `npm audit --json`: zero known advisory vulnerabilities across the pinned tree; see `security-audit.json`. This is not a penetration test.
 
-## Not claimed
+### Not claimed
 
 No physical hardware, connected AI provider, cloud owner-scoped authorization, licensed standards dataset, or complete WCAG audit has been tested. Node timing is not substituted for browser timing; see PERFORMANCE.md.
 
-## Delivered source
+### Delivered source
 
-The verified application source candidate is `cdff7e3591b0ab8c28cf3ed280379678834e2677`; subsequent delivery documentation records these observations. [PR #1](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/1) contains the exact branch/integration history. Public deployment has not been run.
+The verified application source candidate is `cdff7e3591b0ab8c28cf3ed280379678834e2677`; subsequent delivery documentation records these observations. [PR #1](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/1) contains the exact branch/integration history. At the time of this initial source-delivery note, public deployment had not yet run; the subsequent historical deployment is recorded in DEPLOYMENT.md.
 
-## Remote CI
+### Remote CI
 
 [GitHub Actions run 42125403239](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42125403239) completed successfully for exact candidate `cdff7e3591b0ab8c28cf3ed280379678834e2677`. Its fresh Ubuntu runner passed dependency installation, TypeScript/Prettier lint, all unit tests, production build, Chromium installation, the full browser suite, root offline smoke, repository-subpath offline smoke and static artifact upload. The earlier candidate failed offline module lookup; the documented cache fix resolved that failure before this successful run.

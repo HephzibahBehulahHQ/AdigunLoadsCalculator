@@ -2,16 +2,43 @@ import {
   ENGINE_VERSION,
   type BatterySettings,
   type Issue,
+  type Load,
   type Phase,
   type Project,
-  type Tariff,
 } from "../domain/types";
 import { dailyProfile, normalizeLoad } from "./electrical";
+import {
+  explicitInstant,
+  makeCalendarClock,
+  resolveSchedule,
+  scheduleDuty,
+  unionSpans,
+  validCalendarDate,
+} from "./calendar";
+import { normalizedPhasePower, startEventLoad } from "./start-events";
+import { validateProjectExtensions } from "../domain/project";
+import { energyCharge, roundCurrency } from "./money";
+import {
+  calculateIntervalBill,
+  tariffRate,
+  validateTariff,
+  type BillingInterval,
+  type IntervalBill,
+} from "./tariffs";
+export {
+  tariffRate,
+  validateTariff,
+  tariffPrices,
+  calculateIntervalBill,
+} from "./tariffs";
+export { energyCharge, roundCurrency } from "./money";
 
 export interface RangeOptions {
   start: string;
   end: string;
   intervalMinutes: 15 | 60;
+  /** Detailed standing/demand/tax bill is opt-in; energy cost is always calculated. */
+  includeBilling?: boolean;
 }
 export interface CalendarPoint {
   timestamp: string;
@@ -21,6 +48,8 @@ export interface CalendarPoint {
   kWh: number;
   phaseKW: Record<Phase, number>;
   importRate: number;
+  cumulativeKWh: number;
+  startEventIds: string[];
 }
 export interface CalendarResult {
   revision: number;
@@ -30,6 +59,7 @@ export interface CalendarResult {
   peakKW: number;
   elapsedHours: number;
   energyCost: number;
+  bill?: IntervalBill;
   issues: Issue[];
 }
 const fail = (message: string): never => {
@@ -44,155 +74,6 @@ const finite = (
   if (!Number.isFinite(value) || value < min || value > max)
     fail(`${name} must be finite and between ${min} and ${max}.`);
 };
-
-export function tariffRate(
-  tariff: Tariff,
-  hour: number,
-  weekday?: number,
-): number {
-  const bands = tariff.bands.filter(
-    (band) =>
-      (!band.weekdays ||
-        weekday === undefined ||
-        band.weekdays.includes(weekday)) &&
-      (band.startHour < band.endHour
-        ? hour >= band.startHour && hour < band.endHour
-        : hour >= band.startHour || hour < band.endHour),
-  );
-  if (bands.length > 1)
-    fail("Time-of-use tariff bands overlap at the selected interval.");
-  return bands[0]?.importRate ?? tariff.importRate;
-}
-
-export function validateTariff(tariff: Tariff): Issue[] {
-  const issues: Issue[] = [];
-  const error = (message: string, id: string) =>
-    issues.push({
-      id,
-      severity: "error",
-      assessment: "incomplete",
-      message,
-    } as Issue);
-  for (const key of [
-    "importRate",
-    "exportRate",
-    "standingPerDay",
-    "demandPerKW",
-    "taxPercent",
-  ] as const)
-    if (!Number.isFinite(tariff[key]))
-      error(`Enter a finite tariff ${key}.`, `tariff-${key}`);
-  if (
-    tariff.standingPerDay < 0 ||
-    tariff.demandPerKW < 0 ||
-    tariff.taxPercent < 0
-  )
-    error(
-      "Standing, demand and tax amounts must be nonnegative.",
-      "tariff-fixed",
-    );
-  for (const band of tariff.bands) {
-    if (
-      !Number.isFinite(band.importRate) ||
-      !Number.isFinite(band.startHour) ||
-      !Number.isFinite(band.endHour) ||
-      band.startHour < 0 ||
-      band.startHour >= 24 ||
-      band.endHour < 0 ||
-      band.endHour > 24 ||
-      band.startHour === band.endHour
-    )
-      error(
-        `Tariff band ${band.name} has invalid boundaries or rate.`,
-        `${band.id}-bounds`,
-      );
-  }
-  for (let i = 0; i < tariff.bands.length; i++)
-    for (let j = i + 1; j < tariff.bands.length; j++) {
-      const a = tariff.bands[i];
-      const b = tariff.bands[j];
-      const sameDay = [0, 1, 2, 3, 4, 5, 6].some(
-        (day) =>
-          (!a.weekdays || a.weekdays.includes(day)) &&
-          (!b.weekdays || b.weekdays.includes(day)),
-      );
-      const segments = (start: number, end: number) =>
-        start < end
-          ? [[start, end]]
-          : [
-              [start, 24],
-              [0, end],
-            ];
-      if (
-        sameDay &&
-        segments(a.startHour, a.endHour).some(([start, end]) =>
-          segments(b.startHour, b.endHour).some(
-            ([otherStart, otherEnd]) =>
-              Math.min(end, otherEnd) > Math.max(start, otherStart),
-          ),
-        )
-      )
-        error(
-          `Tariff bands ${a.name} and ${b.name} overlap.`,
-          `tariff-overlap-${a.id}-${b.id}`,
-        );
-    }
-  return issues;
-}
-
-/** Converts a finite decimal to integer micro-units using decimal notation, not binary multiplication. */
-function scaled(value: number, precision = 6): bigint {
-  finite(value, "Decimal amount");
-  const decimal = value.toFixed(precision);
-  return BigInt(decimal.replace(".", ""));
-}
-const roundedDivision = (numerator: bigint, denominator: bigint): bigint => {
-  const sign = numerator < 0n ? -1n : 1n;
-  const absolute = numerator < 0n ? -numerator : numerator;
-  return sign * ((absolute + denominator / 2n) / denominator);
-};
-/** Round half away from zero to currency minor units. Internal energy/price products use 1e-12 currency units. */
-export function roundCurrency(value: number, minorDigits = 2): number {
-  const micro = scaled(value);
-  const divisor = 10n ** BigInt(6 - minorDigits);
-  return Number(roundedDivision(micro, divisor)) / 10 ** minorDigits;
-}
-export function energyCharge(entries: { kWh: number; rate: number }[]): number {
-  // Accumulate physical energy per rate at full floating precision, then apply decimal billing once.
-  const byRate = new Map<number, number>();
-  for (const entry of entries) {
-    finite(entry.kWh, "Billable energy");
-    finite(entry.rate, "Energy rate");
-    byRate.set(entry.rate, (byRate.get(entry.rate) ?? 0) + entry.kWh);
-  }
-  const decimal = (value: number): { numerator: bigint; places: number } => {
-    const [mantissa, exponent = "0"] = value
-      .toString()
-      .toLowerCase()
-      .split("e");
-    const fraction = mantissa.split(".")[1]?.length ?? 0;
-    let numerator = BigInt(mantissa.replace(".", ""));
-    let places = fraction - Number(exponent);
-    if (places < 0) {
-      numerator *= 10n ** BigInt(-places);
-      places = 0;
-    }
-    return { numerator, places };
-  };
-  let total = 0n;
-  let places = 2;
-  for (const [rate, energy] of byRate) {
-    const a = decimal(energy);
-    const b = decimal(rate);
-    const productPlaces = a.places + b.places;
-    if (productPlaces > places) {
-      total *= 10n ** BigInt(productPlaces - places);
-      places = productPlaces;
-    }
-    total += a.numerator * b.numerator * 10n ** BigInt(places - productPlaces);
-  }
-  return Number(roundedDivision(total, 10n ** BigInt(places - 2))) / 100;
-}
 
 /** Actual elapsed instants; Intl applies the specified IANA timezone including DST folds/gaps. */
 export function simulateRange(
@@ -218,32 +99,100 @@ export function simulateRange(
     fail("Correct invalid load inputs before running a calendar simulation.");
   const tariffIssues = validateTariff(project.tariff);
   if (tariffIssues.length) fail(tariffIssues[0].message);
-  const minuteFormatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: project.timezone,
-    weekday: "short",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "shortOffset",
-    hourCycle: "h23",
-  });
-  const weekdayIndex: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  };
+  const extensionErrors = validateProjectExtensions(
+    project as unknown as Record<string, unknown>,
+  );
+  if (extensionErrors.length) fail(extensionErrors[0]);
+  const clock = makeCalendarClock(project.timezone);
+  const normalizedInputs = new Map(
+    project.loads.map((load) => [load.id, normalizeLoad(load)]),
+  );
+  const calendarDependent = project.loads.some(
+    (load) =>
+      load.schedule?.exceptions?.length ||
+      load.schedule?.windows.some(
+        (window) => window.months || window.effectiveFrom || window.effectiveTo,
+      ),
+  );
   // Minute tables preserve fractional operating windows and arbitrary timezone offsets while bounding work.
   const days = Array.from({ length: 7 }, (_, weekday) =>
-    dailyProfile(project.loads, 1, weekday),
+    dailyProfile(project.loads, 1, weekday, undefined, normalizedInputs),
+  );
+  let cachedDate = "";
+  let datedProfile = days[0];
+  const absolute = project.loads
+    .flatMap((load) =>
+      unionSpans(
+        (load.schedule?.absoluteWindows ?? []).map((window) => [
+          Date.parse(window.start),
+          Date.parse(window.end),
+        ]),
+      ).map(([a, b]) => ({
+        a,
+        b,
+        load,
+        normalized: normalizedInputs.get(load.id)!,
+      })),
+    )
+    .sort((a, b) => a.a - b.a);
+  const starts = (project.startEvents ?? [])
+    .map((event) => {
+      const load = project.loads.find((item) => item.id === event.loadId)!;
+      const n = normalizedInputs.get(load.id)!;
+      const starting = startEventLoad(load, event, n);
+      return {
+        a: Date.parse(event.start),
+        b: Date.parse(event.start) + event.durationSeconds * 1000,
+        load,
+        normalized: n,
+        event,
+        starting: normalizeLoad(starting),
+        phase: normalizedPhasePower(starting, normalizeLoad(starting)),
+      };
+    })
+    .sort((a, b) => a.a - b.a);
+  let absoluteIndex = 0,
+    startIndex = 0;
+  let activeAbsolute: typeof absolute = [],
+    activeStarts: typeof starts = [];
+  const phasePowers = new Map(
+    project.loads.map((load) => [
+      load.id,
+      normalizedPhasePower(load, normalizedInputs.get(load.id)!),
+    ]),
+  );
+  const standbyPhase = (load: Load): Record<Phase, number> =>
+    normalizedPhasePower(
+      {
+        ...load,
+        entryMode: "kw",
+        pf: 1,
+        pfKind: "displacement",
+        reactive: "lagging",
+        rating: load.standbyW / 1000,
+        utilization: 1,
+      },
+      normalizeLoad({
+        ...load,
+        entryMode: "kw",
+        pf: 1,
+        pfKind: "displacement",
+        reactive: "lagging",
+        rating: load.standbyW / 1000,
+        utilization: 1,
+      }),
+    );
+  const standbyPhases = new Map(
+    [
+      ...new Set([
+        ...absolute.map((row) => row.load),
+        ...starts.map((row) => row.load),
+      ]),
+    ].map((load) => [load.id, standbyPhase(load)]),
   );
   const points: CalendarPoint[] = [];
   const charges: { kWh: number; rate: number }[] = [];
+  const billing: BillingInterval[] = [];
   const step = options.intervalMinutes * 60_000;
   let totalKWh = 0;
   let peakKW = 0;
@@ -254,26 +203,115 @@ export function simulateRange(
     const phaseEnergy: Record<Phase, number> = { L1: 0, L2: 0, L3: 0 };
     let localTime = "";
     let firstRate = project.tariff.importRate;
+    const eventIds = new Set<string>();
     // Quarter-hour/hour averages are built from actual elapsed minute slices across DST transitions.
     for (let minute = timestamp; minute < finish; minute += 60_000) {
       const dt = (Math.min(minute + 60_000, finish) - minute) / 3600_000;
-      const parts = Object.fromEntries(
-        minuteFormatter
-          .formatToParts(minute)
-          .map((part) => [part.type, part.value]),
-      );
-      const weekday = weekdayIndex[parts.weekday];
-      const hour = Number(parts.hour);
-      const minuteOfDay = hour * 60 + Number(parts.minute);
-      const sample = days[weekday][minuteOfDay];
-      const rate = tariffRate(project.tariff, minuteOfDay / 60, weekday);
-      const intervalEnergy = sample.kw * dt;
+      const fields = clock(minute);
+      const { weekday, date } = fields;
+      const minuteOfDay = Math.floor(fields.hour * 60 + 1e-7);
+      if (calendarDependent && cachedDate !== date) {
+        datedProfile = dailyProfile(
+          project.loads,
+          1,
+          weekday,
+          date,
+          normalizedInputs,
+        );
+        cachedDate = date;
+      }
+      const sample = (calendarDependent ? datedProfile : days[weekday])[
+        minuteOfDay
+      ];
+      const rate =
+        !project.tariff.bands.length &&
+        project.tariff.coverage !== "complete-bands"
+          ? project.tariff.importRate
+          : tariffRate(project.tariff, fields.hour, weekday, date);
+      let intervalEnergy = sample.kw * dt;
+      const localPhaseEnergy = {
+        L1: sample.phaseKW.L1 * dt,
+        L2: sample.phaseKW.L2 * dt,
+        L3: sample.phaseKW.L3 * dt,
+      };
+      const minuteEnd = Math.min(minute + 60000, finish);
+      while (
+        absoluteIndex < absolute.length &&
+        absolute[absoluteIndex].a < minuteEnd
+      )
+        activeAbsolute.push(absolute[absoluteIndex++]);
+      activeAbsolute = activeAbsolute.filter((row) => row.b > minute);
+      for (const row of activeAbsolute) {
+        const duration =
+          (Math.max(0, Math.min(minuteEnd, row.b) - Math.max(minute, row.a)) /
+            3600000) *
+          scheduleDuty(row.load);
+        intervalEnergy +=
+          (row.normalized.operatingKW -
+            (row.load.standbyW * row.load.quantity) / 1000) *
+          duration;
+        for (const phase of ["L1", "L2", "L3"] as Phase[])
+          localPhaseEnergy[phase] +=
+            (phasePowers.get(row.load.id)![phase] -
+              standbyPhases.get(row.load.id)![phase]) *
+            duration;
+      }
+      while (startIndex < starts.length && starts[startIndex].a < minuteEnd)
+        activeStarts.push(starts[startIndex++]);
+      activeStarts = activeStarts.filter((row) => row.b > minute);
+      for (const row of activeStarts) {
+        const a = Math.max(minute, row.a),
+          b = Math.min(minuteEnd, row.b),
+          duration = Math.max(0, b - a) / 3600000;
+        if (!duration) continue;
+        eventIds.add(row.event.id);
+        const intervals =
+          row.load.schedule?.absoluteWindows !== undefined
+            ? unionSpans(
+                row.load.schedule.absoluteWindows.map((window) => [
+                  Date.parse(window.start),
+                  Date.parse(window.end),
+                ]),
+              )
+            : resolveSchedule(row.load, date, weekday).map(
+                ([left, right]): [number, number] => [
+                  minute + (left - fields.hour) * 3600000,
+                  minute + (right - fields.hour) * 3600000,
+                ],
+              );
+        const onHours =
+          intervals.reduce(
+            (sum, [left, right]) =>
+              sum +
+              Math.max(0, Math.min(b, right) - Math.max(a, left)) / 3600000,
+            0,
+          ) * scheduleDuty(row.load);
+        const standbyKW = (row.load.standbyW * row.load.quantity) / 1000;
+        intervalEnergy +=
+          row.starting.operatingKW * duration -
+          standbyKW * duration -
+          (row.normalized.operatingKW - standbyKW) * onHours;
+        for (const phase of ["L1", "L2", "L3"] as Phase[])
+          localPhaseEnergy[phase] +=
+            row.phase[phase] * duration -
+            standbyPhases.get(row.load.id)![phase] * duration -
+            (phasePowers.get(row.load.id)![phase] -
+              standbyPhases.get(row.load.id)![phase]) *
+              onHours;
+      }
       kWh += intervalEnergy;
       for (const phase of ["L1", "L2", "L3"] as Phase[])
-        phaseEnergy[phase] += sample.phaseKW[phase] * dt;
+        phaseEnergy[phase] += localPhaseEnergy[phase];
       charges.push({ kWh: intervalEnergy, rate });
+      if (options.includeBilling)
+        billing.push({
+          timestamp: new Date(minute).toISOString(),
+          durationMinutes: dt * 60,
+          importKWh: Math.max(0, intervalEnergy),
+          exportKWh: 0,
+        });
       if (minute === timestamp) {
-        localTime = `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} ${parts.timeZoneName}`;
+        localTime = fields.localTime;
         firstRate = rate;
       }
     }
@@ -292,6 +330,8 @@ export function simulateRange(
         L3: phaseEnergy.L3 / elapsedHours,
       },
       importRate: firstRate,
+      cumulativeKWh: totalKWh,
+      startEventIds: [...eventIds],
     });
   }
   return {
@@ -302,7 +342,20 @@ export function simulateRange(
     peakKW,
     elapsedHours: (end - start) / 3600_000,
     energyCost: energyCharge(charges),
-    issues: [],
+    bill: options.includeBilling
+      ? calculateIntervalBill(project.tariff, billing, {
+          timezone: project.timezone,
+        })
+      : undefined,
+    issues: [
+      {
+        id: "calendar-meter-boundary",
+        severity: "info",
+        assessment: "warning",
+        message:
+          "This calendar models scheduled consumption at a grid-supplied load boundary. Renewable/storage import/export flows use the separate chronological dispatch model. Calendar peaks are interval averages; use start analysis for event peaks.",
+      },
+    ],
   };
 }
 
@@ -314,6 +367,13 @@ export interface BatteryStepInput {
   battery: BatterySettings;
   gridAvailable?: boolean;
   islandCapable?: boolean;
+  minimumStoredKWh?: number;
+  dischargeLimitKW?: number;
+  gridChargeKW?: number;
+  gridChargeTargetKWh?: number;
+  importLimitKW?: number;
+  exportLimitKW?: number;
+  islandOutputLimitKW?: number;
 }
 export interface BatteryStep {
   storedKWh: number;
@@ -326,6 +386,7 @@ export interface BatteryStep {
   curtailedKWh: number;
   directKWh: number;
   balanceErrorKWh: number;
+  gridChargeKWh: number;
 }
 export function validateBattery(battery: BatterySettings): void {
   finite(battery.capacityKWh, "Battery capacity", 0);
@@ -354,6 +415,19 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
   finite(input.loadKW, "Load", 0);
   const minimum = battery.capacityKWh * battery.minSoc;
   const maximum = battery.capacityKWh * battery.maxSoc;
+  for (const key of [
+    "minimumStoredKWh",
+    "dischargeLimitKW",
+    "gridChargeKW",
+    "gridChargeTargetKWh",
+    "importLimitKW",
+    "exportLimitKW",
+    "islandOutputLimitKW",
+  ] as const)
+    if (input[key] !== undefined) finite(input[key]!, key, 0);
+  const dischargeFloor = Math.max(minimum, input.minimumStoredKWh ?? minimum);
+  if (dischargeFloor > maximum)
+    fail("Battery reserve cannot exceed the upper stored-energy bound.");
   finite(input.storedKWh, "Stored energy", minimum - 1e-9, maximum + 1e-9);
   const gridAvailable = input.gridAvailable !== false;
   const islandCapable = input.islandCapable ?? battery.islandCapable;
@@ -361,7 +435,10 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
     !gridAvailable && !islandCapable ? input.generationKW * hours : 0;
   const generation = input.generationKW * hours - unavailableGeneration;
   const demand = input.loadKW * hours;
-  const directKWh = Math.min(generation, demand);
+  const outputEnergy = gridAvailable
+    ? Infinity
+    : (input.islandOutputLimitKW ?? Infinity) * hours;
+  const directKWh = Math.min(generation, demand, outputEnergy);
   let surplus = generation - directKWh;
   let deficit = demand - directKWh;
   let storedKWh = Math.min(maximum, Math.max(minimum, input.storedKWh));
@@ -378,20 +455,46 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
     storedKWh += chargeKWh * battery.chargeEfficiency;
     lossesKWh = chargeKWh * (1 - battery.chargeEfficiency);
     surplus -= chargeKWh;
-  } else if (deficit > 0 && usableInverter) {
+  } else if (
+    deficit > 0 &&
+    usableInverter &&
+    !(gridAvailable && (input.gridChargeKW ?? 0) > 0)
+  ) {
     dischargeKWh = Math.min(
       deficit,
       battery.dischargeKW * hours,
-      Math.max(0, storedKWh - minimum) * battery.dischargeEfficiency,
+      (input.dischargeLimitKW ?? Infinity) * hours,
+      Math.max(0, outputEnergy - directKWh),
+      Math.max(0, storedKWh - dischargeFloor) * battery.dischargeEfficiency,
     );
     storedKWh -= dischargeKWh / battery.dischargeEfficiency;
     lossesKWh = dischargeKWh * (1 / battery.dischargeEfficiency - 1);
     deficit -= dischargeKWh;
   }
-  const importKWh = gridAvailable ? deficit : 0;
-  const exportKWh = gridAvailable ? surplus : 0;
-  const unservedKWh = gridAvailable ? 0 : deficit;
-  const curtailedKWh = (gridAvailable ? 0 : surplus) + unavailableGeneration;
+  let importKWh = gridAvailable
+    ? Math.min(deficit, (input.importLimitKW ?? Infinity) * hours)
+    : 0;
+  const unservedKWh = Math.max(0, deficit - importKWh);
+  let gridChargeKWh = 0;
+  if (gridAvailable && dischargeKWh === 0 && (input.gridChargeKW ?? 0) > 0) {
+    gridChargeKWh = Math.min(
+      input.gridChargeKW! * hours,
+      Math.max(0, battery.chargeKW * hours - chargeKWh),
+      Math.max(
+        0,
+        Math.min(maximum, input.gridChargeTargetKWh ?? maximum) - storedKWh,
+      ) / battery.chargeEfficiency,
+      Math.max(0, (input.importLimitKW ?? Infinity) * hours - importKWh),
+    );
+    importKWh += gridChargeKWh;
+    chargeKWh += gridChargeKWh;
+    storedKWh += gridChargeKWh * battery.chargeEfficiency;
+    lossesKWh += gridChargeKWh * (1 - battery.chargeEfficiency);
+  }
+  const exportKWh = gridAvailable
+    ? Math.min(surplus, (input.exportLimitKW ?? Infinity) * hours)
+    : 0;
+  const curtailedKWh = surplus - exportKWh + unavailableGeneration;
   const balanceErrorKWh =
     input.generationKW * hours +
     importKWh +
@@ -408,6 +511,7 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
     curtailedKWh,
     directKWh,
     balanceErrorKWh,
+    gridChargeKWh,
   };
 }
 
@@ -417,6 +521,12 @@ export interface EnergyPoint extends BatteryStep {
   generationKW: number;
   soc: number;
   gridAvailable: boolean;
+  timestamp?: string;
+  durationHours: number;
+  shedKWh: number;
+  criticalUnservedKWh: number;
+  servedLoadIds?: string[];
+  unservedLoadIds?: string[];
 }
 export interface EnergyResult {
   revision: number;
@@ -436,11 +546,19 @@ export interface EnergyResult {
   totalCost: number;
   issues: Issue[];
   complete: boolean;
+  gridChargeKWh: number;
+  shedKWh: number;
+  criticalUnservedKWh: number;
+  bill?: IntervalBill;
+  method: string;
 }
 export interface EnergyOptions {
   intervalMinutes?: 15 | 60;
   generationKW?: number[];
   outage?: { startHour: number; durationHours: number };
+  date?: string;
+  range?: { start: string; end: string };
+  outageRange?: { start: string; end: string };
 }
 export function pvDailyEstimate(project: Project): number {
   finite(project.energy.pvKW, "PV installed capacity", 0);
@@ -457,59 +575,268 @@ export function simulateEnergy(
   options: EnergyOptions = {},
 ): EnergyResult {
   const intervalMinutes = options.intervalMinutes ?? 15;
-  const hours = intervalMinutes / 60;
-  const profile = dailyProfile(project.loads, intervalMinutes);
-  const battery = project.energy.battery;
-  validateBattery(battery);
-  pvDailyEstimate(project); // Validate entered PV assumptions even when chronology has not been supplied.
-  const issues: Issue[] = [];
-  for (const load of project.loads)
-    if (!normalizeLoad(load).valid)
-      fail("Correct invalid load inputs before running an energy simulation.");
+  if (![15, 60].includes(intervalMinutes))
+    fail("Energy interval must be 15 or 60 minutes.");
+  if (options.date !== undefined && !validCalendarDate(options.date))
+    fail("Dispatch date must be an actual YYYY-MM-DD date.");
+  const extensionErrors = validateProjectExtensions(
+    project as unknown as Record<string, unknown>,
+  );
+  if (extensionErrors.length) fail(extensionErrors[0]);
   const tariffIssues = validateTariff(project.tariff);
   if (tariffIssues.length) fail(tariffIssues[0].message);
-  let generation = options.generationKW;
-  if (!generation && project.energy.pvHourlyProfile) {
-    if (project.energy.pvHourlyProfile.length !== 24)
-      fail("PV hourly profile requires exactly 24 normalized values.");
-    generation = profile.map(
-      (point) =>
-        project.energy.pvHourlyProfile![Math.floor(point.hour)] *
-        project.energy.pvKW *
-        project.energy.pvPerformanceRatio,
+  const battery = project.energy.battery;
+  validateBattery(battery);
+  pvDailyEstimate(project);
+  const clock = makeCalendarClock(project.timezone);
+  const normalized = new Map(
+    project.loads.map((load) => [load.id, normalizeLoad(load)]),
+  );
+  if ([...normalized.values()].some((load) => !load.valid))
+    fail("Correct invalid load inputs before running an energy simulation.");
+  const date = options.date ?? project.createdAt.slice(0, 10);
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  const calendar = options.range
+    ? simulateRange(project, { ...options.range, intervalMinutes })
+    : undefined;
+  const profile = calendar
+    ? calendar.points.map((point) => ({
+        hour: clock(Date.parse(point.timestamp)).hour,
+        kw: point.kw,
+        kWh: point.kWh,
+        hours: point.elapsedHours,
+        timestamp: point.timestamp,
+      }))
+    : dailyProfile(
+        project.loads,
+        intervalMinutes,
+        options.date ? weekday : undefined,
+        options.date,
+      ).map((point) => ({
+        ...point,
+        hours: intervalMinutes / 60,
+        timestamp: undefined as string | undefined,
+      }));
+  const issues: Issue[] = [];
+  const issue = (
+    id: string,
+    message: string,
+    assessment: Issue["assessment"] = "warning",
+  ) => {
+    if (!issues.some((row) => row.id === id))
+      issues.push({ id, message, assessment, severity: "warning" });
+  };
+  if (
+    !options.range &&
+    (project.startEvents?.length ||
+      project.loads.some((load) => load.schedule?.absoluteWindows))
+  )
+    issue(
+      "dispatch-calendar-required",
+      "The representative day excludes absolute operating windows and dated start events. Select an actual calendar range to include them.",
+      "incomplete",
     );
-  }
-  if (!generation) {
-    generation = profile.map(() => 0);
-    if (project.energy.pvKW > 0)
-      issues.push({
-        id: "pv-profile",
-        severity: "warning",
-        assessment: "incomplete",
-        message:
-          "Chronological PV generation requires an entered hourly profile. Peak-sun-hours supports the separate daily-energy estimate only.",
-      });
-  }
-  if (generation.length !== profile.length)
+  if (
+    !options.generationKW &&
+    project.energy.pvKW > 0 &&
+    !project.energy.pvHourlyProfile
+  )
+    issue(
+      "pv-profile",
+      "Chronological PV generation requires an entered hourly profile. Peak-sun-hours supports only the separate daily-energy estimate.",
+      "incomplete",
+    );
+  if (options.generationKW && options.generationKW.length !== profile.length)
     fail(`Generation profile must have ${profile.length} interval values.`);
-  generation.forEach((value) => finite(value, "Generation profile value", 0));
+  if (options.generationKW)
+    options.generationKW.forEach((value) =>
+      finite(value, "Entered AC generation", 0),
+    );
+  if (
+    project.energy.pvHourlyProfile &&
+    (project.energy.pvHourlyProfile.length !== 24 ||
+      project.energy.pvHourlyProfile.some(
+        (value) => !Number.isFinite(value) || value < 0 || value > 1,
+      ))
+  )
+    fail("PV profile requires 24 finite normalized values from 0 to 1.");
+  if (
+    project.energy.windHourlyKW?.some((value) => value > 0) &&
+    !project.energy.windSource?.trim()
+  )
+    issue(
+      "wind-source",
+      "Record the supplied wind profile's source, period and AC output basis.",
+      "incomplete",
+    );
+  if (
+    options.outageRange &&
+    (!options.range ||
+      !explicitInstant(options.outageRange.start) ||
+      !explicitInstant(options.outageRange.end) ||
+      Date.parse(options.outageRange.end) <=
+        Date.parse(options.outageRange.start))
+  )
+    fail(
+      "An absolute outage needs an actual calendar range and increasing explicit-offset instants.",
+    );
   if (options.outage) {
     finite(options.outage.startHour, "Outage start", 0, 24);
     finite(options.outage.durationHours, "Outage duration", 0, 24);
     if (
       Math.abs(
-        options.outage.startHour / hours -
-          Math.round(options.outage.startHour / hours),
+        (options.outage.startHour * 60) / intervalMinutes -
+          Math.round((options.outage.startHour * 60) / intervalMinutes),
       ) > 1e-9 ||
       Math.abs(
-        options.outage.durationHours / hours -
-          Math.round(options.outage.durationHours / hours),
+        (options.outage.durationHours * 60) / intervalMinutes -
+          Math.round((options.outage.durationHours * 60) / intervalMinutes),
       ) > 1e-9
     )
-      fail(
-        "Outage start and duration must align with the selected simulation interval.",
-      );
+      fail("Daily outage boundaries must align with the simulation interval.");
+    if (options.range)
+      fail("Use explicit outage timestamps with an actual calendar range.");
   }
+  if (options.outageRange && options.range)
+    for (const value of [options.outageRange.start, options.outageRange.end])
+      if (
+        (Date.parse(value) - Date.parse(options.range.start)) %
+          (intervalMinutes * 60000) !==
+        0
+      )
+        fail(
+          "Absolute outage boundaries must align with the selected simulation interval.",
+        );
+  const dispatch = project.energy.dispatch;
+  if (
+    dispatch &&
+    (dispatch.reserveSoc < battery.minSoc ||
+      dispatch.reserveSoc > battery.maxSoc)
+  )
+    fail(
+      "Reserve SOC must lie within the entered absolute battery operating bounds.",
+    );
+  if (
+    dispatch?.strategy === "peak-shaving" &&
+    dispatch.peakLimitKW === undefined
+  )
+    fail("Enter a grid-import peak-shaving target.");
+  const backup = project.energy.backup;
+  const source = project.sources?.find((row) => row.id === backup?.sourceId);
+  const outageRequested = Boolean(options.outage || options.outageRange);
+  if (outageRequested && !backup && battery.islandCapable)
+    issue(
+      "backup-evidence",
+      "Legacy island-capable flag is an entered conditional model only. Configure an evidenced grid-forming source, transfer/isolation, phase capacity and restart settings before treating backup availability as established.",
+      "incomplete",
+    );
+  const sourceReady = Boolean(
+    source &&
+    source.source.reference.trim() &&
+    source.islandCapable &&
+    source.gridForming &&
+    source.transferIsolationVerified &&
+    (!backup?.requireBlackStart || source.blackStart),
+  );
+  if (outageRequested && backup && !sourceReady)
+    issue(
+      "backup-source",
+      "Backup is unavailable without an evidenced compatible island-capable, grid-forming source and transfer/isolation arrangement, plus required black-start capability.",
+      "incomplete",
+    );
+  const boardMap = new Map(project.boards.map((board) => [board.id, board]));
+  const sourceServes = (load: Load) => {
+    if (!source) return false;
+    const voltageCompatible =
+      source.connection === "dc"
+        ? load.connection === "dc" &&
+          Math.abs(load.voltage - source.voltageV) < 0.01
+        : load.connection !== "dc" &&
+          (source.connection === "three"
+            ? Math.abs(source.voltageV - project.supply.voltageLL) < 0.01
+            : load.connection === "single" &&
+              load.phase === source.phase &&
+              Math.abs(load.voltage - source.voltageV) < 0.01);
+    if (!voltageCompatible) return false;
+    if (!source.boardId) return true;
+    let id =
+      project.circuits.find((row) => row.id === load.circuitId)?.boardId ??
+      load.boardId;
+    const seen = new Set<string>();
+    while (id && !seen.has(id)) {
+      if (id === source.boardId) return true;
+      seen.add(id);
+      id = boardMap.get(id)?.parentId;
+    }
+    return false;
+  };
+  const loadEnergy = (
+    load: Load,
+    point: (typeof profile)[number],
+    index: number,
+  ): number => {
+    if (!point.timestamp)
+      return dailyProfile(
+        [load],
+        intervalMinutes,
+        options.date ? weekday : undefined,
+        options.date,
+        normalized,
+      )[index].kWh;
+    const a = Date.parse(point.timestamp),
+      b = a + point.hours * 3600000;
+    const n = normalized.get(load.id)!;
+    const standby = (load.standbyW * load.quantity) / 1000;
+    let energy = 0;
+    const absolute =
+      load.schedule?.absoluteWindows !== undefined
+        ? unionSpans(
+            load.schedule.absoluteWindows.map((window) => [
+              Date.parse(window.start),
+              Date.parse(window.end),
+            ]),
+          )
+        : undefined;
+    for (let t = a; t < b;) {
+      const finish = Math.min(b, Math.floor(t / 60000 + 1) * 60000),
+        fields = clock(t);
+      const spans =
+        absolute ??
+        resolveSchedule(load, fields.date, fields.weekday).map(
+          ([left, right]): [number, number] => [
+            t + (left - fields.hour) * 3600000,
+            t + (right - fields.hour) * 3600000,
+          ],
+        );
+      const on = (left: number, right: number) =>
+        spans.reduce(
+          (sum, [begin, end]) =>
+            sum +
+            Math.max(0, Math.min(right, end) - Math.max(left, begin)) / 3600000,
+          0,
+        ) * scheduleDuty(load);
+      energy +=
+        (standby * (finish - t)) / 3600000 +
+        (n.operatingKW - standby) * on(t, finish);
+      for (const event of project.startEvents ?? [])
+        if (event.loadId === load.id) {
+          const left = Math.max(t, Date.parse(event.start)),
+            right = Math.min(
+              finish,
+              Date.parse(event.start) + event.durationSeconds * 1000,
+            );
+          if (right > left)
+            energy +=
+              ((normalizeLoad(startEventLoad(load, event, n)).operatingKW -
+                standby) *
+                (right - left)) /
+                3600000 -
+              (n.operatingKW - standby) * on(left, right);
+        }
+      t = finish;
+    }
+    return energy;
+  };
   const points: EnergyPoint[] = [];
   let stored = battery.capacityKWh * battery.initialSoc;
   const totals = {
@@ -522,33 +849,246 @@ export function simulateEnergy(
     lossesKWh: 0,
     unservedKWh: 0,
     curtailedKWh: 0,
+    gridChargeKWh: 0,
+    shedKWh: 0,
+    criticalUnservedKWh: 0,
   };
-  const charges: { kWh: number; rate: number }[] = [];
-  for (let i = 0; i < profile.length; i++) {
-    const point = profile[i];
-    const inOutage = options.outage
-      ? (point.hour - options.outage.startHour + 24) % 24 <
-        options.outage.durationHours
-      : false;
+  const billRows: BillingInterval[] = [];
+  for (let index = 0; index < profile.length; index++) {
+    const point = profile[index],
+      hours = point.hours;
+    const timestamp = point.timestamp ? Date.parse(point.timestamp) : undefined;
+    const inOutage = options.outageRange
+      ? timestamp! >= Date.parse(options.outageRange.start) &&
+        timestamp! < Date.parse(options.outageRange.end)
+      : options.outage
+        ? (point.hour - options.outage.startHour + 24) % 24 <
+          options.outage.durationHours
+        : false;
+    const elapsedOutageMinutes = !inOutage
+      ? 0
+      : options.outageRange
+        ? (timestamp! - Date.parse(options.outageRange.start)) / 60000
+        : ((point.hour - options.outage!.startHour + 24) % 24) * 60;
+    const islandReady = backup
+      ? sourceReady &&
+        elapsedOutageMinutes >=
+          Math.max(
+            backup.restartDelayMinutes,
+            (source?.restartSeconds ?? 0) / 60,
+          )
+      : battery.islandCapable;
+    const hour = Math.floor(point.hour) % 24;
+    const rawPV = options.generationKW
+      ? 0
+      : (project.energy.pvHourlyProfile?.[hour] ?? 0) *
+        project.energy.pvKW *
+        project.energy.pvPerformanceRatio;
+    const pv = Math.min(rawPV, project.energy.inverterACLimitKW ?? Infinity);
+    const rawGeneration =
+      options.generationKW?.[index] ??
+      rawPV + (project.energy.windHourlyKW?.[hour] ?? 0);
+    const generation =
+      options.generationKW?.[index] ??
+      pv + (project.energy.windHourlyKW?.[hour] ?? 0);
+    const clippedKWh = (rawGeneration - generation) * hours;
+    const reserve =
+      dispatch && dispatch.strategy !== "self-consumption" && !inOutage
+        ? battery.capacityKWh * dispatch.reserveSoc
+        : battery.capacityKWh * battery.minSoc;
+    const windows =
+      dispatch?.gridChargeWindows.filter((window) =>
+        window.startHour < window.endHour
+          ? point.hour >= window.startHour && point.hour < window.endHour
+          : point.hour >= window.startHour || point.hour < window.endHour,
+      ) ?? [];
+    if (windows.length > 1)
+      fail("Grid-charge windows overlap; enter one target for each interval.");
+    if (
+      windows.some(
+        (window) =>
+          window.targetSoc < battery.minSoc ||
+          window.targetSoc > battery.maxSoc,
+      )
+    )
+      fail("Grid-charge target must lie within battery operating SOC bounds.");
+    const gridChargeKW =
+      !inOutage && dispatch?.allowGridCharge && windows[0]
+        ? Math.max(0, battery.capacityKWh * windows[0].targetSoc - stored) /
+          (battery.chargeEfficiency * hours)
+        : 0;
+    let loadKW = point.kw,
+      shedKWh = 0,
+      criticalUnservedKWh = 0;
+    let servedLoadIds: string[] | undefined,
+      unservedLoadIds: string[] | undefined;
+    if (inOutage && backup) {
+      servedLoadIds = [];
+      unservedLoadIds = [];
+      loadKW = 0;
+      const remainingA: Record<Phase, number> = { L1: 0, L2: 0, L3: 0 };
+      const sourceKW = source ? source.continuousKW * source.derating : 0;
+      const sourceKVA = source ? source.continuousKVA * source.derating : 0;
+      const phaseLimit = source
+        ? (sourceKVA * 1000) /
+          ((source.connection === "three" ? Math.sqrt(3) : 1) * source.voltageV)
+        : 0;
+      const availableKW = islandReady
+        ? Math.min(
+            sourceKW,
+            generation +
+              Math.min(
+                battery.dischargeKW,
+                (Math.max(0, stored - battery.capacityKWh * battery.minSoc) *
+                  battery.dischargeEfficiency) /
+                  hours,
+              ),
+          )
+        : 0;
+      let runningKW = 0,
+        runningKVA = 0;
+      const order = [...project.loads].sort((a, b) => {
+        const ai = backup.priorityLoadIds.indexOf(a.id),
+          bi = backup.priorityLoadIds.indexOf(b.id);
+        return (
+          (ai < 0 ? 100000 : ai) - (bi < 0 ? 100000 : bi) ||
+          Number(b.critical) - Number(a.critical) ||
+          a.id.localeCompare(b.id)
+        );
+      });
+      for (const load of order) {
+        const energy = loadEnergy(load, point, index),
+          kw = energy / hours;
+        if (energy <= 1e-12) continue;
+        const n = normalized.get(load.id)!;
+        const standbyKW = (load.standbyW * load.quantity) / 1000;
+        const active = kw > standbyKW + 1e-9;
+        let onKW = active ? n.operatingKW : standbyKW,
+          onKVA = active ? n.apparentKVA : standbyKW;
+        let current = active
+          ? n.currentA
+          : (standbyKW * 1000) /
+            ((load.connection === "three" ? Math.sqrt(3) : 1) * load.voltage);
+        if (timestamp !== undefined)
+          for (const event of project.startEvents ?? [])
+            if (
+              event.loadId === load.id &&
+              Date.parse(event.start) < timestamp + hours * 3600000 &&
+              Date.parse(event.start) + event.durationSeconds * 1000 > timestamp
+            ) {
+              const starting = normalizeLoad(startEventLoad(load, event, n));
+              onKW = Math.max(onKW, starting.operatingKW);
+              onKVA = Math.max(onKVA, starting.apparentKVA);
+              current = Math.max(current, starting.currentA);
+            }
+        const phases: Phase[] =
+          load.connection === "three"
+            ? ["L1", "L2", "L3"]
+            : load.connection === "line-line"
+              ? load.phasePair!
+              : load.connection === "single"
+                ? [load.phase]
+                : [];
+        const allowed =
+          islandReady &&
+          sourceServes(load) &&
+          (!backup.criticalOnly || load.critical) &&
+          loadKW + kw <= availableKW + 1e-9 &&
+          runningKW + onKW <= sourceKW + 1e-9 &&
+          runningKVA + onKVA <= sourceKVA + 1e-9 &&
+          phases.every(
+            (phase) => remainingA[phase] + current <= phaseLimit + 1e-9,
+          );
+        if (allowed) {
+          servedLoadIds.push(load.id);
+          loadKW += kw;
+          runningKW += onKW;
+          runningKVA += onKVA;
+          for (const phase of phases) remainingA[phase] += current;
+        } else {
+          unservedLoadIds.push(load.id);
+          shedKWh += energy;
+          if (load.critical) criticalUnservedKWh += energy;
+        }
+      }
+      if (Math.abs(loadKW * hours + shedKWh - point.kWh) > 1e-7)
+        fail(
+          "Per-load backup allocation does not reconcile with the common calendar energy boundary.",
+        );
+    }
+    const dischargeLimitKW =
+      !inOutage && dispatch?.strategy === "peak-shaving"
+        ? Math.max(0, loadKW - generation - dispatch.peakLimitKW!)
+        : undefined;
     const step = batteryStep({
       storedKWh: stored,
-      generationKW: generation[i],
-      loadKW: point.kw,
+      generationKW: generation,
+      loadKW,
       hours,
       battery,
       gridAvailable: !inOutage,
+      islandCapable: islandReady,
+      minimumStoredKWh: reserve,
+      dischargeLimitKW,
+      gridChargeKW,
+      gridChargeTargetKWh: windows[0]
+        ? battery.capacityKWh * windows[0].targetSoc
+        : undefined,
+      importLimitKW: project.energy.gridImportLimitKW,
+      exportLimitKW: project.energy.gridExportLimitKW,
+      islandOutputLimitKW:
+        source && backup ? source.continuousKW * source.derating : undefined,
     });
     stored = step.storedKWh;
+    step.curtailedKWh += clippedKWh;
+    step.unservedKWh += shedKWh;
+    if (!inOutage && step.unservedKWh > 1e-9)
+      issue(
+        "grid-import-limit",
+        "Entered grid-import constraints leave unserved demand. Critical-load attribution is applied only to configured outage shedding.",
+        "failed",
+      );
+    if (
+      !inOutage &&
+      dispatch?.strategy === "peak-shaving" &&
+      step.importKWh / hours > dispatch.peakLimitKW! + 1e-8
+    )
+      issue(
+        "peak-target",
+        "The requested grid-import peak target cannot be maintained at every interval within entered storage power/energy/reserve limits.",
+        "failed",
+      );
+    const balance =
+      rawGeneration * hours +
+      step.importKWh +
+      (points.length
+        ? points[points.length - 1].storedKWh
+        : battery.capacityKWh * battery.initialSoc) -
+      (point.kWh -
+        step.unservedKWh +
+        step.exportKWh +
+        stored +
+        step.lossesKWh +
+        step.curtailedKWh);
+    step.balanceErrorKWh = balance;
+    if (Math.abs(balance) > 1e-7)
+      fail("Energy dispatch conservation failed; result was not accepted.");
     points.push({
       ...step,
       hour: point.hour,
+      timestamp: point.timestamp,
+      durationHours: hours,
       loadKW: point.kw,
-      generationKW: generation[i],
+      generationKW: rawGeneration,
       soc: battery.capacityKWh === 0 ? 0 : stored / battery.capacityKWh,
       gridAvailable: !inOutage,
+      shedKWh,
+      criticalUnservedKWh,
+      servedLoadIds,
+      unservedLoadIds,
     });
     totals.loadKWh += point.kWh;
-    totals.generationKWh += generation[i] * hours;
+    totals.generationKWh += rawGeneration * hours;
     for (const key of [
       "importKWh",
       "exportKWh",
@@ -557,30 +1097,57 @@ export function simulateEnergy(
       "lossesKWh",
       "unservedKWh",
       "curtailedKWh",
+      "gridChargeKWh",
     ] as const)
       totals[key] += step[key];
-    charges.push({
-      kWh: step.importKWh,
-      rate: tariffRate(project.tariff, point.hour),
+    totals.shedKWh += shedKWh;
+    totals.criticalUnservedKWh += criticalUnservedKWh;
+    billRows.push({
+      timestamp:
+        point.timestamp ??
+        new Date(
+          Date.parse(`${date}T00:00:00Z`) + point.hour * 3600000,
+        ).toISOString(),
+      durationMinutes: hours * 60,
+      importKWh: step.importKWh,
+      exportKWh: step.exportKWh,
     });
   }
-  const energy = energyCharge(charges);
-  const exportCredit = energyCharge([
-    { kWh: totals.exportKWh, rate: project.tariff.exportRate },
-  ]);
-  const totalCost = roundCurrency(
-    (energy - exportCredit + project.tariff.standingPerDay) *
-      (1 + project.tariff.taxPercent / 100),
-  );
+  const billTariff = options.range
+    ? project.tariff
+    : {
+        ...project.tariff,
+        demandPerKW: 0,
+        standingBasis: "elapsed-24h" as const,
+      };
+  const bill = calculateIntervalBill(billTariff, billRows, {
+    timezone: options.range ? project.timezone : "UTC",
+  });
+  issues.push(...bill.issues);
+  if (!options.range && project.tariff.demandPerKW > 0)
+    issue(
+      "dispatch-demand-period",
+      "This representative-day cost excludes the billing-period demand charge. Select an actual calendar period for aligned/rolling demand billing.",
+      "incomplete",
+    );
   return {
     revision: project.revision,
     points,
     ...totals,
     finalStoredKWh: stored,
-    energyCharge: energy,
-    exportCredit,
-    totalCost,
+    energyCharge: bill.energyCharge,
+    exportCredit: bill.exportCredit,
+    totalCost: bill.total,
+    bill,
     issues,
-    complete: issues.length === 0,
+    complete: issues.every(
+      (row) =>
+        row.assessment !== "incomplete" &&
+        row.assessment !== "unsupported" &&
+        row.assessment !== "failed",
+    ),
+    method: options.range
+      ? "Actual elapsed calendar AC energy dispatch. Supplied PV/wind profiles repeat by local hour; no weather is retrieved. Grid energy, storage conversions, curtailment and served/unserved demand reconcile at each step. Backup selection uses conservative per-load power/phase limits and entered source/transfer/restart evidence."
+      : "Representative 24-hour AC energy dispatch, distinct from an actual DST calendar day. Battery capacity/SOC are stored DC energy; charging/discharging/grid energy are AC. Optional explicit dispatch, reserve and whole-load priority shedding use entered limits; no physical control is performed.",
   };
 }

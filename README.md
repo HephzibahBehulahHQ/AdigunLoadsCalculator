@@ -32,11 +32,11 @@ Dependencies are pinned in `package-lock.json`. The application is a client-side
 - Empty/new projects, IndexedDB saves, undo/redo, named scenario copies, local revisions, trash/restore, JSON and CSV import preview/export.
 - Electrical kW, kVA, nameplate current, shaft-output motor and explicit P/Q entry; single-phase, L–L, balanced three-phase and DC models with stated assumptions.
 - Distinct on-state current, demand allowance and energy duty; signed reactive power, phase and fundamental neutral currents, circuit assignments and phase-balancing previews.
-- A data-bound radial single-line diagram with SVG export, equipment selection and calculated-flow animation.
-- Cancellable calendar simulation in a worker, actual IANA timezone/DST handling and 15-minute/hourly results.
-- Chronological entered PV profiles, battery state/limits/losses, grid import/export and supported outage assumptions; EV scheduling under entered site and conservative phase constraints.
+- Editable radial topology with dependency-aware commands, saved notes/coordinates, spatial graph view, SVG/vector PDF export, equipment selection and calculated-flow animation. Cumulative source-to-load routes keep voltage, phase/neutral current, losses and conductor-capacity checks separate.
+- Cancellable calendar simulation in a worker, IANA timezone/DST handling, operating-window unions, seasonal/date exceptions, timed duty and start events, accessible timeline controls and interval exports.
+- Chronological entered PV/wind profiles, battery state/limits/dispatch, grid import/export and declared critical-load/outage constraints; reviewed EV and flexible-process scheduling under site and conservative phase limits.
 - All 51 toolbox forms with validated inputs, opt-in examples, formula traces, exports and manual evidence requirements. See [tool methods](docs/TOOL_METHODS.md).
-- Tariff and carbon assumptions, separately maintained customer billing drafts, decimal-safe amounts, quantities/labor/material lines, tax/discount, CSV/JSON backups, direct Unicode PDF and print layouts.
+- Dated/weekday tariff bands with exact fractional boundaries, aligned/rolling demand windows, carbon assumptions and bounded scenario comparisons. Separate customer billing drafts retain decimal-safe quantities, prices, tax/discount, backups, direct Unicode PDFs and print layouts. Selected engineering sections and model-derived BOM items feed reviewed estimates.
 - Local deterministic Adigun BOT with actual result explanations, missing inputs, preview/confirmation for load and phase proposals, and real report export.
 - Dark/light/system themes, reduced-motion settings and English/German/Yoruba/Nigerian Pidgin interface dictionaries. Detailed diagnostic/technical prose coverage and review limits are recorded honestly.
 
@@ -48,7 +48,7 @@ The durable product specification is `AdigunPowerLab  Pursuing Goal prompt.txt`.
 
 ## Data and offline use
 
-Engineering projects and local history use IndexedDB. Customer bills have their own IndexedDB drafts and explicit JSON backup/import. Measured-data CSV imports and their validated backups use a separate local store. Export engineering projects and billing drafts for backups; browser storage is not remote backup. Imports are reviewed before changing a project, and unsupported/malformed files preserve the current work. The production build caches its scoped application assets for offline reopening after a successful first load. Development mode does not register an offline worker.
+Engineering projects and local history use IndexedDB. Customer bills have their own IndexedDB drafts and explicit JSON backup/import. Measured-data CSV imports and their validated backups use a separate local store. Use Workspace backup to preserve projects, scenarios, revisions, bills and saved measured datasets in one reviewed archive; individual exports remain available. Browser storage is not remote backup. Imports are reviewed before changing a project, and unsupported/malformed files preserve the current work. The production build caches its scoped application assets for offline reopening after a successful first load. Development mode does not register an offline worker.
 
 ## Deployment
 

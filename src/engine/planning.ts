@@ -10,11 +10,13 @@ import {
   normalizeLoad,
   PHASES,
 } from "./electrical";
+import { makeCalendarClock, resolveSchedule } from "./calendar";
 
 export interface EVOptions {
-  strategy?: "immediate" | "cheapest";
+  strategy?: "immediate" | "cheapest" | "solar";
   /** Remaining AC power at the charger phase for each hourly interval. */
   phaseHeadroomKW?: number[];
+  generationKW?: number[];
 }
 export interface EVPlan {
   points: {
@@ -39,9 +41,43 @@ export function scheduleEV(
   session: EVSession,
   baseKW: number[] = Array(24).fill(0),
   rates: number[] = Array(24).fill(0),
-  options: EVOptions | "immediate" | "cheapest" = {},
+  options: EVOptions | "immediate" | "cheapest" | "solar" = {},
 ): EVPlan {
   const config = typeof options === "string" ? { strategy: options } : options;
+  if (!["immediate", "cheapest", "solar", undefined].includes(config.strategy))
+    throw new Error("Unsupported EV scheduling strategy.");
+  if (
+    config.strategy === "solar" &&
+    (!config.generationKW ||
+      config.generationKW.length !== 24 ||
+      config.generationKW.some((value) => !Number.isFinite(value) || value < 0))
+  )
+    throw new Error(
+      "Solar-following requires 24 entered nonnegative generation kW values.",
+    );
+  const minimumKW = session.minimumKW ?? 0;
+  if (!Number.isFinite(minimumKW) || minimumKW < 0)
+    throw new Error(
+      "EV minimum charging power must be nonnegative and finite.",
+    );
+  let requiredEnergy = session.requiredKWh;
+  if (session.energyBasis === "soc") {
+    if (
+      !Number.isFinite(session.usableCapacityKWh) ||
+      session.usableCapacityKWh! <= 0 ||
+      !Number.isFinite(session.initialSoc) ||
+      session.initialSoc! < 0 ||
+      session.initialSoc! > 1 ||
+      !Number.isFinite(session.targetSoc) ||
+      session.targetSoc! < session.initialSoc! ||
+      session.targetSoc! > 1
+    )
+      throw new Error(
+        "Enter usable battery capacity and valid initial/target SOC.",
+      );
+    requiredEnergy =
+      session.usableCapacityKWh! * (session.targetSoc! - session.initialSoc!);
+  }
   if (
     baseKW.length !== 24 ||
     rates.length !== 24 ||
@@ -113,16 +149,23 @@ export function scheduleEV(
     rate: point.rate,
   }));
   slots.sort(
-    config.strategy === "cheapest"
+    config.strategy === "solar"
       ? (a, b) =>
+          Math.max(0, config.generationKW![b.hour] - baseKW[b.hour]) -
+            Math.max(0, config.generationKW![a.hour] - baseKW[a.hour]) ||
           a.rate - b.rate ||
           ((a.hour - session.arrivalHour + 24) % 24) -
             ((b.hour - session.arrivalHour + 24) % 24)
-      : (a, b) =>
-          ((a.hour - session.arrivalHour + 24) % 24) -
-          ((b.hour - session.arrivalHour + 24) % 24),
+      : config.strategy === "cheapest"
+        ? (a, b) =>
+            a.rate - b.rate ||
+            ((a.hour - session.arrivalHour + 24) % 24) -
+              ((b.hour - session.arrivalHour + 24) % 24)
+        : (a, b) =>
+            ((a.hour - session.arrivalHour + 24) % 24) -
+            ((b.hour - session.arrivalHour + 24) % 24),
   );
-  let required = session.requiredKWh;
+  let required = requiredEnergy;
   for (const slot of slots) {
     if (slot.overlap === 0 || required <= 1e-12) continue;
     const availableKW = Math.min(
@@ -131,16 +174,18 @@ export function scheduleEV(
       Math.max(0, session.siteLimitKW - baseKW[slot.hour]),
       config.phaseHeadroomKW?.[slot.hour] ?? Infinity,
     );
+    if (availableKW + 1e-12 < minimumKW) continue;
     const acKWh = Math.min(
       availableKW * slot.overlap,
       required / session.efficiency,
     );
     const batteryKWh = acKWh * session.efficiency;
+    const acKW = acKWh > 0 ? Math.max(minimumKW, acKWh / slot.overlap) : 0;
     points[slot.hour] = {
       hour: slot.hour,
       startHour: slot.startHour,
-      durationHours: slot.overlap,
-      acKW: slot.overlap > 0 ? acKWh / slot.overlap : 0,
+      durationHours: acKW > 0 ? acKWh / acKW : 0,
+      acKW,
       acKWh,
       batteryKWh,
       rate: rates[slot.hour],
@@ -167,7 +212,7 @@ export function scheduleEV(
     });
   return {
     points,
-    deliveredKWh: session.requiredKWh - required,
+    deliveredKWh: requiredEnergy - required,
     meterKWh: points.reduce((sum, p) => sum + p.acKWh, 0),
     unmetKWh: required,
     feasible: required <= 1e-8,
@@ -180,6 +225,7 @@ export function scheduleEV(
 export function conservativeDemandProfile(
   project: Project,
   intervalMinutes = 60,
+  date?: string,
 ): { kw: number[]; phaseHeadroomKW: Record<Phase, number[]> } {
   if (
     !Number.isInteger(intervalMinutes) ||
@@ -213,14 +259,27 @@ export function conservativeDemandProfile(
     const standbyA =
       (standbyKW * 1000) /
       ((load.connection === "three" ? Math.sqrt(3) : 1) * load.voltage);
+    let spans = resolveSchedule(load, date);
+    if (load.schedule?.absoluteWindows) {
+      const clock = makeCalendarClock(project.timezone);
+      spans = load.schedule.absoluteWindows.flatMap(
+        (window): [number, number][] => {
+          const a = clock(Date.parse(window.start)),
+            b = clock(Date.parse(window.end) - 1);
+          if (!date) return [[0, 24]];
+          if (a.date > date || b.date < date) return [];
+          const left = a.date < date ? 0 : a.hour,
+            right = b.date > date ? 24 : b.hour + 1 / 3600000;
+          // A fold can make wall-clock order ambiguous; a whole-day envelope is conservative.
+          return right < left ? [[0, 24]] : [[left, right]];
+        },
+      );
+    }
     for (let index = 0; index < count; index++) {
-      const active =
-        activeHours(
-          load.startHour,
-          load.hoursPerDay,
-          index * step,
-          (index + 1) * step,
-        ) > 0;
+      const active = spans.some(
+        ([left, right]) =>
+          Math.min(right, (index + 1) * step) > Math.max(left, index * step),
+      );
       kw[index] += active
         ? Math.max(normalized.operatingKW, standbyKW)
         : standbyKW;

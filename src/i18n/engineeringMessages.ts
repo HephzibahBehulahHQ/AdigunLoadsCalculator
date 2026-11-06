@@ -1,0 +1,2247 @@
+/** Technical narrative translations. Equations, units and source identifiers remain unchanged.
+ * These translations are product language coverage, not independently certified technical translations.
+ */
+export const engineeringMessages: Record<string, [string, string, string]> = {
+  "A circuit requires one compatible AC or DC supply; separate mixed supplies or incompatible DC voltages.":
+    [
+      "Ein Stromkreis benötigt eine kompatible AC- oder DC-Versorgung; trennen Sie gemischte Versorgungen oder inkompatible DC-Spannungen.",
+      "Circuit kan nílò orísun AC tàbí DC kan tí ó bá a mu; ya àwọn orísun tí a dàpọ̀ tàbí foliteji DC tí kò bá ara wọn mu sọ́tọ̀.",
+      "One circuit need compatible AC or DC supply; separate mixed supplies or DC voltages wey no match.",
+    ],
+  "Checks the highest phase or neutral current against the entered common conductor capacity under its stated installation conditions.":
+    [
+      "Prüft den höchsten Phasen- oder Neutralleiterstrom gegen die eingegebene gemeinsame Leiterstrombelastbarkeit unter den angegebenen Verlegebedingungen.",
+      "Ó ṣàyẹ̀wò current phase tàbí neutral tí ó ga jù lọ pẹ̀lú agbára conductor tí a tẹ̀ wọlé, lábẹ́ àwọn ipò fífi sípò tí a sọ.",
+      "Checks the highest phase or neutral current against the conductor capacity you enter for the stated installation conditions.",
+    ],
+  "Enter a nonnegative finite equipment rating.": [
+    "Geben Sie einen endlichen, nicht negativen Gerätenennwert ein.",
+    "Tẹ iye àkọsílẹ̀ ohun èlò tí kò jẹ́ òdì, tí ó sì ní ààlà sínú.",
+    "Enter equipment rating wey no negative and wey be finite number.",
+  ],
+  "Quantity must be a positive integer.": [
+    "Die Anzahl muss eine positive ganze Zahl sein.",
+    "Iye ohun èlò gbọ́dọ̀ jẹ́ odidi rere.",
+    "Quantity must be whole number wey pass zero.",
+  ],
+  "Enter a positive voltage with the correct connection basis.": [
+    "Geben Sie eine positive Spannung mit dem richtigen Anschlussbezug ein.",
+    "Tẹ voltage rere sínú, kí ó bá irú ìsopọ̀ mu.",
+    "Enter positive voltage wey match the connection basis.",
+  ],
+  "Efficiency must be greater than 0 and at most 1.": [
+    "Der Wirkungsgrad muss größer als 0 und höchstens 1 sein.",
+    "Efficiency gbọ́dọ̀ ju 0 lọ, kò sì gbọ́dọ̀ ju 1 lọ.",
+    "Efficiency must pass 0 and must no pass 1.",
+  ],
+  "Operating duration must be between 0 and 24 hours.": [
+    "Die Betriebsdauer muss zwischen 0 und 24 Stunden liegen.",
+    "Àkókò iṣẹ́ gbọ́dọ̀ wà láàárín wákàtí 0 àti 24.",
+    "Operating duration must dey between 0 and 24 hours.",
+  ],
+  "Start hour must be between 0 and less than 24.": [
+    "Die Startstunde muss mindestens 0 und kleiner als 24 sein.",
+    "Wákàtí ìbẹ̀rẹ̀ gbọ́dọ̀ jẹ́ 0 tàbí ju bẹ́ẹ̀ lọ, ṣùgbọ́n ó gbọ́dọ̀ kéré ju 24.",
+    "Start hour must be at least 0 and below 24.",
+  ],
+  "Energy duty must be between 0 and 1.": [
+    "Der Energie-Einschaltdauerfaktor muss zwischen 0 und 1 liegen.",
+    "Energy duty gbọ́dọ̀ wà láàárín 0 àti 1.",
+    "Energy duty must dey between 0 and 1.",
+  ],
+  "On-state utilization must be between 0 and 1.": [
+    "Die Auslastung im eingeschalteten Zustand muss zwischen 0 und 1 liegen.",
+    "Utilization nígbà tí ohun èlò bá ń ṣiṣẹ́ gbọ́dọ̀ wà láàárín 0 àti 1.",
+    "Utilization while equipment dey on must dey between 0 and 1.",
+  ],
+  "Standby power must be nonnegative.": [
+    "Die Bereitschaftsleistung darf nicht negativ sein.",
+    "Agbára standby kò gbọ́dọ̀ jẹ́ òdì.",
+    "Standby power must no be negative.",
+  ],
+  "PF must be greater than 0 and at most 1; use complex entry for reactive-only loads.":
+    [
+      "PF muss größer als 0 und höchstens 1 sein; für reine Blindlasten ist die komplexe Eingabe zu verwenden.",
+      "PF gbọ́dọ̀ ju 0 lọ, kò sì gbọ́dọ̀ ju 1 lọ; lo complex entry fún ẹrù tí ó ní reactive power nìkan.",
+      "PF must pass 0 and no pass 1; use complex entry for loads wey get only reactive power.",
+    ],
+  "Complex-power entry requires a finite signed reactive power.": [
+    "Die komplexe Leistungseingabe erfordert eine endliche Blindleistung mit Vorzeichen.",
+    "Complex-power entry nílò reactive power tí ó ní ààlà àti àmì rere tàbí òdì.",
+    "Complex-power entry need finite reactive power with positive or negative sign.",
+  ],
+  "Unsupported rating entry mode.": [
+    "Nicht unterstützte Nennwert-Eingabeart.",
+    "A kò ṣe àtìlẹ́yìn fún irú ìtẹ̀síwájú iye àkọsílẹ̀ yìí.",
+    "This rating entry mode no dey supported.",
+  ],
+  "Select lagging or leading reactive behavior.": [
+    "Wählen Sie nacheilendes oder voreilendes Blindleistungsverhalten.",
+    "Yan reactive behavior tí ó jẹ́ lagging tàbí leading.",
+    "Choose lagging or leading reactive behavior.",
+  ],
+  "Select the PF interpretation.": [
+    "Wählen Sie die Interpretation des Leistungsfaktors.",
+    "Yan ìtumọ̀ PF tí a ó lò.",
+    "Choose how this PF value suppose mean.",
+  ],
+  "Select two distinct line phases.": [
+    "Wählen Sie zwei unterschiedliche Außenleiter.",
+    "Yan phase méjì tí wọ́n yàtọ̀ sí ara wọn.",
+    "Choose two different line phases.",
+  ],
+  "Operating weekdays must use 0 (Sunday) through 6 (Saturday).": [
+    "Für Betriebstage sind 0 (Sonntag) bis 6 (Samstag) zu verwenden.",
+    "Lo 0 (Ọjọ́ Àìkú) sí 6 (Ọjọ́ Àbámẹ́ta) fún ọjọ́ iṣẹ́.",
+    "Use 0 for Sunday through 6 for Saturday for operating weekdays.",
+  ],
+  "DC reactive power is not supported.": [
+    "Blindleistung für Gleichstrom wird nicht unterstützt.",
+    "A kò ṣe àtìlẹ́yìn fún reactive power DC.",
+    "DC reactive power no dey supported.",
+  ],
+  "True PF supports power/current magnitudes only. Fundamental reactive power, angle and net phasor current require displacement PF or measured P/Q.":
+    [
+      "Der wahre Leistungsfaktor unterstützt nur Leistungs- und Strombeträge. Grundschwingungsblindleistung, Winkel und resultierender Zeigerstrom erfordern Verschiebungs-PF oder gemessene P/Q-Werte.",
+      "True PF ń fúnni ní iye agbára àti ìṣàn iná nìkan. Reactive power ìpilẹ̀, igun àti phasor current àpapọ̀ nílò displacement PF tàbí P/Q tí a wọn.",
+      "True PF supports only power and current magnitude. Fundamental reactive power, angle and net phasor current need displacement PF or measured P/Q.",
+    ],
+  "The entered magnitudes overflow the supported numerical range.": [
+    "Die eingegebenen Beträge überschreiten den unterstützten Zahlenbereich.",
+    "Àwọn iye tí a tẹ̀ wọlé ti ju ààlà nọ́ńbà tí eto lè lò lọ.",
+    "The values wey you enter pass the supported number range.",
+  ],
+  "Interval must be a positive whole divisor of 1440 minutes.": [
+    "Das Intervall muss ein positiver ganzzahliger Teiler von 1440 Minuten sein.",
+    "Interval gbọ́dọ̀ jẹ́ odidi rere tí ó lè pín ìṣẹ́jú 1440 láìsí àṣẹ́kù.",
+    "Interval must be positive whole number wey divide 1440 minutes without remainder.",
+  ],
+  "Board hierarchy contains a cycle.": [
+    "Die Verteilerhierarchie enthält einen Kreis.",
+    "Ìsopọ̀ àwọn pánẹ́ẹ̀lì ní àyíká tí ó padà sí ara rẹ̀.",
+    "The board hierarchy get a loop wey return to itself.",
+  ],
+  "Upstream board is missing.": [
+    "Der vorgeschaltete Verteiler fehlt.",
+    "Pánẹ́ẹ̀lì tí ń pèsè agbára láti òkè kò sí.",
+    "The upstream board no dey.",
+  ],
+  "The circuit count exceeds the entered number of board ways.": [
+    "Die Anzahl der Stromkreise überschreitet die eingegebenen Verteilerplätze.",
+    "Iye àwọn síkítì ju iye àyè pánẹ́ẹ̀lì tí a tẹ̀ wọlé lọ.",
+    "Number of circuits pass the board ways wey you enter.",
+  ],
+  "The circuit references a missing board.": [
+    "Der Stromkreis verweist auf einen fehlenden Verteiler.",
+    "Síkítì náà ń tọ́ka sí pánẹ́ẹ̀lì tí kò sí.",
+    "The circuit dey point to board wey no exist.",
+  ],
+  "The load references a missing board.": [
+    "Die Last verweist auf einen fehlenden Verteiler.",
+    "Ẹrù náà ń tọ́ka sí pánẹ́ẹ̀lì tí kò sí.",
+    "The load dey point to board wey no exist.",
+  ],
+  "The load references a missing circuit.": [
+    "Die Last verweist auf einen fehlenden Stromkreis.",
+    "Ẹrù náà ń tọ́ka sí síkítì tí kò sí.",
+    "The load dey point to circuit wey no exist.",
+  ],
+  "The load and its circuit reference different boards.": [
+    "Die Last und ihr Stromkreis verweisen auf unterschiedliche Verteiler.",
+    "Ẹrù àti síkítì rẹ̀ ń tọ́ka sí pánẹ́ẹ̀lì tí ó yàtọ̀.",
+    "The load and its circuit dey point to different boards.",
+  ],
+  "Load phase does not match its circuit phase.": [
+    "Die Phase der Last stimmt nicht mit der Stromkreisphase überein.",
+    "Phase ẹrù kò bá phase síkítì rẹ̀ mu.",
+    "Load phase no match the circuit phase.",
+  ],
+  "Load voltage differs from the stated supply by more than 5%; model a compatible source or correct the input.":
+    [
+      "Die Lastspannung weicht um mehr als 5 % von der angegebenen Versorgung ab; modellieren Sie eine passende Quelle oder korrigieren Sie die Eingabe.",
+      "Voltage ẹrù yàtọ̀ sí ti orísun agbára ju 5% lọ; lo àwòṣe orísun tí ó bá a mu tàbí ṣe àtúnṣe iye tí a tẹ̀ wọlé.",
+      "Load voltage differ from the stated supply by more than 5%; model a matching source or correct the input.",
+    ],
+  "Coincidence must be 0–1 and growth must be nonnegative.": [
+    "Der Gleichzeitigkeitsfaktor muss zwischen 0 und 1 liegen; der Zuwachs darf nicht negativ sein.",
+    "Coincidence gbọ́dọ̀ jẹ́ 0–1, growth kò sì gbọ́dọ̀ jẹ́ òdì.",
+    "Coincidence must dey 0–1 and growth must no be negative.",
+  ],
+  "DC loads are included in energy totals but excluded from AC phase currents. A converter/source model is required to combine electrical boundaries.":
+    [
+      "Gleichstromlasten sind in den Energiesummen enthalten, jedoch nicht in den Wechselstrom-Phasenströmen. Zum Zusammenführen der elektrischen Grenzen ist ein Wandler-/Quellenmodell erforderlich.",
+      "Àpapọ̀ energy ní ẹrù DC nínú, ṣùgbọ́n ìṣàn phase AC kò kà wọ́n sí. Àwòṣe converter/orísun agbára ni a nílò láti so ààlà iná méjì pọ̀.",
+      "Energy totals include DC loads, but AC phase currents no include them. A converter/source model dey needed to join the electrical boundaries.",
+    ],
+  "Overview costs are flat-rate 30-day estimates. Use chronological billing for time-of-use rates.":
+    [
+      "Die Übersichtskosten sind 30-Tage-Schätzungen mit Einheitspreis. Für zeitabhängige Tarife ist die chronologische Abrechnung zu verwenden.",
+      "Owó inú overview jẹ́ ìṣírò ọjọ́ 30 pẹ̀lú iye owó kan ṣoṣo. Lo ìṣírò owó gẹ́gẹ́ bí àkókò fún time-of-use rates.",
+      "Overview costs na flat-rate estimates for 30 days. Use chronological billing for time-of-use rates.",
+    ],
+  "Overview is a representative recurring day. Dated/seasonal exceptions, absolute operating windows and start events require calendar simulation; absolute windows are excluded from the recurring-day estimate.":
+    [
+      "Die Übersicht zeigt einen repräsentativen wiederkehrenden Tag. Datums-/Saisonausnahmen, absolute Betriebsfenster und Startvorgänge erfordern eine Kalendersimulation; absolute Fenster sind in der Tagesschätzung nicht enthalten.",
+      "Overview dúró fún ọjọ́ kan tí ń tún ara rẹ̀ ṣe. Àyọkúrò ọjọ́/àsìkò, absolute operating windows àti start events nílò calendar simulation; absolute windows kò sí nínú ìṣírò ọjọ́ àtúnṣe yìí.",
+      "Overview na one representative repeating day. Date/season exceptions, absolute operating windows and start events need calendar simulation; the repeating-day estimate no include absolute windows.",
+    ],
+  "Stiff-neutral sinusoidal AC and separate DC branch model": [
+    "Sinusförmiges Wechselstrommodell mit festem Neutralleiterpotenzial und getrenntem Gleichstromzweig",
+    "Àwòṣe AC sinusoidal pẹ̀lú neutral tí ó dúró ṣinṣin àti ẹ̀ka DC lọ́tọ̀",
+    "Sinusoidal AC model with fixed neutral and separate DC branch",
+  ],
+  "Balanced supply voltages; fixed neutral; fundamental-frequency currents only.":
+    [
+      "Symmetrische Versorgungsspannungen; festes Neutralleiterpotenzial; nur Grundschwingungsströme.",
+      "Voltage orísun agbára tó dọ́gba; neutral tí ó dúró ṣinṣin; ìṣàn iná fundamental-frequency nìkan.",
+      "Balanced supply voltages; fixed neutral; only fundamental-frequency currents.",
+    ],
+  "Duty affects energy, never on-state current. Utilization is an explicit operating assumption.":
+    [
+      "Der Einschaltdauerfaktor beeinflusst die Energie, niemals den Strom im eingeschalteten Zustand. Die Auslastung ist eine ausdrücklich eingegebene Betriebsannahme.",
+      "Duty ń yí energy padà, kò yí ìṣàn iná nígbà iṣẹ́ padà. Utilization jẹ́ àròsọ iṣẹ́ tí a sọ kedere.",
+      "Duty affects energy, e no reduce current while equipment dey on. Utilization na explicit operating assumption.",
+    ],
+  "Coincidence and growth affect design demand; they do not alter modeled energy.":
+    [
+      "Gleichzeitigkeit und Zuwachs beeinflussen den Auslegungsbedarf, nicht die modellierte Energie.",
+      "Coincidence àti growth ń yí design demand padà; wọn kò yí energy àwòṣe padà.",
+      "Coincidence and growth affect design demand; dem no change the modelled energy.",
+    ],
+  "Quick estimates use one repeated 24-hour day and 30 days per month; weekday calendars and DST require calendar simulation.":
+    [
+      "Schnellschätzungen verwenden einen wiederholten 24-Stunden-Tag und 30 Tage pro Monat; Wochentagskalender und Sommerzeit erfordern eine Kalendersimulation.",
+      "Ìṣírò kíákíá ń lo ọjọ́ wákàtí 24 kan tí ń tún ara rẹ̀ ṣe àti ọjọ́ 30 fún oṣù; kalẹ́ńdà ọ̀sẹ̀ àti DST nílò calendar simulation.",
+      "Quick estimates use one repeating 24-hour day and 30 days per month; weekday calendars and DST need calendar simulation.",
+    ],
+  "Flat-rate cost inputs are user assumptions. No normative cable/protection approval is implied.":
+    [
+      "Einheitspreis-Kosteneingaben sind Benutzerannahmen. Daraus folgt keine normative Freigabe für Kabel oder Schutzgeräte.",
+      "Àwọn iye owó flat-rate jẹ́ àròsọ olùlò. Èyí kò túmọ̀ sí ìfọwọ́sí cable tàbí protection gẹ́gẹ́ bí ìlànà.",
+      "Flat-rate cost inputs na user assumptions. E no mean cable or protection don get standards approval.",
+    ],
+  "L–L branches contribute equal/opposite line currents; neutral excludes DC branches.":
+    [
+      "Außenleiter-Außenleiter-Zweige liefern gleich große, entgegengesetzte Leiterströme; Gleichstromzweige sind vom Neutralleiterstrom ausgeschlossen.",
+      "Ẹ̀ka L–L ń fi ìṣàn line tí ó dọ́gba ṣùgbọ́n tí ó dojú kọ ara wọn kún un; neutral kò kà ẹ̀ka DC sí.",
+      "L–L branches contribute equal and opposite line currents; neutral calculation no include DC branches.",
+    ],
+  "A valid load and explicitly entered starting PF are required.": [
+    "Eine gültige Last und ein ausdrücklich eingegebener Anlauf-PF sind erforderlich.",
+    "Ẹrù tó pé àti starting PF tí a tẹ̀ wọlé kedere ni a nílò.",
+    "A valid load and explicitly entered starting PF dey required.",
+  ],
+  "A finite positive starting current is required.": [
+    "Ein endlicher positiver Anlaufstrom ist erforderlich.",
+    "Starting current gbọ́dọ̀ jẹ́ iye rere tí ó ní ààlà.",
+    "Starting current must be positive finite number.",
+  ],
+  "Start analysis requires an increasing explicit-offset range.": [
+    "Die Anlaufanalyse erfordert einen zeitlich aufsteigenden Bereich mit explizitem UTC-Offset.",
+    "Start analysis nílò àkókò ìbẹ̀rẹ̀ sí òpin tí ń pọ̀ sí i, pẹ̀lú UTC offset tí a sọ kedere.",
+    "Start analysis need increasing time range with explicit UTC offset.",
+  ],
+  "Start sequence detail is limited to seven elapsed days; calendar energy supports longer ranges.":
+    [
+      "Die detaillierte Anlaufreihenfolge ist auf sieben verstrichene Tage begrenzt; die Kalenderenergie unterstützt längere Zeiträume.",
+      "Àlàyé start sequence dá sí ọjọ́ méje tí ó kọjá; calendar energy lè gba àkókò gígùn ju bẹ́ẹ̀ lọ.",
+      "Detailed start sequence get limit of seven elapsed days; calendar energy supports longer ranges.",
+    ],
+  "Entered constant-current/PF start segments replace the running load for their duration. Other scheduled loads use conservative on-state current; energy-average duty is not a guaranteed instantaneous reduction. No transient voltage/frequency dip is predicted.":
+    [
+      "Eingegebene Anlaufsegmente mit konstantem Strom/PF ersetzen die Betriebslast während ihrer Dauer. Andere geplante Lasten verwenden konservative Einschaltströme; der mittlere Energiefaktor garantiert keine momentane Reduktion. Transiente Spannungs-/Frequenzeinbrüche werden nicht vorhergesagt.",
+      "Start segments tí a tẹ̀ wọlé pẹ̀lú current/PF tí kò yí padà ń rọ́pò ẹrù iṣẹ́ fún àkókò wọn. Ẹrù míì tó wà lórí ètò ń lo on-state current tó ṣọ́ra; energy-average duty kì í ṣe ẹ̀rí pé ìṣàn yóò dín kù lẹ́sẹ̀kẹsẹ̀. A kò sọ àsọtẹ́lẹ̀ transient voltage/frequency dip.",
+      "Entered constant-current/PF start segments replace running load for their duration. Other scheduled loads use conservative on-state current; average energy duty no guarantee instant reduction. This model no predict transient voltage or frequency dip.",
+    ],
+  "Starting current/PF/time provenance has not been recorded.": [
+    "Die Herkunft von Anlaufstrom, PF und Dauer wurde nicht dokumentiert.",
+    "A kò tíì kọ orísun starting current/PF/time sílẹ̀.",
+    "Source evidence for starting current, PF and time never dey recorded.",
+  ],
+  "Correct invalid loads before start-sequence analysis.": [
+    "Korrigieren Sie ungültige Lasten vor der Anlaufreihenfolgeanalyse.",
+    "Ṣe àtúnṣe ẹrù tí kò pé kí o tó ṣe start-sequence analysis.",
+    "Correct invalid loads before you run start-sequence analysis.",
+  ],
+  "Select an entered source equipment record.": [
+    "Wählen Sie einen eingegebenen Versorgungsgeräte-Datensatz.",
+    "Yan àkọsílẹ̀ ohun èlò orísun agbára tí a ti tẹ̀ wọlé.",
+    "Select a source equipment record wey you enter.",
+  ],
+  "Source assessment instant needs an explicit UTC offset.": [
+    "Der Zeitpunkt der Quellenbewertung benötigt einen expliziten UTC-Offset.",
+    "Àkókò source assessment nílò UTC offset tí a sọ kedere.",
+    "The source assessment time need explicit UTC offset.",
+  ],
+  "Enter the nameplate/datasheet reference and applicable rating conditions.": [
+    "Geben Sie das Typenschild-/Datenblatt und die geltenden Nennbedingungen an.",
+    "Tẹ ìtọ́kasí nameplate/datasheet àti àwọn ipò tí rating náà wúlò sí sínú.",
+    "Enter nameplate or datasheet reference and the conditions wey the rating covers.",
+  ],
+  "Assign valid loads with displacement-PF or P/Q evidence to the selected source boundary.":
+    [
+      "Ordnen Sie der ausgewählten Quellengrenze gültige Lasten mit Verschiebungs-PF- oder P/Q-Nachweis zu.",
+      "Fi ẹrù tó pé, pẹ̀lú ẹ̀rí displacement-PF tàbí P/Q, sí ààlà orísun agbára tí a yàn.",
+      "Assign valid loads with displacement-PF or P/Q evidence to the source boundary wey you select.",
+    ],
+  "The supplied nominal connection supports the selected AC or DC boundary.": [
+    "Die angegebene Nennanschlussart unterstützt die ausgewählte Wechsel- oder Gleichstromgrenze.",
+    "Nominal connection tí a pèsè bá ààlà AC tàbí DC tí a yàn mu.",
+    "The nominal connection wey you provide supports the selected AC or DC boundary.",
+  ],
+  "Correct incompatible phase/voltage assignments or provide an explicit supported converter model.":
+    [
+      "Korrigieren Sie unpassende Phasen-/Spannungszuordnungen oder stellen Sie ein ausdrücklich unterstütztes Wandlermodell bereit.",
+      "Ṣe àtúnṣe phase/voltage tí kò bá ara wọn mu tàbí pèsè àwòṣe converter tí eto ṣe àtìlẹ́yìn fún.",
+      "Correct phase or voltage assignments wey no match, or provide an explicit supported converter model.",
+    ],
+  "Entered continuous rating multiplied by the explicit derating factor. Duty and project diversity do not reduce on-state loading.":
+    [
+      "Eingegebener Dauerbemessungswert multipliziert mit dem expliziten Minderungsfaktor. Einschaltdauer und Projektdiversität reduzieren nicht die Belastung im eingeschalteten Zustand.",
+      "Continuous rating tí a tẹ̀ wọlé ni a fi derating factor tí a sọ kedere pọ̀ sí. Duty àti project diversity kò dín ẹrù nígbà iṣẹ́ kù.",
+      "Entered continuous rating times the explicit derating factor. Duty and project diversity no reduce on-state loading.",
+    ],
+  "Source-boundary nominal-voltage current/P/Q assessment with supplied ratings, independent continuous/phase/overload checks and explicit event duration. It is not a validated dynamic voltage/frequency response, manufacturer coordination study or regulatory approval.":
+    [
+      "Strom-/P/Q-Bewertung an der Quellengrenze bei Nennspannung mit eingegebenen Nennwerten, getrennten Dauer-/Phasen-/Überlastprüfungen und expliziter Ereignisdauer. Keine validierte dynamische Spannungs-/Frequenzantwort, Hersteller-Koordinationsstudie oder behördliche Zulassung.",
+      "Ìṣírò current/P/Q ní nominal voltage ní ààlà orísun agbára, pẹ̀lú rating tí a pèsè, ìṣàyẹ̀wò continuous/phase/overload lọ́tọ̀ àti event duration tí a sọ kedere. Kì í ṣe dynamic voltage/frequency response tí a fìdí rẹ̀ múlẹ̀, manufacturer coordination study tàbí ìfọwọ́sí òfin.",
+      "Source-boundary current/P/Q assessment at nominal voltage with entered ratings, separate continuous, phase and overload checks, and explicit event duration. E no be validated dynamic voltage/frequency response, manufacturer coordination study or regulatory approval.",
+    ],
+  "Tariff lookup requires a valid local time/date.": [
+    "Die Tarifabfrage erfordert eine gültige lokale Uhrzeit und ein gültiges Datum.",
+    "Tariff lookup nílò àkókò/ọjọ́ agbègbè tó pé.",
+    "Tariff lookup need valid local time and date.",
+  ],
+  "Time-of-use tariff bands overlap at the selected interval.": [
+    "Zeitabhängige Tarifbänder überlappen im ausgewählten Intervall.",
+    "Àwọn tariff band time-of-use ń wọ ara wọn ní interval tí a yàn.",
+    "Time-of-use tariff bands overlap for the selected interval.",
+  ],
+  "Select a calendar date and weekday to resolve dated/time-of-use tariff bands.":
+    [
+      "Wählen Sie Kalenderdatum und Wochentag, um datierte/zeitabhängige Tarifbänder zu bestimmen.",
+      "Yan ọjọ́ kalẹ́ńdà àti ọjọ́ ọ̀sẹ̀ láti mọ dated/time-of-use tariff band tó yẹ.",
+      "Choose calendar date and weekday to resolve dated or time-of-use tariff bands.",
+    ],
+  "Standing, demand and tax amounts must be nonnegative.": [
+    "Grund-, Leistungs- und Steuerbeträge dürfen nicht negativ sein.",
+    "Owó standing, demand àti tax kò gbọ́dọ̀ jẹ́ òdì.",
+    "Standing, demand and tax amounts must no be negative.",
+  ],
+  "Tariff bands must be an array.": [
+    "Tarifbänder müssen als Liste vorliegen.",
+    "Tariff bands gbọ́dọ̀ jẹ́ àkójọ array.",
+    "Tariff bands must be an array.",
+  ],
+  "Tariff band IDs must be nonempty and unique.": [
+    "Tarifband-IDs dürfen nicht leer sein und müssen eindeutig sein.",
+    "ID tariff band kò gbọ́dọ̀ ṣófo, ọ̀kọ̀ọ̀kan sì gbọ́dọ̀ yàtọ̀.",
+    "Tariff band IDs must no be empty and each one must be unique.",
+  ],
+  "Enter a valid demand averaging window, step, alignment instant and billing period.":
+    [
+      "Geben Sie ein gültiges Leistungsmittelungsfenster, einen Schritt, einen Ausrichtungszeitpunkt und einen Abrechnungszeitraum ein.",
+      "Tẹ demand averaging window, step, alignment instant àti billing period tí ó pé sínú.",
+      "Enter valid demand averaging window, step, alignment time and billing period.",
+    ],
+  "Invalid demand-charge time/weekday window.": [
+    "Ungültiges Zeit-/Wochentagsfenster für die Leistungsabrechnung.",
+    "Àkókò/ọjọ́ ọ̀sẹ̀ fún demand charge kò pé.",
+    "Demand-charge time or weekday window no valid.",
+  ],
+  "Billing requires a bounded, nonempty interval series.": [
+    "Die Abrechnung erfordert eine begrenzte, nicht leere Intervallreihe.",
+    "Billing nílò interval series tí kò ṣófo, tí ó sì ní ààlà.",
+    "Billing need bounded interval series wey no empty.",
+  ],
+};
+
+Object.assign(engineeringMessages, {
+  "Billing intervals require explicit instants, positive durations and separate nonnegative import/export energy.":
+    [
+      "Abrechnungsintervalle erfordern eindeutige Zeitpunkte, positive Dauern und getrennte, nicht negative Bezugs-/Einspeiseenergie.",
+      "Interval billing nílò àkókò tí a sọ kedere, duration rere àti energy import/export lọ́tọ̀ tí kò jẹ́ òdì.",
+      "Billing intervals need explicit times, positive durations and separate import/export energy wey no negative.",
+    ],
+  "Billing intervals must be ordered, contiguous and nonoverlapping. Missing data cannot be billed as zero.":
+    [
+      "Abrechnungsintervalle müssen geordnet, lückenlos und überlappungsfrei sein. Fehlende Daten dürfen nicht als null abgerechnet werden.",
+      "Interval billing gbọ́dọ̀ tẹ̀lé ara wọn ní ètò, láìsí àlàfo tàbí ìdápọ̀. A kò lè ka data tí kò sí sí odo ní ìṣírò owó.",
+      "Billing intervals must follow order, join without gaps and no overlap. Missing data no fit count as zero for billing.",
+    ],
+  "Billing is limited to 367 elapsed days per calculation.": [
+    "Die Abrechnung ist auf 367 verstrichene Tage pro Berechnung begrenzt.",
+    "Billing dá sí ọjọ́ 367 tí ó kọjá fún ìṣírò kọ̀ọ̀kan.",
+    "Billing get limit of 367 elapsed days for each calculation.",
+  ],
+  "Some input intervals cross tariff changes. Their energy is allocated uniformly within the supplied interval; finer measured peaks or subinterval behavior are not inferred.":
+    [
+      "Einige Eingabeintervalle überschreiten Tarifwechsel. Ihre Energie wird innerhalb des Intervalls gleichmäßig verteilt; feinere gemessene Spitzen oder Teilintervallverläufe werden nicht abgeleitet.",
+      "Díẹ̀ nínú interval kọjá àkókò tí tariff yí padà. A pín energy wọn dọ́gba nínú interval tí a pèsè; a kò dá peak tàbí ìhùwàsí kékeré tí a kò wọn sílẹ̀.",
+      "Some input intervals cross tariff changes. Their energy dey shared uniformly inside each interval; the model no invent finer measured peaks or subinterval behavior.",
+    ],
+  "No complete eligible demand window lies in the supplied billing period.": [
+    "Im angegebenen Abrechnungszeitraum liegt kein vollständiges zulässiges Leistungsmessfenster.",
+    "Kò sí demand window tó pé, tó sì yẹ nínú billing period tí a pèsè.",
+    "No complete eligible demand window dey inside the billing period wey you provide.",
+  ],
+  "Rolling demand uses uniform average power within each supplied interval. Use finer measured data to assess within-interval variation.":
+    [
+      "Die gleitende Leistungsmittelung verwendet innerhalb jedes Intervalls eine gleichmäßige Durchschnittsleistung. Für Änderungen innerhalb des Intervalls sind feinere Messdaten nötig.",
+      "Rolling demand ń lo agbára àárín tí ó dọ́gba nínú interval kọ̀ọ̀kan. Lo data tí a wọn ní àkókò kékeré sí i láti ṣàyẹ̀wò ìyípadà inú interval.",
+      "Rolling demand uses uniform average power inside each supplied interval. Use finer measured data to check changes within an interval.",
+    ],
+  "Select an existing endpoint load.": [
+    "Wählen Sie eine vorhandene Endpunktlast.",
+    "Yan ẹrù ìparí ọ̀nà tí ó ti wà.",
+    "Select an endpoint load wey already exists.",
+  ],
+  "A scenario instant requires an explicit UTC offset.": [
+    "Ein Szenariozeitpunkt erfordert einen expliziten UTC-Offset.",
+    "Àkókò scenario nílò UTC offset tí a sọ kedere.",
+    "Scenario time need explicit UTC offset.",
+  ],
+  "Select the instant of an entered start event for starting assessment.": [
+    "Wählen Sie für die Anlaufbewertung den Zeitpunkt eines eingegebenen Startvorgangs.",
+    "Yan àkókò start event tí a ti tẹ̀ wọlé fún starting assessment.",
+    "Choose the time of an entered start event for starting assessment.",
+  ],
+  "Enter a finite positive route voltage criterion, at most 100%.": [
+    "Geben Sie ein endliches positives Spannungskriterium für den Pfad ein, höchstens 100 %.",
+    "Tẹ route voltage criterion rere tí ó ní ààlà sínú; kò gbọ́dọ̀ ju 100% lọ.",
+    "Enter finite positive route voltage criterion wey no pass 100%.",
+  ],
+  "Assign the endpoint to a final circuit before route assessment.": [
+    "Ordnen Sie den Endpunkt vor der Pfadbewertung einem Endstromkreis zu.",
+    "Fi endpoint sí final circuit kí o tó ṣe route assessment.",
+    "Assign the endpoint to a final circuit before route assessment.",
+  ],
+  "The source-to-load route contains a cycle.": [
+    "Der Pfad von der Quelle zur Last enthält einen Kreis.",
+    "Ọ̀nà láti orísun agbára sí ẹrù ní àyíká tí ó padà sí ara rẹ̀.",
+    "The source-to-load route get a loop.",
+  ],
+  "A board on the endpoint route is missing.": [
+    "Ein Verteiler im Endpunktpfad fehlt.",
+    "Pánẹ́ẹ̀lì kan lórí ọ̀nà endpoint kò sí.",
+    "One board on the endpoint route no dey.",
+  ],
+  "The endpoint has no connected source-to-board route.": [
+    "Der Endpunkt hat keinen verbundenen Pfad von der Quelle zum Verteiler.",
+    "Endpoint kò ní ọ̀nà tí a so láti orísun agbára sí pánẹ́ẹ̀lì.",
+    "The endpoint no get connected source-to-board route.",
+  ],
+  "The selected instant does not intersect an entered start event.": [
+    "Der gewählte Zeitpunkt liegt in keinem eingegebenen Startvorgang.",
+    "Àkókò tí a yàn kò bá start event tí a tẹ̀ wọlé pàdé.",
+    "The selected time no fall inside any entered start event.",
+  ],
+  "This route mixes AC/DC or incompatible DC voltages; supply/converter modelling is required.":
+    [
+      "Dieser Pfad mischt Wechsel-/Gleichstrom oder unvereinbare Gleichspannungen; ein Versorgungs-/Wandlermodell ist erforderlich.",
+      "Ọ̀nà yìí dapọ̀ AC/DC tàbí voltage DC tí kò bá ara wọn mu; supply/converter modelling ni a nílò.",
+      "This route mixes AC/DC or DC voltages wey no match; supply/converter modelling dey required.",
+    ],
+  "All downstream loads need valid magnitudes and displacement-PF or complex-power evidence.":
+    [
+      "Alle nachgeschalteten Lasten benötigen gültige Beträge und Verschiebungs-PF- oder komplexe Leistungsnachweise.",
+      "Gbogbo ẹrù tó wà ní ìsàlẹ̀ nílò iye tó pé àti ẹ̀rí displacement-PF tàbí complex power.",
+      "All downstream loads need valid magnitudes and displacement-PF or complex-power evidence.",
+    ],
+  "Enter this segment's one-way length, per-conductor R (and AC X, including explicit zero), return-path data if unequal, and impedance provenance. Missing feeder data is not zero impedance.":
+    [
+      "Geben Sie die einfache Abschnittslänge, R je Leiter und AC-X einschließlich einer expliziten Null, bei ungleichen Leitern Rückleiterdaten sowie den Impedanznachweis ein. Fehlende Zuleitungsdaten bedeuten keine Nullimpedanz.",
+      "Tẹ gígùn ọ̀nà kan fún segment, R conductor kọ̀ọ̀kan àti AC X pẹ̀lú odo tí a sọ kedere, data ọ̀nà ìpadà tí kò bá dọ́gba, àti orísun impedance sínú. Data feeder tí kò sí kì í ṣe zero impedance.",
+      "Enter this segment's one-way length, each conductor's R and AC X including explicit zero, return-path data if different, and impedance source. Missing feeder data no mean zero impedance.",
+    ],
+  "Enter a sourced or user-selected cumulative voltage-drop criterion; no universal limit is assumed.":
+    [
+      "Geben Sie ein belegtes oder selbst gewähltes Kriterium für den kumulierten Spannungsfall ein; es wird kein universeller Grenzwert angenommen.",
+      "Tẹ cumulative voltage-drop criterion tó ní orísun tàbí tí olùlò yàn sínú; a kò rò pé ààlà kan wúlò fún gbogbo ibi.",
+      "Enter sourced or user-selected cumulative voltage-drop criterion; the model no assume one universal limit.",
+    ],
+  "Radial nominal-current phasor approximation with a fixed source neutral; each feeder carries all descendant loads under the same selected scenario. Neutral return impedance is included for L–N endpoints and cancels for L–L. Omitted return data assumes equal outgoing/return conductors. Signed projected voltage drop is separate from the receiving-voltage phasor magnitude. Shared segment losses include all downstream loads, not an allocated endpoint loss. This voltage-route result does not establish protection/disconnection compliance.":
+    [
+      "Radiale Zeigernäherung mit Nennströmen und festem Quellneutralleiter; jede Zuleitung trägt alle nachgeschalteten Lasten im gleichen Szenario. Die Neutralleiter-Rückimpedanz wird für L–N berücksichtigt und fällt bei L–L weg. Ohne Rückleiterdaten werden gleiche Hin-/Rückleiter angenommen. Der vorzeichenbehaftete projizierte Spannungsfall ist vom Betrag des Empfangsspannungszeigers getrennt. Gemeinsame Abschnittsverluste umfassen alle nachgeschalteten Lasten und werden keiner einzelnen Endlast zugeordnet. Das Ergebnis weist keine Schutz-/Abschaltkonformität nach.",
+      "Àwòṣe radial nominal-current phasor pẹ̀lú neutral orísun tí ó dúró ṣinṣin; feeder kọ̀ọ̀kan ń gbé gbogbo ẹrù tó wà ní ìsàlẹ̀ rẹ̀ nínú scenario kan náà. A kà neutral return impedance sí fún L–N, ó sì yọ kúrò fún L–L. Bí return data kò bá sí, a ro pé conductor ìlọ àti ìpadà dọ́gba. Signed projected voltage drop yàtọ̀ sí receiving-voltage phasor magnitude. Àdánù segment tí a jọ ń lò ní gbogbo downstream load nínú, kì í ṣe àdánù endpoint kan ṣoṣo. Èsì yìí kì í ṣe ẹ̀rí ìbámu protection/disconnection.",
+      "Radial nominal-current phasor approximation with fixed source neutral; each feeder carries all loads below am for the same scenario. Neutral return impedance counts for L–N and cancels for L–L. If return data no dey, equal outgoing/return conductors dey assumed. Signed projected voltage drop dey separate from receiving-voltage phasor magnitude. Shared segment losses include all downstream loads, no be loss assigned to only one endpoint. This result no establish protection or disconnection compliance.",
+    ],
+  "Flexible planning requires whole-minute explicit instants, an increasing range of at most 31 days, and a supported interval/strategy.":
+    [
+      "Die flexible Planung erfordert explizite Zeitpunkte auf vollen Minuten, einen aufsteigenden Bereich von höchstens 31 Tagen und ein unterstütztes Intervall bzw. eine unterstützte Strategie.",
+      "Flexible planning nílò àkókò ìṣẹ́jú odidi tí a sọ kedere, àkókò tí ń pọ̀ sí i tí kò ju ọjọ́ 31 lọ, àti interval/strategy tí eto ṣe àtìlẹ́yìn fún.",
+      "Flexible planning need explicit whole-minute times, increasing range wey no pass 31 days, and supported interval/strategy.",
+    ],
+  "Enter a finite positive site kW constraint.": [
+    "Geben Sie eine endliche positive Standortgrenze in kW ein.",
+    "Tẹ ààlà kW ibi iṣẹ́ tí ó jẹ́ rere, tí ó sì ní ààlà sínú.",
+    "Enter finite positive site kW limit.",
+  ],
+  "Candidate budget must be 1–500,000.": [
+    "Das Suchbudget muss zwischen 1 und 500.000 Kandidaten liegen.",
+    "Candidate budget gbọ́dọ̀ jẹ́ 1–500,000.",
+    "Candidate budget must dey between 1 and 500,000.",
+  ],
+  "A flexible planning batch is limited to 200 processes.": [
+    "Ein flexibler Planungsstapel ist auf 200 Prozesse begrenzt.",
+    "Flexible planning batch kan kò gbọ́dọ̀ ju process 200 lọ.",
+    "One flexible planning batch get limit of 200 processes.",
+  ],
+  "A flexible requirement references a missing load.": [
+    "Eine flexible Anforderung verweist auf eine fehlende Last.",
+    "Flexible requirement ń tọ́ka sí ẹrù tí kò sí.",
+    "One flexible requirement dey point to load wey no exist.",
+  ],
+  "Generation objective requires one nonnegative finite AC kW value per interval.":
+    [
+      "Das Erzeugungsziel erfordert pro Intervall einen endlichen, nicht negativen AC-kW-Wert.",
+      "Generation objective nílò iye AC kW kan tí kò jẹ́ òdì, tí ó sì ní ààlà fún interval kọ̀ọ̀kan.",
+      "Generation objective need one finite AC kW value wey no negative for each interval.",
+    ],
+  "Solar-following needs an actual entered generation profile for this planning period.":
+    [
+      "Die PV-geführte Planung benötigt ein tatsächlich eingegebenes Erzeugungsprofil für diesen Zeitraum.",
+      "Solar-following nílò generation profile tí a tẹ̀ wọlé gan-an fún planning period yìí.",
+      "Solar-following need actual entered generation profile for this planning period.",
+    ],
+  "Correct invalid load inputs before flexible planning.": [
+    "Korrigieren Sie ungültige Lasteingaben vor der flexiblen Planung.",
+    "Ṣe àtúnṣe iye ẹrù tí kò pé kí o tó ṣe flexible planning.",
+    "Correct invalid load inputs before flexible planning.",
+  ],
+  "Locked or critical equipment is unchanged. Remove this requirement from the batch or explicitly authorize an eligible noncritical process.":
+    [
+      "Gesperrte oder kritische Geräte bleiben unverändert. Entfernen Sie diese Anforderung aus dem Stapel oder geben Sie ausdrücklich einen geeigneten nicht kritischen Prozess frei.",
+      "Ohun èlò tí a dì tàbí tí ó ṣe pàtàkì kò yí padà. Yọ requirement yìí kúrò nínú batch tàbí fún process tí kò ṣe pàtàkì, tí ó sì yẹ ní àṣẹ kedere.",
+      "Locked or critical equipment stays unchanged. Remove this requirement from the batch or explicitly allow an eligible noncritical process.",
+    ],
+  "This flexible load has explicit start events in the planning range. Resolve its start sequence before rescheduling.":
+    [
+      "Diese flexible Last hat explizite Startvorgänge im Planungszeitraum. Klären Sie deren Anlaufreihenfolge vor einer Umplanung.",
+      "Ẹrù flexible yìí ní start events tí a sọ kedere nínú planning range. Ṣètò start sequence rẹ̀ kí o tó tún àkókò rẹ̀ yàn.",
+      "This flexible load get explicit start events inside the planning range. Resolve its start sequence before rescheduling.",
+    ],
+  "The declared candidate-search budget was reached; unallocated requirements remain explicit.":
+    [
+      "Das festgelegte Suchbudget wurde erreicht; nicht zugeteilte Anforderungen bleiben ausdrücklich sichtbar.",
+      "A ti dé candidate-search budget tí a sọ; requirements tí a kò pín sí àkókò ṣì hàn kedere.",
+      "The declared candidate-search budget don finish; requirements wey never get allocation remain explicit.",
+    ],
+  "Existing background demand exceeds an entered site/phase/board/circuit limit; the plan cannot resolve that overload.":
+    [
+      "Die bestehende Grundlast überschreitet eine eingegebene Standort-/Phasen-/Verteiler-/Stromkreisgrenze; der Plan kann diese Überlast nicht beheben.",
+      "Background demand tó ti wà ju ààlà site/phase/board/circuit tí a tẹ̀ wọlé lọ; ètò yìí kò lè yanju overload náà.",
+      "Existing background demand pass an entered site, phase, board or circuit limit; this plan no fit solve that overload.",
+    ],
+  "Bounded priority/deadline greedy search at entered on-state power. Each uninterrupted block respects minimum run time; exact required energy is preserved. Whole intervals reserve full power for partial blocks, so the heuristic is conservative. Existing duty-average loads retain on-state headroom. Board/circuit limits are entered current ratings; this does not establish cable/protection approval. Solar values select timing only; they do not relax unverified phase constraints.":
+    [
+      "Begrenzte gierige Suche nach Priorität/Frist bei eingegebener Einschaltleistung. Jeder ununterbrochene Block hält die Mindestlaufzeit ein; die benötigte Energie bleibt exakt erhalten. Teilblöcke reservieren volle Leistung für ganze Intervalle, daher ist die Heuristik konservativ. Bestehende mittlere Einschaltdauerlasten behalten die Stromreserve des Einschaltzustands. Verteiler-/Stromkreisgrenzen sind eingegebene Stromnennwerte, keine Kabel-/Schutzfreigabe. PV-Werte bestimmen nur den Zeitpunkt und lockern keine ungeprüften Phasengrenzen.",
+      "Bounded greedy search gẹ́gẹ́ bí priority/deadline ní on-state power tí a tẹ̀ wọlé. Block tí kò ní ìdádúró kọ̀ọ̀kan ń tẹ̀lé minimum run time; energy tí a nílò dúró gẹ́gẹ́ bí ó ṣe jẹ́. A pa full power mọ́ fún odidi interval tí block kékeré bá wà, nítorí náà heuristic yìí ṣọ́ra. Duty-average loads ṣì ń pa on-state headroom mọ́. Ààlà board/circuit jẹ́ current rating tí a tẹ̀ wọlé, kì í ṣe ìfọwọ́sí cable/protection. Solar values ń yàn àkókò nìkan; wọn kò dín phase constraints tí a kò fìdí múlẹ̀ kù.",
+      "Bounded priority/deadline greedy search uses entered on-state power. Each uninterrupted block respects minimum run time and keeps exact required energy. Whole intervals reserve full power for partial blocks, so this heuristic stays conservative. Existing duty-average loads still reserve on-state headroom. Board/circuit limits na entered current ratings, no be cable/protection approval. Solar values choose timing only; dem no relax phase constraints wey never dey verified.",
+    ],
+  "This schedule proposal is stale; preview it again.": [
+    "Dieser Zeitplanvorschlag ist veraltet; erstellen Sie erneut eine Vorschau.",
+    "Schedule proposal yìí ti di àtijọ́; tún ṣe preview rẹ̀.",
+    "This schedule proposal don stale; preview am again.",
+  ],
+  "The schedule is infeasible or no longer matches the validated proposal.": [
+    "Der Zeitplan ist nicht umsetzbar oder stimmt nicht mehr mit dem geprüften Vorschlag überein.",
+    "Schedule náà kò ṣeé ṣe tàbí kò bá proposal tí a fìdí múlẹ̀ mu mọ́.",
+    "The schedule no feasible or e no match the validated proposal again.",
+  ],
+  "Locked/critical equipment cannot be rescheduled by this proposal.": [
+    "Gesperrte/kritische Geräte dürfen durch diesen Vorschlag nicht umgeplant werden.",
+    "Proposal yìí kò lè tún àkókò ohun èlò tí a dì tàbí tí ó ṣe pàtàkì yàn.",
+    "This proposal no fit reschedule locked or critical equipment.",
+  ],
+  "EV scheduling requires 24 hourly site, tariff and phase values.": [
+    "Die EV-Planung erfordert jeweils 24 stündliche Standort-, Tarif- und Phasenwerte.",
+    "EV scheduling nílò iye site, tariff àti phase fún wákàtí 24.",
+    "EV scheduling need 24 hourly site, tariff and phase values.",
+  ],
+  "EV energy, powers and site/phase headroom must be nonnegative finite numbers.":
+    [
+      "EV-Energie, Leistungen sowie Standort-/Phasenreserven müssen endliche, nicht negative Zahlen sein.",
+      "EV energy, power àti site/phase headroom gbọ́dọ̀ jẹ́ iye tí kò jẹ́ òdì, tí ó sì ní ààlà.",
+      "EV energy, power and site/phase headroom must be finite numbers wey no negative.",
+    ],
+  "Charging efficiency must be greater than 0 and at most 1.": [
+    "Der Ladewirkungsgrad muss größer als 0 und höchstens 1 sein.",
+    "Charging efficiency gbọ́dọ̀ ju 0 lọ, kò sì gbọ́dọ̀ ju 1 lọ.",
+    "Charging efficiency must pass 0 and no pass 1.",
+  ],
+  "EV arrival/departure must be between 0 and 24 hours.": [
+    "EV-Ankunft und -Abfahrt müssen zwischen 0 und 24 Stunden liegen.",
+    "Wákàtí ìdé/ìjáde EV gbọ́dọ̀ wà láàárín 0 àti 24.",
+    "EV arrival and departure must dey between 0 and 24 hours.",
+  ],
+  "Tariff rates must be finite.": [
+    "Tarifpreise müssen endlich sein.",
+    "Tariff rates gbọ́dọ̀ jẹ́ iye tí ó ní ààlà.",
+    "Tariff rates must be finite numbers.",
+  ],
+  "The site kW limit was checked. Phase headroom was not supplied and requires a separate circuit check.":
+    [
+      "Die Standortgrenze in kW wurde geprüft. Phasenreserven wurden nicht angegeben und erfordern eine gesonderte Stromkreisprüfung.",
+      "A ti ṣàyẹ̀wò ààlà kW site. A kò pèsè phase headroom; ó nílò ìṣàyẹ̀wò síkítì lọ́tọ̀.",
+      "The site kW limit don get checked. Phase headroom no dey supplied and e need separate circuit check.",
+    ],
+  "Correct invalid loads before calculating charging headroom.": [
+    "Korrigieren Sie ungültige Lasten, bevor Sie die Ladereserve berechnen.",
+    "Ṣe àtúnṣe ẹrù tí kò pé kí o tó ṣírò charging headroom.",
+    "Correct invalid loads before calculating charging headroom.",
+  ],
+  "Greedy search considered the 250 highest-current movable groups. No global optimum is claimed.":
+    [
+      "Die gierige Suche berücksichtigte die 250 verschiebbaren Gruppen mit den höchsten Strömen. Ein globales Optimum wird nicht behauptet.",
+      "Greedy search wo ẹgbẹ́ 250 tí a lè gbe tí ìṣàn wọn ga jù lọ. A kò sọ pé èyí ni global optimum.",
+      "Greedy search checked the 250 movable groups with highest current. E no claim global optimum.",
+    ],
+  "No improving phase moves were found within locks, grouping and current limits.":
+    [
+      "Innerhalb der Sperren, Gruppierung und Stromgrenzen wurden keine verbessernden Phasenverschiebungen gefunden.",
+      "A kò rí ìyípadà phase tí ó mú èsì dára sí i lábẹ́ locks, grouping àti current limits.",
+      "No phase move wey improve the result dey found within locks, grouping and current limits.",
+    ],
+  "Descending-current greedy whole-circuit heuristic; verified against the electrical engine.":
+    [
+      "Gierige Ganzstromkreis-Heuristik nach absteigendem Strom, gegen den elektrischen Rechenkern geprüft.",
+      "Greedy heuristic gbogbo-síkítì gẹ́gẹ́ bí current ṣe ń dín kù; a ṣàyẹ̀wò rẹ̀ pẹ̀lú electrical engine.",
+      "Descending-current greedy whole-circuit heuristic, checked against the electrical engine.",
+    ],
+  "Project changed after the phase-balance preview; run the preview again.": [
+    "Das Projekt wurde nach der Phasenausgleichsvorschau geändert; führen Sie die Vorschau erneut aus.",
+    "Project ti yí padà lẹ́yìn phase-balance preview; tún preview náà ṣe.",
+    "Project don change after phase-balance preview; run the preview again.",
+  ],
+  "Phase proposal is stale or violates a load lock.": [
+    "Der Phasenvorschlag ist veraltet oder verletzt eine Lastsperre.",
+    "Phase proposal ti di àtijọ́ tàbí ó rú lock ẹrù kan.",
+    "Phase proposal don stale or e breaks a load lock.",
+  ],
+  "Phase proposal violates a circuit lock.": [
+    "Der Phasenvorschlag verletzt eine Stromkreissperre.",
+    "Phase proposal ń rú lock síkítì kan.",
+    "Phase proposal breaks a circuit lock.",
+  ],
+  "A phase proposal must move every single-phase load on the circuit together.":
+    [
+      "Ein Phasenvorschlag muss alle einphasigen Lasten des Stromkreises gemeinsam verschieben.",
+      "Phase proposal gbọ́dọ̀ gbe gbogbo ẹrù single-phase lórí síkítì náà papọ̀.",
+      "A phase proposal must move every single-phase load for that circuit together.",
+    ],
+} satisfies Record<string, [string, string, string]>);
+
+Object.assign(engineeringMessages, {
+  "Use nonnegative kW and 0 < initial PF ≤ target PF ≤ 1.": [
+    "Verwenden Sie nicht negative kW und 0 < anfänglicher PF ≤ Ziel-PF ≤ 1.",
+    "Lo kW tí kò jẹ́ òdì àti 0 < PF ìbẹ̀rẹ̀ ≤ PF àfojúsùn ≤ 1.",
+    "Use kW wey no negative and 0 < initial PF ≤ target PF ≤ 1.",
+  ],
+  "Enter an increasing timestamp range.": [
+    "Geben Sie einen zeitlich aufsteigenden Zeitstempelbereich ein.",
+    "Tẹ timestamp range tí àkókò òpin rẹ̀ tẹ̀lé ìbẹ̀rẹ̀ sínú.",
+    "Enter timestamp range wey end after the start.",
+  ],
+  "Calendar simulation requires whole-minute boundary timestamps.": [
+    "Die Kalendersimulation erfordert Grenzzeitstempel auf vollen Minuten.",
+    "Calendar simulation nílò boundary timestamps ní ìṣẹ́jú odidi.",
+    "Calendar simulation need boundary timestamps on whole minutes.",
+  ],
+  "Calendar timestamps require explicit UTC offsets or Z.": [
+    "Kalenderzeitstempel erfordern explizite UTC-Offsets oder Z.",
+    "Calendar timestamps nílò UTC offsets tí a sọ kedere tàbí Z.",
+    "Calendar timestamps need explicit UTC offsets or Z.",
+  ],
+  "Calendar interval must be 15 or 60 minutes.": [
+    "Das Kalenderintervall muss 15 oder 60 Minuten betragen.",
+    "Calendar interval gbọ́dọ̀ jẹ́ ìṣẹ́jú 15 tàbí 60.",
+    "Calendar interval must be 15 or 60 minutes.",
+  ],
+  "A single simulation is limited to 367 elapsed days.": [
+    "Eine einzelne Simulation ist auf 367 verstrichene Tage begrenzt.",
+    "Simulation kan kò gbọ́dọ̀ ju ọjọ́ 367 tí ó kọjá lọ.",
+    "One simulation get limit of 367 elapsed days.",
+  ],
+  "Correct invalid load inputs before running a calendar simulation.": [
+    "Korrigieren Sie ungültige Lasteingaben vor dem Start einer Kalendersimulation.",
+    "Ṣe àtúnṣe iye ẹrù tí kò pé kí o tó ṣiṣẹ́ calendar simulation.",
+    "Correct invalid load inputs before you run calendar simulation.",
+  ],
+  "This calendar models scheduled consumption at a grid-supplied load boundary. Renewable/storage import/export flows use the separate chronological dispatch model. Calendar peaks are interval averages; use start analysis for event peaks.":
+    [
+      "Dieser Kalender modelliert geplanten Verbrauch an einer netzversorgten Lastgrenze. Bezugs-/Einspeiseflüsse von Erneuerbaren und Speichern verwenden das getrennte chronologische Einsatzmodell. Kalenderspitzen sind Intervallmittelwerte; für Ereignisspitzen ist die Anlaufanalyse zu verwenden.",
+      "Kalẹ́ńdà yìí ń ṣàwòṣe consumption tí a ṣètò ní ààlà ẹrù tí grid ń pèsè agbára sí. Import/export renewable/storage ń lo chronological dispatch model lọ́tọ̀. Calendar peaks jẹ́ àárín iye interval; lo start analysis fún event peaks.",
+      "This calendar models scheduled consumption at grid-supplied load boundary. Renewable/storage import and export use separate chronological dispatch model. Calendar peaks na interval averages; use start analysis for event peaks.",
+    ],
+  "Minimum SOC cannot exceed maximum SOC.": [
+    "Der minimale SOC darf den maximalen SOC nicht überschreiten.",
+    "Minimum SOC kò lè ju maximum SOC lọ.",
+    "Minimum SOC must no pass maximum SOC.",
+  ],
+  "Battery reserve cannot exceed the upper stored-energy bound.": [
+    "Die Batteriereserve darf die obere Speicherenergiegrenze nicht überschreiten.",
+    "Battery reserve kò lè ju ààlà òkè energy tí a tọju lọ.",
+    "Battery reserve must no pass the upper stored-energy limit.",
+  ],
+  "Energy interval must be 15 or 60 minutes.": [
+    "Das Energieintervall muss 15 oder 60 Minuten betragen.",
+    "Energy interval gbọ́dọ̀ jẹ́ ìṣẹ́jú 15 tàbí 60.",
+    "Energy interval must be 15 or 60 minutes.",
+  ],
+  "Dispatch date must be an actual YYYY-MM-DD date.": [
+    "Das Einsatzdatum muss ein tatsächliches Datum im Format YYYY-MM-DD sein.",
+    "Dispatch date gbọ́dọ̀ jẹ́ ọjọ́ gidi ní ọ̀nà YYYY-MM-DD.",
+    "Dispatch date must be real date in YYYY-MM-DD format.",
+  ],
+  "Correct invalid load inputs before running an energy simulation.": [
+    "Korrigieren Sie ungültige Lasteingaben vor dem Start einer Energiesimulation.",
+    "Ṣe àtúnṣe iye ẹrù tí kò pé kí o tó ṣiṣẹ́ energy simulation.",
+    "Correct invalid load inputs before you run energy simulation.",
+  ],
+  "The representative day excludes absolute operating windows and dated start events. Select an actual calendar range to include them.":
+    [
+      "Der repräsentative Tag schließt absolute Betriebsfenster und datierte Startvorgänge aus. Wählen Sie einen tatsächlichen Kalenderzeitraum, um sie einzubeziehen.",
+      "Ọjọ́ aṣojú yìí kò kà absolute operating windows àti dated start events sí. Yan calendar range gidi láti kà wọ́n sí.",
+      "The representative day no include absolute operating windows or dated start events. Select actual calendar range to include them.",
+    ],
+  "Chronological PV generation requires an entered hourly profile. Peak-sun-hours supports only the separate daily-energy estimate.":
+    [
+      "Chronologische PV-Erzeugung erfordert ein eingegebenes Stundenprofil. Spitzen-Sonnenstunden unterstützen nur die getrennte Tagesenergieschätzung.",
+      "Chronological PV generation nílò hourly profile tí a tẹ̀ wọlé. Peak-sun-hours ń ṣe àtìlẹ́yìn fún daily-energy estimate lọ́tọ̀ nìkan.",
+      "Chronological PV generation need entered hourly profile. Peak-sun-hours supports only the separate daily-energy estimate.",
+    ],
+  "PV profile requires 24 finite normalized values from 0 to 1.": [
+    "Das PV-Profil erfordert 24 endliche normierte Werte von 0 bis 1.",
+    "PV profile nílò normalized values 24 tí ó ní ààlà láti 0 sí 1.",
+    "PV profile need 24 finite normalized values from 0 to 1.",
+  ],
+  "Record the supplied wind profile's source, period and AC output basis.": [
+    "Dokumentieren Sie Herkunft, Zeitraum und AC-Ausgangsbasis des Windprofils.",
+    "Kọ orísun wind profile, àkókò rẹ̀ àti AC output basis rẹ̀ sílẹ̀.",
+    "Record the wind profile source, period and AC output basis.",
+  ],
+  "An absolute outage needs an actual calendar range and increasing explicit-offset instants.":
+    [
+      "Ein absoluter Ausfall erfordert einen tatsächlichen Kalenderzeitraum und aufsteigende Zeitpunkte mit explizitem Offset.",
+      "Absolute outage nílò calendar range gidi àti àkókò tí ń pọ̀ sí i pẹ̀lú offset tí a sọ kedere.",
+      "An absolute outage need actual calendar range and increasing times with explicit offsets.",
+    ],
+  "Daily outage boundaries must align with the simulation interval.": [
+    "Tägliche Ausfallgrenzen müssen mit dem Simulationsintervall übereinstimmen.",
+    "Ààlà daily outage gbọ́dọ̀ bá simulation interval mu.",
+    "Daily outage boundaries must line up with the simulation interval.",
+  ],
+  "Use explicit outage timestamps with an actual calendar range.": [
+    "Verwenden Sie explizite Ausfallzeitstempel mit einem tatsächlichen Kalenderzeitraum.",
+    "Lo outage timestamps tí a sọ kedere pẹ̀lú calendar range gidi.",
+    "Use explicit outage timestamps with actual calendar range.",
+  ],
+  "Absolute outage boundaries must align with the selected simulation interval.":
+    [
+      "Absolute Ausfallgrenzen müssen mit dem ausgewählten Simulationsintervall übereinstimmen.",
+      "Ààlà absolute outage gbọ́dọ̀ bá simulation interval tí a yàn mu.",
+      "Absolute outage boundaries must line up with the selected simulation interval.",
+    ],
+  "Reserve SOC must lie within the entered absolute battery operating bounds.":
+    [
+      "Der Reserve-SOC muss innerhalb der eingegebenen absoluten Betriebsgrenzen der Batterie liegen.",
+      "Reserve SOC gbọ́dọ̀ wà láàárín ààlà iṣẹ́ battery tí a tẹ̀ wọlé.",
+      "Reserve SOC must stay inside the entered absolute battery operating limits.",
+    ],
+  "Enter a grid-import peak-shaving target.": [
+    "Geben Sie ein Ziel für die Netzbezugs-Spitzenkappung ein.",
+    "Tẹ àfojúsùn grid-import peak-shaving sínú.",
+    "Enter target for shaving grid-import peak.",
+  ],
+  "Legacy island-capable flag is an entered conditional model only. Configure an evidenced grid-forming source, transfer/isolation, phase capacity and restart settings before treating backup availability as established.":
+    [
+      "Das frühere Inselbetriebskennzeichen ist nur ein eingegebenes bedingtes Modell. Konfigurieren Sie eine nachgewiesene netzbildende Quelle, Umschaltung/Trennung, Phasenkapazität und Neustarteinstellungen, bevor Sie Ersatzstrom als gesichert betrachten.",
+      "Legacy island-capable flag jẹ́ conditional model tí a tẹ̀ wọlé nìkan. Ṣètò grid-forming source tó ní ẹ̀rí, transfer/isolation, phase capacity àti restart settings kí a tó lè sọ pé backup wà dájú.",
+      "Legacy island-capable flag na entered conditional model only. Configure evidenced grid-forming source, transfer/isolation, phase capacity and restart settings before treating backup as established.",
+    ],
+  "Backup is unavailable without an evidenced compatible island-capable, grid-forming source and transfer/isolation arrangement, plus required black-start capability.":
+    [
+      "Ersatzstrom ist ohne nachgewiesene kompatible inselbetriebsfähige, netzbildende Quelle, Umschalt-/Trenneinrichtung und erforderliche Schwarzstartfähigkeit nicht verfügbar.",
+      "Backup kò sí láìsí ẹ̀rí orísun tó bá a mu, tó lè ṣe islanding àti grid-forming, transfer/isolation arrangement, pẹ̀lú black-start capability tí a nílò.",
+      "Backup no available without evidenced compatible island-capable, grid-forming source and transfer/isolation arrangement, plus required black-start capability.",
+    ],
+  "Grid-charge windows overlap; enter one target for each interval.": [
+    "Netzladefenster überlappen; geben Sie je Intervall ein Ziel ein.",
+    "Grid-charge windows ń wọ ara wọn; tẹ àfojúsùn kan fún interval kọ̀ọ̀kan sínú.",
+    "Grid-charge windows overlap; enter one target for each interval.",
+  ],
+  "Grid-charge target must lie within battery operating SOC bounds.": [
+    "Das Netzladeziel muss innerhalb der Betriebs-SOC-Grenzen der Batterie liegen.",
+    "Grid-charge target gbọ́dọ̀ wà láàárín ààlà SOC iṣẹ́ battery.",
+    "Grid-charge target must stay inside battery operating SOC limits.",
+  ],
+  "Per-load backup allocation does not reconcile with the common calendar energy boundary.":
+    [
+      "Die Ersatzstromzuweisung je Last stimmt nicht mit der gemeinsamen Kalender-Energiebilanzgrenze überein.",
+      "Backup allocation fún ẹrù kọ̀ọ̀kan kò bá calendar energy boundary àpapọ̀ mu.",
+      "Per-load backup allocation no reconcile with the common calendar energy boundary.",
+    ],
+  "Entered grid-import constraints leave unserved demand. Critical-load attribution is applied only to configured outage shedding.":
+    [
+      "Die eingegebenen Netzbezugsgrenzen hinterlassen ungedeckten Bedarf. Eine Zuordnung zu kritischen Lasten erfolgt nur beim konfigurierten Ausfall-Lastabwurf.",
+      "Ààlà grid-import tí a tẹ̀ wọlé ń fi demand tí a kò pèsè agbára sí sílẹ̀. Critical-load attribution wúlò fún outage shedding tí a ṣètò nìkan.",
+      "Entered grid-import limits leave unserved demand. Critical-load attribution applies only to configured outage shedding.",
+    ],
+  "The requested grid-import peak target cannot be maintained at every interval within entered storage power/energy/reserve limits.":
+    [
+      "Das gewünschte Netzbezugs-Spitzenziel kann innerhalb der eingegebenen Speicherleistungs-, Energie- und Reservegrenzen nicht in jedem Intervall eingehalten werden.",
+      "A kò lè pa grid-import peak target tí a béèrè mọ́ ní gbogbo interval lábẹ́ ààlà storage power/energy/reserve tí a tẹ̀ wọlé.",
+      "The requested grid-import peak target no fit hold for every interval within the entered storage power, energy and reserve limits.",
+    ],
+  "Energy dispatch conservation failed; result was not accepted.": [
+    "Die Energiebilanzerhaltung im Einsatzmodell ist fehlgeschlagen; das Ergebnis wurde nicht akzeptiert.",
+    "Energy dispatch conservation kùnà; a kò gba èsì náà.",
+    "Energy dispatch conservation fail; the result no dey accepted.",
+  ],
+  "This representative-day cost excludes the billing-period demand charge. Select an actual calendar period for aligned/rolling demand billing.":
+    [
+      "Diese Kosten des repräsentativen Tages enthalten keine Leistungsgebühr für den Abrechnungszeitraum. Wählen Sie einen tatsächlichen Kalenderzeitraum für ausgerichtete/gleitende Leistungsabrechnung.",
+      "Owó representative-day yìí kò ní billing-period demand charge nínú. Yan calendar period gidi fún aligned/rolling demand billing.",
+      "This representative-day cost no include billing-period demand charge. Choose actual calendar period for aligned or rolling demand billing.",
+    ],
+  "Actual elapsed calendar AC energy dispatch. Supplied PV/wind profiles repeat by local hour; no weather is retrieved. Grid energy, storage conversions, curtailment and served/unserved demand reconcile at each step. Backup selection uses conservative per-load power/phase limits and entered source/transfer/restart evidence.":
+    [
+      "AC-Energieeinsatz über tatsächlich verstrichene Kalenderzeit. Eingegebene PV-/Windprofile wiederholen sich nach lokaler Stunde; Wetterdaten werden nicht abgerufen. Netzenergie, Speicherumwandlungen, Abregelung sowie gedeckter/ungedeckter Bedarf sind in jedem Schritt bilanziert. Die Ersatzstromauswahl verwendet konservative Leistungs-/Phasengrenzen je Last und eingegebene Quellen-/Umschalt-/Neustartnachweise.",
+      "AC energy dispatch gẹ́gẹ́ bí àkókò kalẹ́ńdà tí ó kọjá gan-an. PV/wind profile tí a pèsè ń tún ara wọn ṣe gẹ́gẹ́ bí wákàtí agbègbè; a kò gba weather data. Grid energy, storage conversions, curtailment àti demand tí a pèsè/tí a kò pèsè agbára sí bá ara wọn mu ní step kọ̀ọ̀kan. Backup selection ń lo power/phase limits tó ṣọ́ra fún ẹrù kọ̀ọ̀kan àti ẹ̀rí source/transfer/restart tí a tẹ̀ wọlé.",
+      "AC energy dispatch follows actual elapsed calendar time. Supplied PV/wind profiles repeat by local hour; no weather data dey fetched. Grid energy, storage conversions, curtailment and served/unserved demand reconcile for each step. Backup selection uses conservative per-load power/phase limits and entered source, transfer and restart evidence.",
+    ],
+  "Representative 24-hour AC energy dispatch, distinct from an actual DST calendar day. Battery capacity/SOC are stored DC energy; charging/discharging/grid energy are AC. Optional explicit dispatch, reserve and whole-load priority shedding use entered limits; no physical control is performed.":
+    [
+      "Repräsentativer 24-Stunden-AC-Energieeinsatz, getrennt von einem tatsächlichen Sommerzeit-Kalendertag. Batteriekapazität/SOC bezeichnen gespeicherte DC-Energie; Lade-, Entlade- und Netzenergie sind AC. Optionaler expliziter Einsatz, Reserve und priorisierter Ganzlastabwurf verwenden eingegebene Grenzen; es erfolgt keine physische Steuerung.",
+      "Representative AC energy dispatch fún wákàtí 24, tí ó yàtọ̀ sí ọjọ́ kalẹ́ńdà DST gidi. Battery capacity/SOC jẹ́ energy DC tí a tọju; charging/discharging/grid energy jẹ́ AC. Explicit dispatch, reserve àti whole-load priority shedding tí a yàn ń lo ààlà tí a tẹ̀ wọlé; a kò darí ohun èlò gidi.",
+      "Representative 24-hour AC energy dispatch dey different from actual DST calendar day. Battery capacity/SOC na stored DC energy; charging, discharging and grid energy na AC. Optional explicit dispatch, reserve and whole-load priority shedding use entered limits; the app no control physical equipment.",
+    ],
+  "Schedule requires at most 1,000 operating windows.": [
+    "Ein Zeitplan darf höchstens 1.000 Betriebsfenster enthalten.",
+    "Schedule kò gbọ́dọ̀ ní operating windows tó ju 1,000 lọ.",
+    "Schedule must no get more than 1,000 operating windows.",
+  ],
+  "Schedule window IDs must be nonempty and unique within their list.": [
+    "Zeitfenster-IDs dürfen nicht leer sein und müssen innerhalb ihrer Liste eindeutig sein.",
+    "ID schedule window kò gbọ́dọ̀ ṣófo, ọ̀kọ̀ọ̀kan sì gbọ́dọ̀ yàtọ̀ nínú àkójọ wọn.",
+    "Schedule window IDs must no be empty and each one must be unique inside its list.",
+  ],
+  "Schedule starts must be 0–24 hours and durations greater than 0 through 24 hours.":
+    [
+      "Zeitplanstarts müssen zwischen 0 und 24 Stunden liegen; Dauern müssen größer als 0 und höchstens 24 Stunden sein.",
+      "Ìbẹ̀rẹ̀ schedule gbọ́dọ̀ jẹ́ wákàtí 0–24; duration gbọ́dọ̀ ju 0 lọ, kò sì gbọ́dọ̀ ju wákàtí 24 lọ.",
+      "Schedule starts must dey 0–24 hours; durations must pass 0 and no pass 24 hours.",
+    ],
+  "Schedule effective dates must be actual YYYY-MM-DD dates.": [
+    "Gültigkeitsdaten des Zeitplans müssen tatsächliche Daten im Format YYYY-MM-DD sein.",
+    "Effective dates schedule gbọ́dọ̀ jẹ́ ọjọ́ gidi ní ọ̀nà YYYY-MM-DD.",
+    "Schedule effective dates must be real dates in YYYY-MM-DD format.",
+  ],
+  "Schedule effective-date range is reversed.": [
+    "Der Gültigkeitszeitraum des Zeitplans ist umgekehrt.",
+    "Ọjọ́ ìbẹ̀rẹ̀ àti òpin schedule effective-date ti yípadà sí ara wọn.",
+    "Schedule effective-date range dey reversed.",
+  ],
+  "Schedule exceptions must be an array of at most 1,000 dates.": [
+    "Zeitplanausnahmen müssen eine Liste mit höchstens 1.000 Datumswerten sein.",
+    "Schedule exceptions gbọ́dọ̀ jẹ́ array tí kò ní ọjọ́ tó ju 1,000 lọ.",
+    "Schedule exceptions must be array of no more than 1,000 dates.",
+  ],
+  "Invalid dated schedule exception.": [
+    "Ungültige datierte Zeitplanausnahme.",
+    "Dated schedule exception kò pé.",
+    "Dated schedule exception no valid.",
+  ],
+  "Only one schedule exception is permitted per date.": [
+    "Pro Datum ist nur eine Zeitplanausnahme zulässig.",
+    "Schedule exception kan ṣoṣo ni a gba fún ọjọ́ kọ̀ọ̀kan.",
+    "Only one schedule exception dey allowed for each date.",
+  ],
+  "Replacement exceptions require an array of windows.": [
+    "Ersetzende Ausnahmen erfordern eine Liste von Zeitfenstern.",
+    "Replacement exceptions nílò array àwọn window.",
+    "Replacement exceptions need an array of windows.",
+  ],
+  "Timed cycles require positive on/off minutes, a 1–1,440 minute period, and a 0–1,440 minute offset.":
+    [
+      "Zeitzyklen erfordern positive Ein-/Aus-Minuten, eine Periode von 1 bis 1.440 Minuten und einen Versatz von 0 bis 1.440 Minuten.",
+      "Timed cycles nílò ìṣẹ́jú on/off rere, period ìṣẹ́jú 1–1,440 àti offset ìṣẹ́jú 0–1,440.",
+      "Timed cycles need positive on/off minutes, period of 1–1,440 minutes and offset of 0–1,440 minutes.",
+    ],
+  "A real local calendar date is required.": [
+    "Ein tatsächliches lokales Kalenderdatum ist erforderlich.",
+    "Ọjọ́ kalẹ́ńdà agbègbè gidi ni a nílò.",
+    "A real local calendar date dey required.",
+  ],
+  "Correct invalid loads or supply displacement-PF/complex-power data before circuit assessment.":
+    [
+      "Korrigieren Sie ungültige Lasten oder geben Sie Verschiebungs-PF-/komplexe Leistungsdaten an, bevor Sie den Stromkreis bewerten.",
+      "Ṣe àtúnṣe ẹrù tí kò pé tàbí pèsè displacement-PF/complex-power data kí o tó ṣe circuit assessment.",
+      "Correct invalid loads or supply displacement-PF/complex-power data before circuit assessment.",
+    ],
+  "Assign at least one load to the circuit.": [
+    "Ordnen Sie dem Stromkreis mindestens eine Last zu.",
+    "Fi ó kéré tán ẹrù kan sí síkítì.",
+    "Assign at least one load to the circuit.",
+  ],
+  "Enter a sourced base ampacity and every applicable correction factor. Use an explicit factor of 1 when no derating applies.":
+    [
+      "Geben Sie eine belegte Basisstrombelastbarkeit und jeden geltenden Korrekturfaktor ein. Verwenden Sie ausdrücklich den Faktor 1, wenn keine Minderung gilt.",
+      "Tẹ base ampacity tó ní orísun àti gbogbo correction factor tó wúlò sínú. Lo factor 1 kedere bí derating kò bá wà.",
+      "Enter sourced base ampacity and every applicable correction factor. Use explicit factor of 1 where no derating applies.",
+    ],
+  "Running current versus conductor capacity": [
+    "Betriebsstrom im Vergleich zur Leiterstrombelastbarkeit",
+    "Ìṣàn iṣẹ́ ní ìfiwéra pẹ̀lú agbára conductor láti ru current",
+    "Running current compared with conductor capacity",
+  ],
+  "Checks the entered capacity under its stated installation conditions only.":
+    [
+      "Prüft ausschließlich die eingegebene Strombelastbarkeit unter den angegebenen Verlegebedingungen.",
+      "Ó ń ṣàyẹ̀wò capacity tí a tẹ̀ wọlé lábẹ́ installation conditions tí a sọ nìkan.",
+      "Checks only the entered capacity under the stated installation conditions.",
+    ],
+  "A valid load current, protective-device current and sourced corrected cable ampacity are required.":
+    [
+      "Gültiger Laststrom, Schutzgerätestrom und belegte korrigierte Kabelstrombelastbarkeit sind erforderlich.",
+      "Load current tó pé, protective-device current àti corrected cable ampacity tó ní orísun ni a nílò.",
+      "Valid load current, protective-device current and sourced corrected cable ampacity dey required.",
+    ],
+  "Operating characteristic / disconnection": [
+    "Auslösekennlinie / Abschaltung",
+    "Operating characteristic / ìyapa síkítì",
+    "Operating characteristic / disconnection",
+  ],
+  "Record the applicable device curve, conventional operating current, earthing arrangement and disconnection criterion. A current rating alone cannot establish this check.":
+    [
+      "Dokumentieren Sie die geltende Gerätekennlinie, den konventionellen Auslösestrom, die Erdungsanordnung und das Abschaltkriterium. Ein Stromnennwert allein reicht für diese Prüfung nicht aus.",
+      "Kọ device curve tó yẹ, conventional operating current, earthing arrangement àti disconnection criterion sílẹ̀. Current rating nìkan kò lè fi ìṣàyẹ̀wò yìí múlẹ̀.",
+      "Record the applicable device curve, conventional operating current, earthing arrangement and disconnection criterion. Current rating alone no fit establish this check.",
+    ],
+  "Enter route length and per-conductor resistance, and use compatible AC load connections. The standalone DC loop worksheet accepts complete loop resistance.":
+    [
+      "Geben Sie Pfadlänge und Widerstand je Leiter ein und verwenden Sie passende AC-Lastanschlüsse. Das eigenständige DC-Schleifenblatt akzeptiert den vollständigen Schleifenwiderstand.",
+      "Tẹ route length àti resistance conductor kọ̀ọ̀kan sínú, kí o sì lo AC load connections tí ó bá ara wọn mu. Standalone DC loop worksheet ń gba complete loop resistance.",
+      "Enter route length and each conductor's resistance, and use compatible AC load connections. The standalone DC loop worksheet accepts complete loop resistance.",
+    ],
+  "Reactive load requires entered conductor reactance for this AC voltage-drop model.":
+    [
+      "Eine Blindlast erfordert für dieses AC-Spannungsfallmodell die eingegebene Leiterreaktanz.",
+      "Reactive load nílò conductor reactance tí a tẹ̀ wọlé fún AC voltage-drop model yìí.",
+      "Reactive load need entered conductor reactance for this AC voltage-drop model.",
+    ],
+  "Checks the entered design limit.": [
+    "Prüft den eingegebenen Auslegungsgrenzwert.",
+    "Ó ń ṣàyẹ̀wò design limit tí a tẹ̀ wọlé.",
+    "Checks the design limit wey you enter.",
+  ],
+  "Enter a sourced or user-selected limit.": [
+    "Geben Sie einen belegten oder selbst gewählten Grenzwert ein.",
+    "Tẹ ààlà tó ní orísun tàbí tí olùlò yàn sínú.",
+    "Enter a sourced limit or one wey the user select.",
+  ],
+  "Enter verified prospective fault current and the device breaking capacity at the applicable voltage.":
+    [
+      "Geben Sie den nachgewiesenen prospektiven Fehlerstrom und das Geräteausschaltvermögen bei der zutreffenden Spannung ein.",
+      "Tẹ prospective fault current tí a fìdí múlẹ̀ àti device breaking capacity ní voltage tó yẹ sínú.",
+      "Enter verified prospective fault current and device breaking capacity at the applicable voltage.",
+    ],
+  "Numerical comparison of entered ratings only; manufacturer applicability and coordination remain required.":
+    [
+      "Nur numerischer Vergleich eingegebener Nennwerte; Herstellereignung und Koordination müssen weiterhin nachgewiesen werden.",
+      "Ìfiwéra nọ́ńbà àwọn rating tí a tẹ̀ wọlé nìkan; a ṣì nílò manufacturer applicability àti coordination.",
+      "Na numerical comparison of entered ratings only; manufacturer applicability and coordination still dey required.",
+    ],
+  "Device breaking capacity ≥ prospective fault current": [
+    "Geräteausschaltvermögen ≥ prospektiver Fehlerstrom",
+    "Device breaking capacity ≥ prospective fault current",
+    "Device breaking capacity ≥ prospective fault current",
+  ],
+} satisfies Record<string, [string, string, string]>);
+
+Object.assign(engineeringMessages, {
+  "Solve a passive DC resistor from any two independent quantities. Extra supplied values are checked for consistency.":
+    [
+      "Berechnen Sie einen passiven Gleichstromwiderstand aus zwei unabhängigen Größen. Zusätzliche Werte werden auf Konsistenz geprüft.",
+      "Ṣírò resistor DC passive láti iye méjì tí kò gbára lé ara wọn. A ń ṣàyẹ̀wò iye àfikún fún ìbámu.",
+      "Solve a passive DC resistor from any two independent values. Extra values dey checked to make sure dem agree.",
+    ],
+  "Terminal electrical input and elapsed-time energy for identical DC loads.": [
+    "Elektrische Eingangsleistung an den Klemmen und Energie über die verstrichene Zeit für gleiche Gleichstromlasten.",
+    "Electrical input ní terminal àti energy fún àkókò tó kọjá fún ẹrù DC tí ó jọra.",
+    "Terminal electrical input and energy over elapsed time for identical DC loads.",
+  ],
+  "Sinusoidal electrical input at the entered terminal voltage.": [
+    "Sinusförmige elektrische Eingangsleistung bei der eingegebenen Klemmenspannung.",
+    "Sinusoidal electrical input ní terminal voltage tí a tẹ̀ wọlé.",
+    "Sinusoidal electrical input at the terminal voltage wey you enter.",
+  ],
+  "Balanced sinusoidal three-phase electrical input at the entered line-to-line voltage.":
+    [
+      "Symmetrische sinusförmige Drehstrom-Eingangsleistung bei der eingegebenen Außenleiterspannung.",
+      "Electrical input three-phase sinusoidal tó dọ́gba ní line-to-line voltage tí a tẹ̀ wọlé.",
+      "Balanced sinusoidal three-phase electrical input at the line-to-line voltage wey you enter.",
+    ],
+  "Explicit signed P and Q preserve reactive cancellation and regenerative quadrants.":
+    [
+      "Explizite P- und Q-Werte mit Vorzeichen erhalten die Blindleistungskompensation und rückspeisende Quadranten.",
+      "P àti Q pẹ̀lú àmì rere/òdì tí a sọ kedere ń pa reactive cancellation àti regenerative quadrants mọ́.",
+      "Explicit signed P and Q preserve reactive cancellation and regenerative quadrants.",
+    ],
+  "One all-series or all-parallel bank of ideal resistors; no arbitrary network solver.":
+    [
+      "Eine ausschließlich in Reihe oder parallel geschaltete Bank idealer Widerstände; kein Löser für beliebige Netzwerke.",
+      "Ẹgbẹ́ resistor ideal kan tí gbogbo rẹ̀ wà ní series tàbí parallel; kò sí solver fún network èyíkéyìí.",
+      "One bank of ideal resistors, all series or all parallel; no arbitrary network solver.",
+    ],
+  "Fundamental steady-state impedance of a single series R/L/C branch.": [
+    "Grundschwingungsimpedanz eines einzelnen R/L/C-Reihenzweigs im stationären Zustand.",
+    "Fundamental steady-state impedance fún ẹ̀ka R/L/C series kan ṣoṣo.",
+    "Fundamental steady-state impedance for one series R/L/C branch.",
+  ],
+  "Explicit unit pairs; Ah to energy always requires the nominal voltage.": [
+    "Explizite Einheitenpaare; die Umrechnung von Ah in Energie erfordert stets die Nennspannung.",
+    "Àwọn unit méjì tí a sọ kedere; yíyí Ah sí energy máa ń nílò nominal voltage.",
+    "Explicit unit pairs; converting Ah to energy always need nominal voltage.",
+  ],
+  "Keep mechanical efficiency separate from a heat pump’s coefficient of performance.":
+    [
+      "Trennen Sie den mechanischen Wirkungsgrad von der Leistungszahl einer Wärmepumpe.",
+      "Pa mechanical efficiency mọ́ lọ́tọ̀ sí coefficient of performance heat pump.",
+      "Keep mechanical efficiency separate from heat pump coefficient of performance.",
+    ],
+  "Shaft-output motor rating with an explicitly entered operating-point efficiency and displacement PF.":
+    [
+      "Motorwellenleistung mit ausdrücklich eingegebenem Betriebspunkt-Wirkungsgrad und Verschiebungs-PF.",
+      "Motor rating gẹ́gẹ́ bí shaft output pẹ̀lú operating-point efficiency àti displacement PF tí a tẹ̀ wọlé kedere.",
+      "Shaft-output motor rating with explicitly entered operating-point efficiency and displacement PF.",
+    ],
+  "Mechanical conversion at a non-negative rotational speed; no motor efficiency applied.":
+    [
+      "Mechanische Umrechnung bei nicht negativer Drehzahl; es wird kein Motorwirkungsgrad angewendet.",
+      "Mechanical conversion ní rotational speed tí kò jẹ́ òdì; a kò lo motor efficiency.",
+      "Mechanical conversion at rotational speed wey no negative; motor efficiency no dey applied.",
+    ],
+  "Induction-machine speed relative to the rotating supply field.": [
+    "Drehzahl einer Asynchronmaschine relativ zum rotierenden Versorgungsfeld.",
+    "Ìyára induction machine ní ìfiwéra pẹ̀lú rotating supply field.",
+    "Induction-machine speed compared with the rotating supply field.",
+  ],
+  "Balanced identical winding impedances at a fixed operating point; nameplate connection compatibility is recorded separately.":
+    [
+      "Symmetrische gleiche Wicklungsimpedanzen an einem festen Betriebspunkt; die Typenschild-Anschlussverträglichkeit wird getrennt dokumentiert.",
+      "Winding impedances tó jọra, tó sì dọ́gba ní operating point kan tí kò yí padà; a kọ nameplate connection compatibility sílẹ̀ lọ́tọ̀.",
+      "Balanced identical winding impedances at fixed operating point; nameplate connection compatibility dey recorded separately.",
+    ],
+  "Compare simultaneous or sequential starts from entered start/run currents and separate PFs.":
+    [
+      "Vergleichen Sie gleichzeitige oder aufeinanderfolgende Starts anhand eingegebener Anlauf-/Betriebsströme und getrennter PF-Werte.",
+      "Fi start tó ṣẹlẹ̀ papọ̀ tàbí lẹ́sẹ̀sẹ̀ wéra pẹ̀lú start/run currents àti PF lọ́tọ̀ tí a tẹ̀ wọlé.",
+      "Compare simultaneous or sequential starts from entered start/run currents and separate PF values.",
+    ],
+  "Linear temperature correction from entered resistivity and coefficient; parallel equal conductors only.":
+    [
+      "Lineare Temperaturkorrektur aus eingegebenem spezifischem Widerstand und Koeffizienten; nur gleiche parallele Leiter.",
+      "Linear temperature correction láti resistivity àti coefficient tí a tẹ̀ wọlé; conductor parallel tí ó dọ́gba nìkan.",
+      "Linear temperature correction from entered resistivity and coefficient; only equal parallel conductors.",
+    ],
+  "Separate outgoing and return conductor resistances; current is the actual on-state circuit current.":
+    [
+      "Getrennte Hin- und Rückleiterwiderstände; der Strom ist der tatsächliche Stromkreisstrom im eingeschalteten Zustand.",
+      "Resistance conductor ìlọ àti ìpadà lọ́tọ̀; current jẹ́ ìṣàn síkítì gidi nígbà iṣẹ́.",
+      "Separate outgoing and return conductor resistance; current na actual circuit current while equipment dey on.",
+    ],
+  "One-way route length and per-conductor impedance; single-phase two-wire or balanced three-phase approximation.":
+    [
+      "Einfache Trassenlänge und Impedanz je Leiter; Näherung für einphasige Zweileiter- oder symmetrische Drehstromkreise.",
+      "Gígùn ọ̀nà kan àti impedance conductor kọ̀ọ̀kan; àwòṣe single-phase two-wire tàbí balanced three-phase.",
+      "One-way route length and each conductor's impedance; approximation for single-phase two-wire or balanced three-phase.",
+    ],
+  "Explicit voltage-change criterion under a unity-PF resistive model. Ampacity and protection remain separate.":
+    [
+      "Explizites Spannungsänderungskriterium in einem ohmschen Modell mit PF = 1. Strombelastbarkeit und Schutz bleiben getrennt.",
+      "Voltage-change criterion tí a sọ kedere lábẹ́ resistive model pẹ̀lú PF = 1. Ampacity àti protection ṣì wà lọ́tọ̀.",
+      "Explicit voltage-change criterion for resistive model with PF = 1. Ampacity and protection stay separate.",
+    ],
+  "Identical loaded conductors at an entered resistance and on-state current.":
+    [
+      "Gleiche belastete Leiter mit eingegebenem Widerstand und Einschaltstrom.",
+      "Conductor tó ru ẹrù tí ó jọra pẹ̀lú resistance àti on-state current tí a tẹ̀ wọlé.",
+      "Identical loaded conductors with entered resistance and on-state current.",
+    ],
+  "Multiply a sourced base rating by applicable entered correction factors, without invented standards tables.":
+    [
+      "Multiplizieren Sie einen belegten Basisnennwert mit den eingegebenen geltenden Korrekturfaktoren, ohne erfundene Normtabellen.",
+      "Fi base rating tó ní orísun pọ̀ sí correction factors tó yẹ tí a tẹ̀ wọlé, láìdá standards tables sílẹ̀.",
+      "Multiply sourced base rating by applicable entered correction factors; no invented standards tables.",
+    ],
+  "Separate numerical overload and breaking-capacity checks against entered requirements and device data.":
+    [
+      "Getrennte numerische Überlast- und Ausschaltvermögensprüfungen anhand eingegebener Anforderungen und Gerätedaten.",
+      "Ìṣàyẹ̀wò nọ́ńbà overload àti breaking capacity lọ́tọ̀ lòdì sí requirements àti device data tí a tẹ̀ wọlé.",
+      "Separate numerical overload and breaking-capacity checks against entered requirements and device data.",
+    ],
+  "Stiff-voltage source plus entered series R/X; balanced three-phase or single-phase loop RMS estimate.":
+    [
+      "Spannungsstarre Quelle plus eingegebene R/X-Reihenschaltung; RMS-Schätzung für symmetrischen Drehstrom oder eine einphasige Schleife.",
+      "Stiff-voltage source pẹ̀lú series R/X tí a tẹ̀ wọlé; RMS estimate fún balanced three-phase tàbí single-phase loop.",
+      "Stiff-voltage source plus entered series R/X; RMS estimate for balanced three-phase or single-phase loop.",
+    ],
+  "TN-loop worksheet using entered required operating current and manufacturer clearing-time evidence.":
+    [
+      "TN-Schleifen-Arbeitsblatt mit eingegebenem erforderlichem Auslösestrom und Hersteller-Nachweis der Abschaltzeit.",
+      "TN-loop worksheet tí ń lo required operating current tí a tẹ̀ wọlé àti ẹ̀rí clearing time láti ọ̀dọ̀ manufacturer.",
+      "TN-loop worksheet uses entered required operating current and manufacturer clearing-time evidence.",
+    ],
+  "Compare manufacturer let-through fault energy with entered conductor thermal withstand.":
+    [
+      "Vergleichen Sie die vom Hersteller angegebene Durchlassenergie mit der eingegebenen thermischen Leiterfestigkeit.",
+      "Fi let-through fault energy manufacturer wéra pẹ̀lú conductor thermal withstand tí a tẹ̀ wọlé.",
+      "Compare manufacturer let-through fault energy with entered conductor thermal withstand.",
+    ],
+  "PE adiabatic thermal requirement plus an entered mechanical minimum, or a sourced bonding minimum comparison.":
+    [
+      "Adiabatische thermische PE-Anforderung plus eingegebenes mechanisches Minimum oder Vergleich mit einem belegten Mindestquerschnitt für den Potentialausgleich.",
+      "PE adiabatic thermal requirement pẹ̀lú mechanical minimum tí a tẹ̀ wọlé, tàbí ìfiwéra bonding minimum tó ní orísun.",
+      "PE adiabatic thermal requirement plus entered mechanical minimum, or comparison with sourced bonding minimum.",
+    ],
+  "Aggregate entered electrical input ratings and apply each distinct design assumption once.":
+    [
+      "Fassen Sie eingegebene elektrische Eingangsleistungen zusammen und wenden Sie jede eigenständige Auslegungsannahme genau einmal an.",
+      "Kó electrical input ratings tí a tẹ̀ wọlé jọ, kí o sì lo design assumption kọ̀ọ̀kan lẹ́ẹ̀kan ṣoṣo.",
+      "Add entered electrical input ratings and apply each separate design assumption only once.",
+    ],
+  "Compare entered line-current RMS magnitudes using a visible current-imbalance definition.":
+    [
+      "Vergleichen Sie eingegebene Leiterstrom-Effektivwerte anhand einer sichtbaren Definition der Stromunsymmetrie.",
+      "Fi line-current RMS magnitudes tí a tẹ̀ wọlé wéra pẹ̀lú ìtumọ̀ current imbalance tí ó hàn.",
+      "Compare entered line-current RMS magnitudes using a visible current-imbalance definition.",
+    ],
+  "Vector sum of three supplied fundamental current phasors at one common boundary.":
+    [
+      "Vektorsumme dreier angegebener Grundschwingungs-Stromzeiger an einer gemeinsamen Grenze.",
+      "Vector sum fundamental current phasor mẹ́ta tí a pèsè ní ààlà kan náà.",
+      "Vector sum of three supplied fundamental current phasors at one common boundary.",
+    ],
+  "Balanced three-phase transformer with entered no-load and rated-load loss data.":
+    [
+      "Symmetrischer Drehstromtransformator mit eingegebenen Leerlauf- und Nennlastverlusten.",
+      "Transformer three-phase tó dọ́gba pẹ̀lú no-load àti rated-load loss data tí a tẹ̀ wọlé.",
+      "Balanced three-phase transformer with entered no-load and rated-load loss data.",
+    ],
+  "Independent steady kW/kVA limits and an entered start-capacity duration envelope.":
+    [
+      "Unabhängige stationäre kW-/kVA-Grenzen und eine eingegebene zeitabhängige Anlaufkapazitätshülle.",
+      "Steady kW/kVA limits lọ́tọ̀ àti start-capacity duration envelope tí a tẹ̀ wọlé.",
+      "Independent steady kW/kVA limits and entered start-capacity duration envelope.",
+    ],
+  "Compare continuous and transient real/apparent limits with explicit phase compatibility.":
+    [
+      "Vergleichen Sie kontinuierliche und transiente Wirk-/Scheinleistungsgrenzen mit expliziter Phasenverträglichkeit.",
+      "Fi continuous àti transient real/apparent limits wéra pẹ̀lú phase compatibility tí a sọ kedere.",
+      "Compare continuous and transient real/apparent limits with explicit phase compatibility.",
+    ],
+  "Constant usable DC energy and entered conversion efficiency; no manufacturer discharge-curve claim.":
+    [
+      "Konstante nutzbare DC-Energie und eingegebener Umwandlungswirkungsgrad; keine Behauptung einer Hersteller-Entladekurve.",
+      "Usable DC energy tí kò yí padà àti conversion efficiency tí a tẹ̀ wọlé; a kò sọ pé èyí jẹ́ manufacturer discharge curve.",
+      "Constant usable DC energy and entered conversion efficiency; no claim of manufacturer discharge curve.",
+    ],
+  "Fundamental lagging compensation from the initial to a higher displacement PF.":
+    [
+      "Grundschwingungs-Blindleistungskompensation von einem anfänglichen nacheilenden zu einem höheren Verschiebungs-PF.",
+      "Fundamental lagging compensation láti displacement PF ìbẹ̀rẹ̀ sí èyí tó ga ju.",
+      "Fundamental lagging compensation from initial displacement PF to a higher one.",
+    ],
+  "Ideal sinusoidal capacitor elements for single-phase, three-phase star or delta connection.":
+    [
+      "Ideale sinusförmige Kondensatorelemente für Einphasen-, Drehstrom-Stern- oder Dreieckschaltung.",
+      "Capacitor elements ideal sinusoidal fún single-phase, three-phase star tàbí delta connection.",
+      "Ideal sinusoidal capacitor elements for single-phase, three-phase star or delta connection.",
+    ],
+  "Compute total RMS and THD from an explicitly supplied harmonic spectrum; fundamental is the THD denominator.":
+    [
+      "Berechnen Sie Gesamt-RMS und THD aus einem ausdrücklich angegebenen Oberschwingungsspektrum; die Grundschwingung bildet den THD-Nenner.",
+      "Ṣírò total RMS àti THD láti harmonic spectrum tí a pèsè kedere; fundamental ni denominator THD.",
+      "Calculate total RMS and THD from explicitly supplied harmonic spectrum; fundamental na the THD denominator.",
+    ],
+  "SOC percentages refer to one nominal stored-energy capacity; reserve is applied once.":
+    [
+      "SOC-Prozente beziehen sich auf eine einzige nominale Speicherenergiekapazität; die Reserve wird einmal berücksichtigt.",
+      "SOC percentages ń tọ́ka sí nominal stored-energy capacity kan; a lo reserve lẹ́ẹ̀kan ṣoṣo.",
+      "SOC percentages refer to one nominal stored-energy capacity; reserve dey applied only once.",
+    ],
+  "Constant-power charge/discharge estimates within stated stored-energy and power limits.":
+    [
+      "Lade-/Entladeschätzungen bei konstanter Leistung innerhalb der angegebenen Speicherenergie- und Leistungsgrenzen.",
+      "Ìṣírò charge/discharge ní constant power láàárín stored-energy àti power limits tí a sọ.",
+      "Constant-power charge/discharge estimates within stated stored-energy and power limits.",
+    ],
+  "Reconcile physical flows per equal elapsed-time interval with explicit grid and islanding state.":
+    [
+      "Bilanzieren Sie physikalische Flüsse je gleich langem Zeitintervall mit explizitem Netz- und Inselbetriebszustand.",
+      "Mú physical flows bá ara wọn mu ní equal elapsed-time interval kọ̀ọ̀kan pẹ̀lú grid àti islanding state tí a sọ kedere.",
+      "Reconcile physical flows for each equal elapsed-time interval with explicit grid and islanding state.",
+    ],
+  "Entered peak-sun-hour estimate or supplied normalized DC profile with chronological clipping.":
+    [
+      "Eingegebene Spitzen-Sonnenstunden-Schätzung oder normiertes DC-Profil mit chronologischer Leistungsbegrenzung.",
+      "Peak-sun-hour estimate tí a tẹ̀ wọlé tàbí normalized DC profile tí a pèsè pẹ̀lú chronological clipping.",
+      "Entered peak-sun-hour estimate or supplied normalized DC profile with chronological clipping.",
+    ],
+  "Manufacturer-input temperature-voltage worksheet with separate MPPT, absolute-voltage and current comparisons.":
+    [
+      "Temperatur-Spannungs-Arbeitsblatt mit Herstellereingaben und getrennten MPPT-, Absolutspannungs- und Stromvergleichen.",
+      "Temperature-voltage worksheet pẹ̀lú manufacturer input àti ìfiwéra MPPT, absolute voltage àti current lọ́tọ̀.",
+      "Manufacturer-input temperature-voltage worksheet with separate MPPT, absolute-voltage and current comparisons.",
+    ],
+  "Integrate supplied output, or interpolate an entered manufacturer power curve with wind-speed samples.":
+    [
+      "Integrieren Sie die angegebene Leistung oder interpolieren Sie eine eingegebene Hersteller-Leistungskurve mit Windgeschwindigkeitswerten.",
+      "Ṣe integration output tí a pèsè tàbí interpolation manufacturer power curve tí a tẹ̀ wọlé pẹ̀lú wind-speed samples.",
+      "Integrate supplied output, or interpolate entered manufacturer power curve using wind-speed samples.",
+    ],
+  "Battery-delivered energy and AC meter energy with charger, vehicle and site limits.":
+    [
+      "An die Batterie gelieferte Energie und AC-Zählerenergie mit Ladegeräte-, Fahrzeug- und Standortgrenzen.",
+      "Energy tí battery gba àti AC meter energy pẹ̀lú charger, vehicle àti site limits.",
+      "Battery-delivered energy and AC meter energy with charger, vehicle and site limits.",
+    ],
+  "Single-phase sessions, one common time window and constant background demand; allocate in explicit input priority order.":
+    [
+      "Einphasige Ladevorgänge, ein gemeinsames Zeitfenster und konstante Grundlast; Zuteilung nach expliziter Eingabepriorität.",
+      "Single-phase sessions, time window kan náà àti background demand tí kò yí padà; pín wọn gẹ́gẹ́ bí input priority tí a sọ kedere.",
+      "Single-phase sessions, one common time window and constant background demand; allocate by explicit input priority order.",
+    ],
+  "Elapsed-time energy integration with potentially unequal intervals; signed power denotes net flow.":
+    [
+      "Energieintegration über verstrichene Zeit mit möglicherweise ungleichen Intervallen; Leistung mit Vorzeichen bezeichnet den Nettofluss.",
+      "Energy integration fún àkókò tó kọjá pẹ̀lú intervals tí ó lè má dọ́gba; power pẹ̀lú àmì rere/òdì ń sọ net flow.",
+      "Energy integration over elapsed time with intervals wey fit differ; signed power means net flow.",
+    ],
+  "Equal elapsed intervals of non-negative real load; duration curve is sorted from actual supplied powers.":
+    [
+      "Gleich lange Intervalle nicht negativer Wirklast; die Dauerlinie wird aus den tatsächlich angegebenen Leistungen sortiert.",
+      "Equal elapsed intervals fún real load tí kò jẹ́ òdì; a ṣètò duration curve láti power gidi tí a pèsè.",
+      "Equal elapsed intervals of real load wey no negative; duration curve dey sorted from actual supplied powers.",
+    ],
+  "Keep coincidence, diversity, utilization and demand factor separate at the same declared electrical boundary.":
+    [
+      "Trennen Sie Gleichzeitigkeit, Diversität, Auslastung und Bedarfsfaktor an derselben angegebenen elektrischen Grenze.",
+      "Pa coincidence, diversity, utilization àti demand factor mọ́ lọ́tọ̀ ní electrical boundary kan náà tí a sọ.",
+      "Keep coincidence, diversity, utilization and demand factor separate at the same declared electrical boundary.",
+    ],
+  "Separate imported/exported energy, aligned interval peak demand, standing charges and tax with explicit decimal rounding.":
+    [
+      "Trennen Sie Bezugs-/Einspeiseenergie, Spitzenleistung aus ausgerichteten Intervallen, Grundgebühren und Steuern mit expliziter Dezimalrundung.",
+      "Yà imported/exported energy, aligned interval peak demand, standing charges àti tax sọ́tọ̀ pẹ̀lú decimal rounding tí a sọ kedere.",
+      "Separate import/export energy, aligned interval peak demand, standing charges and tax with explicit decimal rounding.",
+    ],
+  "Compare entered old/new active and standby input power over the same explicit period.":
+    [
+      "Vergleichen Sie eingegebene alte/neue Betriebs- und Bereitschaftsleistung über denselben expliziten Zeitraum.",
+      "Fi old/new active àti standby input power tí a tẹ̀ wọlé wéra fún àkókò kan náà tí a sọ kedere.",
+      "Compare entered old/new active and standby input power over the same explicit period.",
+    ],
+  "Apply a geographically and temporally identified user-supplied operational emissions factor to imported electricity.":
+    [
+      "Wenden Sie einen benutzerseitigen betrieblichen Emissionsfaktor mit geografischem und zeitlichem Bezug auf bezogenen Strom an.",
+      "Lo operational emissions factor tí olùlò pèsè, tí a mọ agbègbè àti àkókò rẹ̀, fún iná tí a wọlé.",
+      "Apply user-supplied operational emissions factor with stated geography and period to imported electricity.",
+    ],
+  "Undiscounted constant annual savings compared with entered investment and recurring costs.":
+    [
+      "Undiskontierte konstante jährliche Einsparungen im Vergleich zu eingegebenen Investitions- und laufenden Kosten.",
+      "Undiscounted annual savings tí kò yí padà ní ìfiwéra pẹ̀lú investment àti recurring costs tí a tẹ̀ wọlé.",
+      "Constant yearly savings without discounting compared with entered investment and recurring costs.",
+    ],
+  "Explicit annual cash flows, saving escalation, fixed annual maintenance and end-of-horizon residual value.":
+    [
+      "Explizite jährliche Zahlungsströme, Steigerung der Einsparungen, feste jährliche Wartung und Restwert am Betrachtungsende.",
+      "Annual cash flows tí a sọ kedere, saving escalation, annual maintenance tí kò yí padà àti residual value ní òpin àkókò ìṣírò.",
+      "Explicit yearly cash flows, savings escalation, fixed yearly maintenance and residual value at the end of the period.",
+    ],
+} satisfies Record<string, [string, string, string]>);
+
+Object.assign(engineeringMessages, {
+  "Charging target must not be below starting SOC.": [
+    "Das Ladeziel darf nicht unter dem anfänglichen SOC liegen.",
+    "Charging target kò gbọ́dọ̀ kéré ju SOC ìbẹ̀rẹ̀ lọ.",
+    "Charging target must no fall below starting SOC.",
+  ],
+  "Not achievable at zero power": [
+    "Bei null Leistung nicht erreichbar",
+    "Kò ṣeé dé ní zero power",
+    "E no achievable at zero power",
+  ],
+  "This plans a session; it does not send commands to a charger.": [
+    "Dies plant einen Ladevorgang; es werden keine Befehle an ein Ladegerät gesendet.",
+    "Èyí ń ṣètò session kan; kò fi àṣẹ ránṣẹ́ sí charger.",
+    "This plans a session; e no send commands to charger.",
+  ],
+  "Deterministic input-order priority heuristic; it does not claim a global optimal allocation.":
+    [
+      "Deterministische Prioritätsheuristik nach Eingabereihenfolge; eine global optimale Zuteilung wird nicht behauptet.",
+      "Priority heuristic gẹ́gẹ́ bí input order tí èsì rẹ̀ dájú fún input kan náà; a kò sọ pé ó jẹ́ global optimal allocation.",
+      "Deterministic input-order priority heuristic; e no claim globally optimal allocation.",
+    ],
+  "Reordering sessions changes priorities. No physical charger is controlled.":
+    [
+      "Eine andere Reihenfolge der Ladevorgänge ändert die Prioritäten. Kein physisches Ladegerät wird gesteuert.",
+      "Títún session tò ń yí priority padà. A kò darí charger gidi kankan.",
+      "Changing session order changes priorities. No physical charger dey controlled.",
+    ],
+  "Existing background current already exceeds at least one phase limit. No additional capacity is assigned on that phase.":
+    [
+      "Der bestehende Grundlaststrom überschreitet bereits mindestens eine Phasengrenze. Dieser Phase wird keine zusätzliche Kapazität zugewiesen.",
+      "Background current tó ti wà ti ju ààlà phase kan tàbí jù bẹ́ẹ̀ lọ. A kò fi capacity àfikún sí phase náà.",
+      "Existing background current already pass at least one phase limit. No extra capacity dey assigned to that phase.",
+    ],
+  "Interval values are interval-average powers, not instantaneous samples interpolated without evidence.":
+    [
+      "Intervallwerte sind mittlere Leistungen je Intervall, keine ohne Nachweis interpolierten Momentanwerte.",
+      "Interval values jẹ́ average power inú interval, kì í ṣe instantaneous samples tí a ṣe interpolation sí láìsí ẹ̀rí.",
+      "Interval values na interval-average power, no be instant samples wey dem interpolate without evidence.",
+    ],
+  "Not applicable: all loads zero": [
+    "Nicht anwendbar: alle Lasten sind null",
+    "Kò wúlò: gbogbo ẹrù jẹ́ odo",
+    "No applicable: all loads na zero",
+  ],
+  "Peak is defined by the supplied interval duration. Instantaneous inrush is not represented.":
+    [
+      "Die Spitze wird durch die angegebene Intervalldauer definiert. Momentaner Einschaltstrom wird nicht dargestellt.",
+      "Peak dá lórí duration interval tí a pèsè. A kò fi instantaneous inrush hàn.",
+      "Peak depends on the supplied interval duration. Instantaneous inrush no dey represented.",
+    ],
+  "A duration curve reorders values and therefore must not be used for chronological storage dispatch.":
+    [
+      "Eine Dauerlinie sortiert Werte um und darf daher nicht für den chronologischen Speichereinsatz verwendet werden.",
+      "Duration curve ń tún àwọn iye tò, nítorí náà a kò gbọ́dọ̀ lò ó fún chronological storage dispatch.",
+      "Duration curve reorders values, so no use am for chronological storage dispatch.",
+    ],
+  "Coincident maximum cannot exceed the sum of individual maxima for the same boundary and period.":
+    [
+      "Das gleichzeitige Maximum darf für dieselbe Grenze und denselben Zeitraum die Summe der Einzelmaxima nicht überschreiten.",
+      "Coincident maximum kò lè ju àpapọ̀ individual maxima lọ fún ààlà àti àkókò kan náà.",
+      "Coincident maximum must no pass the sum of individual maxima for the same boundary and period.",
+    ],
+  "All demand quantities must use the same boundary, power definition and assessment period.":
+    [
+      "Alle Bedarfsgrößen müssen dieselbe Grenze, Leistungsdefinition und denselben Bewertungszeitraum verwenden.",
+      "Gbogbo demand quantities gbọ́dọ̀ lo ààlà, ìtumọ̀ power àti assessment period kan náà.",
+      "All demand quantities must use the same boundary, power definition and assessment period.",
+    ],
+  "Do not multiply coincidence and diversity reductions together; they express inverse definitions.":
+    [
+      "Multiplizieren Sie Gleichzeitigkeits- und Diversitätsreduktionen nicht miteinander; sie beruhen auf inversen Definitionen.",
+      "Má fi coincidence àti diversity reductions pọ̀ mọ́ ara wọn; ìtumọ̀ wọn jẹ́ inverse sí ara wọn.",
+      "No multiply coincidence and diversity reductions together; their definitions na inverse of each other.",
+    ],
+  "Balanced sinusoidal input for the three-phase case. Starting current requires separate manufacturer/entered data.":
+    [
+      "Symmetrischer sinusförmiger Eingang für den Drehstromfall. Der Anlaufstrom benötigt separate Hersteller-/Eingabedaten.",
+      "Balanced sinusoidal input fún three-phase. Starting current nílò manufacturer data tàbí entered data lọ́tọ̀.",
+      "Balanced sinusoidal input for three-phase case. Starting current need separate manufacturer or entered data.",
+    ],
+  "Torque cannot be inferred from shaft power at zero speed.": [
+    "Bei Drehzahl null lässt sich das Drehmoment nicht aus der Wellenleistung ableiten.",
+    "A kò lè rí torque láti shaft power ní zero speed.",
+    "Torque no fit dey inferred from shaft power at zero speed.",
+  ],
+  "The number of poles must be even.": [
+    "Die Polzahl muss gerade sein.",
+    "Iye poles gbọ́dọ̀ jẹ́ odidi tí méjì lè pín láìsí àṣẹ́kù.",
+    "Number of poles must be even.",
+  ],
+  "A negative slip indicates super-synchronous operation; it is not a normal loaded motor point.":
+    [
+      "Negativer Schlupf weist auf übersynchronen Betrieb hin; dies ist kein normaler belasteter Motorbetriebspunkt.",
+      "Slip òdì ń tọ́ka sí super-synchronous operation; kì í ṣe operating point motor tí ń ru ẹrù lọ́nà déédéé.",
+      "Negative slip means super-synchronous operation; e no be normal loaded motor point.",
+    ],
+  "Analytical reference: 400 V winding, fixed |Z| = 20 Ω; no manufacturer motor claim.":
+    [
+      "Analytisches Beispiel: 400-V-Wicklung, festes |Z| = 20 Ω; keine Herstellerangabe zu einem Motor.",
+      "Àpẹẹrẹ ìṣírò: winding 400 V, |Z| = 20 Ω tí kò yí padà; kì í ṣe manufacturer motor claim.",
+      "Analytical reference: 400 V winding, fixed |Z| = 20 Ω; no manufacturer motor claim.",
+    ],
+  "Fixed equal winding impedance model. It does not predict acceleration, torque, transition current or acceptable starting duty.":
+    [
+      "Modell fester gleicher Wicklungsimpedanzen. Es sagt weder Beschleunigung, Drehmoment, Umschaltstrom noch zulässige Anlaufbelastung vorher.",
+      "Àwòṣe winding impedance tó dọ́gba, tí kò yí padà. Kò sọ àsọtẹ́lẹ̀ acceleration, torque, transition current tàbí starting duty tí a lè gba.",
+      "Fixed equal winding impedance model. E no predict acceleration, torque, transition current or acceptable starting duty.",
+    ],
+  "No generic starting multiplier, voltage dip or frequency-dip prediction is used.":
+    [
+      "Es werden weder allgemeine Anlaufmultiplikatoren noch Vorhersagen zu Spannungs- oder Frequenzeinbrüchen verwendet.",
+      "A kò lo starting multiplier gbogbogbò, tàbí àsọtẹ́lẹ̀ voltage dip àti frequency dip.",
+      "No generic starting multiplier or voltage/frequency-dip prediction dey used.",
+    ],
+  "Start-only energy excludes background and already-running motors.": [
+    "Reine Anlaufenergie schließt Grundlast und bereits laufende Motoren aus.",
+    "Start-only energy kò kà background àti motor tí ń ṣiṣẹ́ tẹ́lẹ̀ sí.",
+    "Start-only energy no include background demand or motors wey already dey run.",
+  ],
+  "A scalar real-power demand worksheet; phase currents and signed reactive power require their own aggregation.":
+    [
+      "Ein skalares Wirkleistungs-Bedarfsblatt; Phasenströme und Blindleistung mit Vorzeichen müssen getrennt aggregiert werden.",
+      "Scalar real-power demand worksheet; phase currents àti signed reactive power nílò àkójọpọ̀ tiwọn lọ́tọ̀.",
+      "Scalar real-power demand worksheet; phase currents and signed reactive power need their own aggregation.",
+    ],
+  "The capacity allowance is a percentage added to demand, not a percentage of installed capacity left unused.":
+    [
+      "Der Kapazitätszuschlag ist ein zum Bedarf addierter Prozentsatz, kein ungenutzter Anteil der installierten Kapazität.",
+      "Capacity allowance jẹ́ percentage tí a fi kún demand, kì í ṣe percentage installed capacity tí a kò lò.",
+      "Capacity allowance na percentage added to demand, no be percentage of installed capacity left unused.",
+    ],
+  "Energy duty is not an extra current reduction.": [
+    "Der Energie-Einschaltdauerfaktor ist keine zusätzliche Stromminderung.",
+    "Energy duty kì í ṣe ìdínkù current àfikún.",
+    "Energy duty no be extra current reduction.",
+  ],
+  "Not applicable (all currents zero)": [
+    "Nicht anwendbar (alle Ströme null)",
+    "Kò wúlò (gbogbo ìṣàn iná jẹ́ odo)",
+    "No applicable (all currents na zero)",
+  ],
+  "This is a current-magnitude metric. It is not negative-sequence voltage imbalance and does not determine neutral current.":
+    [
+      "Dies ist eine Kennzahl der Strombeträge. Sie ist keine Gegensystem-Spannungsunsymmetrie und bestimmt nicht den Neutralleiterstrom.",
+      "Èyí jẹ́ current-magnitude metric. Kì í ṣe negative-sequence voltage imbalance, kò sì sọ iye neutral current.",
+      "This na current-magnitude metric. E no be negative-sequence voltage imbalance and e no determine neutral current.",
+    ],
+  "Harmonics, including triplen components, are excluded. No floating-neutral voltage solution is implied.":
+    [
+      "Oberschwingungen einschließlich dreifacher Harmonischer sind ausgeschlossen. Eine Spannungslösung für einen schwebenden Neutralleiter wird nicht impliziert.",
+      "A kò kà harmonics, pẹ̀lú triplen components, sí. Èyí kò túmọ̀ sí floating-neutral voltage solution.",
+      "Harmonics, including triplen components, no dey included. No floating-neutral voltage solution dey implied.",
+    ],
+  "Voltage/frequency dip, speed governor and alternator transient dynamics are not predicted.":
+    [
+      "Spannungs-/Frequenzeinbrüche, Drehzahlregler und transiente Generatordynamik werden nicht vorhergesagt.",
+      "A kò sọ àsọtẹ́lẹ̀ voltage/frequency dip, speed governor tàbí alternator transient dynamics.",
+      "Voltage/frequency dip, speed governor and alternator transient dynamics no dey predicted.",
+    ],
+  "Transient apparent demand cannot be smaller than real demand.": [
+    "Der transiente Scheinleistungsbedarf darf nicht kleiner als der Wirkleistungsbedarf sein.",
+    "Transient apparent demand kò lè kéré ju real demand lọ.",
+    "Transient apparent demand must no be smaller than real demand.",
+  ],
+  "DC voltage/current, battery BMS, per-phase limits, islanding and transfer arrangements require separate manufacturer checks.":
+    [
+      "DC-Spannung/-Strom, Batterie-BMS, Phasengrenzen, Inselbetrieb und Umschaltung erfordern separate Herstellerprüfungen.",
+      "DC voltage/current, battery BMS, per-phase limits, islanding àti transfer arrangements nílò manufacturer checks lọ́tọ̀.",
+      "DC voltage/current, battery BMS, per-phase limits, islanding and transfer arrangements need separate manufacturer checks.",
+    ],
+  "No load: runtime not defined": [
+    "Keine Last: Laufzeit nicht definiert",
+    "Kò sí ẹrù: a kò lè sọ runtime",
+    "No load: runtime no defined",
+  ],
+  "No-load consumption, battery aging, temperature, Peukert behavior and manufacturer discharge curves are not inferred.":
+    [
+      "Leerlaufverbrauch, Batteriealterung, Temperatur, Peukert-Verhalten und Hersteller-Entladekurven werden nicht abgeleitet.",
+      "A kò dá no-load consumption, battery aging, temperature, Peukert behavior tàbí manufacturer discharge curves sílẹ̀ láti ìṣírò yìí.",
+      "No-load consumption, battery aging, temperature, Peukert behavior and manufacturer discharge curves no dey inferred.",
+    ],
+  "Power limit exceeded: the energy-only runtime cannot be treated as a feasible backed-up operating time.":
+    [
+      "Leistungsgrenze überschritten: Die reine Energielaufzeit darf nicht als umsetzbare Ersatzstrom-Betriebsdauer behandelt werden.",
+      "A ti kọjá power limit: a kò lè ka energy-only runtime sí àkókò backup tí ó ṣeé ṣe.",
+      "Power limit don exceed: energy-only runtime no fit count as feasible backup operating time.",
+    ],
+  "Target PF must be at least the initial PF for this correction worksheet.": [
+    "Der Ziel-PF muss für dieses Korrekturblatt mindestens dem anfänglichen PF entsprechen.",
+    "Target PF gbọ́dọ̀ jẹ́ ó kéré tán PF ìbẹ̀rẹ̀ fún correction worksheet yìí.",
+    "Target PF must be at least initial PF for this correction worksheet.",
+  ],
+  "Useful-load kWh is not automatically reduced by displacement-PF correction.":
+    [
+      "Die Nutzlastenergie in kWh wird durch Verschiebungs-PF-Korrektur nicht automatisch reduziert.",
+      "Displacement-PF correction kò dín useful-load kWh kù láìfọwọ́yí.",
+      "Displacement-PF correction no automatically reduce useful-load kWh.",
+    ],
+  "Ideal sizing only. Select actual voltage/duty ratings, protection, discharge and harmonic compatibility separately.":
+    [
+      "Nur ideale Dimensionierung. Tatsächliche Spannungs-/Betriebsnennwerte, Schutz, Entladung und Oberschwingungsverträglichkeit sind getrennt auszuwählen.",
+      "Ideal sizing nìkan. Yan voltage/duty ratings gidi, protection, discharge àti harmonic compatibility lọ́tọ̀.",
+      "Ideal sizing only. Choose actual voltage/duty ratings, protection, discharge and harmonic compatibility separately.",
+    ],
+  "Spectral bins are RMS magnitudes at integer harmonics of one common fundamental. DC and interharmonics are excluded.":
+    [
+      "Spektralwerte sind Effektivwerte bei ganzzahligen Harmonischen einer gemeinsamen Grundfrequenz. DC und Zwischenharmonische sind ausgeschlossen.",
+      "Spectral bins jẹ́ RMS magnitudes ní integer harmonics fundamental kan náà. A kò kà DC àti interharmonics sí.",
+      "Spectral bins na RMS magnitudes at integer harmonics of one common fundamental. DC and interharmonics no dey included.",
+    ],
+  "Harmonic phase angles are not supplied; no time waveform or three-phase harmonic-neutral current is inferred.":
+    [
+      "Oberschwingungs-Phasenwinkel wurden nicht angegeben; es werden weder Zeitverlauf noch dreiphasiger Oberschwingungs-Neutralleiterstrom abgeleitet.",
+      "A kò pèsè harmonic phase angles; a kò dá time waveform tàbí three-phase harmonic-neutral current sílẹ̀.",
+      "Harmonic phase angles no dey supplied; no time waveform or three-phase harmonic-neutral current dey inferred.",
+    ],
+  "Zero voltage and current do not determine resistance. Enter resistance.": [
+    "Spannung und Strom null bestimmen den Widerstand nicht. Geben Sie den Widerstand ein.",
+    "Zero voltage àti zero current kò lè sọ resistance. Tẹ resistance sínú.",
+    "Zero voltage and current no determine resistance. Enter resistance.",
+  ],
+  "Passive, non-negative steady DC quantities. Ideal open-circuit resistance has no finite numerical value.":
+    [
+      "Passive, nicht negative stationäre Gleichstromgrößen. Der ideale Leerlaufwiderstand hat keinen endlichen Zahlenwert.",
+      "Passive steady DC quantities tí kò jẹ́ òdì. Ideal open-circuit resistance kò ní finite numerical value.",
+      "Passive steady DC quantities wey no negative. Ideal open-circuit resistance no get finite numerical value.",
+    ],
+  "Steady input power. Supply losses and time-varying voltage are excluded.": [
+    "Konstante Eingangsleistung. Versorgungsverluste und zeitlich veränderliche Spannung sind ausgeschlossen.",
+    "Input power tí kò yí padà. A kò kà supply losses àti voltage tí ń yí pẹ̀lú àkókò sí.",
+    "Steady input power. Supply losses and voltage wey changes with time no dey included.",
+  ],
+  "Displacement PF under a sinusoidal model; true PF with unknown distortion cannot establish reactive power.":
+    [
+      "Verschiebungs-PF im sinusförmigen Modell; wahrer PF bei unbekannter Verzerrung bestimmt die Blindleistung nicht.",
+      "Displacement PF lábẹ́ sinusoidal model; true PF pẹ̀lú distortion tí a kò mọ̀ kò lè fi reactive power múlẹ̀.",
+      "Displacement PF under sinusoidal model; true PF with unknown distortion no fit establish reactive power.",
+    ],
+  "Electrical input is already input power: motor efficiency is not applied.": [
+    "Die elektrische Eingangsleistung ist bereits die aufgenommene Leistung: Der Motorwirkungsgrad wird nicht angewendet.",
+    "Electrical input ti jẹ́ input power tẹ́lẹ̀: a kò tún lo motor efficiency.",
+    "Electrical input na input power already: motor efficiency no dey applied again.",
+  ],
+  "Passive sign convention: consumption P > 0; inductive absorption Q > 0. Pure reactive power is supported without division by PF.":
+    [
+      "Passive Vorzeichenkonvention: Verbrauch P > 0; induktive Aufnahme Q > 0. Reine Blindleistung wird ohne Division durch PF unterstützt.",
+      "Passive sign convention: consumption P > 0; inductive absorption Q > 0. A ṣe àtìlẹ́yìn fún pure reactive power láìpín nípasẹ̀ PF.",
+      "Passive sign convention: consumption P > 0; inductive absorption Q > 0. Pure reactive power dey supported without dividing by PF.",
+    ],
+  "Zero capacitance means no series capacitor component, not a physical zero-farad capacitor.":
+    [
+      "Kapazität null bedeutet, dass kein Reihenkondensator vorhanden ist, nicht ein physischer Null-Farad-Kondensator.",
+      "Zero capacitance túmọ̀ sí pé kò sí series capacitor component, kì í ṣe capacitor gidi tó jẹ́ zero farad.",
+      "Zero capacitance means no series capacitor component, no be physical zero-farad capacitor.",
+    ],
+  "Nominal voltage (Ah conversions only)": [
+    "Nennspannung (nur Ah-Umrechnungen)",
+    "Nominal voltage (fún Ah conversions nìkan)",
+    "Nominal voltage (only for Ah conversions)",
+  ],
+  "The entered ratio applies only to the stated operating point.": [
+    "Das eingegebene Verhältnis gilt nur für den angegebenen Betriebspunkt.",
+    "Ratio tí a tẹ̀ wọlé wúlò fún operating point tí a sọ nìkan.",
+    "The entered ratio applies only to the stated operating point.",
+  ],
+  "Do not divide an already electrical input rating by efficiency again.": [
+    "Teilen Sie einen bereits elektrischen Eingangsleistungswert nicht nochmals durch den Wirkungsgrad.",
+    "Má tún pín rating tí ó ti jẹ́ electrical input tẹ́lẹ̀ nípasẹ̀ efficiency.",
+    "No divide an already electrical input rating by efficiency again.",
+  ],
+} satisfies Record<string, [string, string, string]>);
+
+Object.assign(engineeringMessages, {
+  "This is a scoped entered-data check, not installation certification or automatic cable selection.":
+    [
+      "Dies ist eine begrenzte Prüfung eingegebener Daten, keine Installationszertifizierung oder automatische Kabelauswahl.",
+      "Èyí jẹ́ ìṣàyẹ̀wò entered data lábẹ́ ààlà kan, kì í ṣe installation certification tàbí cable selection aládàáṣiṣẹ́.",
+      "This na scoped check of entered data, no be installation certification or automatic cable selection.",
+    ],
+  "Drop equals or exceeds supply voltage: the specified current/load operating point is not physically feasible under this source model.":
+    [
+      "Der Spannungsfall erreicht oder überschreitet die Versorgungsspannung: Der angegebene Strom-/Lastbetriebspunkt ist in diesem Quellenmodell physikalisch nicht möglich.",
+      "Voltage drop dọ́gba tàbí ju supply voltage lọ: current/load operating point tí a sọ kò ṣeé ṣe gẹ́gẹ́ bí source model yìí.",
+      "Voltage drop equals or passes supply voltage: the specified current/load operating point no physically feasible under this source model.",
+    ],
+  "Use conductor data at the actual operating temperature. This result covers this segment only; include upstream segments separately.":
+    [
+      "Verwenden Sie Leiterdaten bei der tatsächlichen Betriebstemperatur. Dieses Ergebnis gilt nur für diesen Abschnitt; vorgeschaltete Abschnitte sind getrennt einzubeziehen.",
+      "Lo conductor data ní operating temperature gidi. Èsì yìí kan segment yìí nìkan; kà upstream segments sí lọ́tọ̀.",
+      "Use conductor data at actual operating temperature. This result covers only this segment; include upstream segments separately.",
+    ],
+  "Unity PF, negligible reactance, equal path conductors. Resistivity must represent the selected temperature.":
+    [
+      "PF = 1, vernachlässigbare Reaktanz und gleiche Pfadleiter. Der spezifische Widerstand muss zur gewählten Temperatur passen.",
+      "PF = 1, reactance kékeré tí a lè kọjá sí, conductor ọ̀nà tó dọ́gba. Resistivity gbọ́dọ̀ dúró fún temperature tí a yàn.",
+      "PF = 1, negligible reactance and equal path conductors. Resistivity must match the selected temperature.",
+    ],
+  "A calculated section is not an available cable size; choose a real sourced candidate and assess it.":
+    [
+      "Ein berechneter Querschnitt ist keine verfügbare Kabelgröße; wählen Sie einen realen belegten Kandidaten und bewerten Sie ihn.",
+      "Cross-section tí a ṣírò kì í ṣe cable size tí ó wà; yan candidate gidi tó ní orísun kí o sì ṣàyẹ̀wò rẹ̀.",
+      "Calculated cross-section no be available cable size; choose a real sourced candidate and assess am.",
+    ],
+  "Duty changes loss energy only; it does not reduce on-state current or on-state heating.":
+    [
+      "Der Einschaltdauerfaktor ändert nur die Verlustenergie; er reduziert weder Einschaltstrom noch Erwärmung im eingeschalteten Zustand.",
+      "Duty ń yí loss energy nìkan padà; kò dín on-state current tàbí on-state heating kù.",
+      "Duty changes only loss energy; e no reduce on-state current or heating while equipment dey on.",
+    ],
+  "Factors must apply to the same installation, conductor, temperature and loaded-conductor basis.":
+    [
+      "Die Faktoren müssen für dieselbe Installation, denselben Leiter, dieselbe Temperatur und dieselbe Anzahl belasteter Leiter gelten.",
+      "Factors gbọ́dọ̀ wúlò fún installation, conductor, temperature àti loaded-conductor basis kan náà.",
+      "Factors must apply to the same installation, conductor, temperature and loaded-conductor basis.",
+    ],
+  "Conventional operating current must not be below the device rating / setting.":
+    [
+      "Der konventionelle Auslösestrom darf nicht unter dem Gerätenennwert bzw. Einstellwert liegen.",
+      "Conventional operating current kò gbọ́dọ̀ kéré ju device rating/setting lọ.",
+      "Conventional operating current must no fall below device rating or setting.",
+    ],
+  "Disconnection, selectivity, backup protection, RCD compatibility and physical testing are separate. The multiplier is not an automatic universal rule.":
+    [
+      "Abschaltung, Selektivität, Backup-Schutz, RCD-Verträglichkeit und physische Prüfung sind getrennte Aufgaben. Der Multiplikator ist keine automatisch universell geltende Regel.",
+      "Disconnection, selectivity, backup protection, RCD compatibility àti physical testing wà lọ́tọ̀. Multiplier kì í ṣe òfin kan tí ó wúlò fún gbogbo ibi láìṣàyẹ̀wò.",
+      "Disconnection, selectivity, backup protection, RCD compatibility and physical testing dey separate. The multiplier no be automatic universal rule.",
+    ],
+  "Total source/path impedance must be greater than zero.": [
+    "Die gesamte Quellen-/Pfadimpedanz muss größer als null sein.",
+    "Total source/path impedance gbọ́dọ̀ ju odo lọ.",
+    "Total source/path impedance must pass zero.",
+  ],
+  "Minimum voltage factor must not exceed maximum.": [
+    "Der minimale Spannungsfaktor darf den maximalen nicht überschreiten.",
+    "Minimum voltage factor kò gbọ́dọ̀ ju maximum lọ.",
+    "Minimum voltage factor must no pass maximum.",
+  ],
+  "The two estimates vary voltage factor only; temperature/path changes must be entered as separate cases.":
+    [
+      "Die beiden Schätzungen variieren nur den Spannungsfaktor; Temperatur-/Pfadänderungen müssen als separate Fälle eingegeben werden.",
+      "Ìṣírò méjì yìí ń yí voltage factor nìkan padà; temperature/path changes gbọ́dọ̀ jẹ́ case lọ́tọ̀ tí a tẹ̀ wọlé.",
+      "The two estimates vary only voltage factor; enter temperature/path changes as separate cases.",
+    ],
+  "No asymmetric peak/DC offset, meshed-network, generator or inverter fault model.":
+    [
+      "Kein Modell für asymmetrische Spitzen/DC-Anteile, vermaschte Netze sowie Generator- oder Wechselrichterfehler.",
+      "Kò sí àwòṣe asymmetric peak/DC offset, meshed network, generator fault tàbí inverter fault.",
+      "No asymmetric peak/DC offset, meshed-network, generator or inverter fault model dey included.",
+    ],
+  "TT — requires a different touch-voltage/RCD method": [
+    "TT – erfordert ein anderes Berührungsspannungs-/RCD-Verfahren",
+    "TT — nílò touch-voltage/RCD method míì",
+    "TT — e need different touch-voltage/RCD method",
+  ],
+  "IT — requires a different fault model": [
+    "IT – erfordert ein anderes Fehlermodell",
+    "IT — nílò fault model míì",
+    "IT — e need different fault model",
+  ],
+  "No TN-loop rule applied to a different earthing arrangement.": [
+    "Auf eine andere Erdungsanordnung wird keine TN-Schleifenregel angewendet.",
+    "A kò lo TN-loop rule fún earthing arrangement míì.",
+    "No TN-loop rule dey applied to different earthing arrangement.",
+  ],
+  "Enter a supported TN-loop case; TT/IT require their own applicable protection method.":
+    [
+      "Geben Sie einen unterstützten TN-Schleifenfall ein; TT/IT erfordern ihre eigenen zutreffenden Schutzverfahren.",
+      "Tẹ TN-loop case tí eto ṣe àtìlẹ́yìn fún sínú; TT/IT nílò protection method tiwọn tó yẹ.",
+      "Enter supported TN-loop case; TT/IT need their own applicable protection method.",
+    ],
+  "Device clearing-time evidence must correspond to the calculated fault current, tolerances and operating conditions.":
+    [
+      "Der Nachweis der Geräteabschaltzeit muss zum berechneten Fehlerstrom, zu den Toleranzen und Betriebsbedingungen passen.",
+      "Ẹ̀rí device clearing time gbọ́dọ̀ bá fault current tí a ṣírò, tolerances àti operating conditions mu.",
+      "Device clearing-time evidence must match calculated fault current, tolerances and operating conditions.",
+    ],
+  "Permitted final temperature must exceed initial temperature.": [
+    "Die zulässige Endtemperatur muss die Anfangstemperatur überschreiten.",
+    "Final temperature tí a gba gbọ́dọ̀ ju initial temperature lọ.",
+    "Permitted final temperature must pass initial temperature.",
+  ],
+  "Manufacturer let-through energy is used directly; prospective fault current is not assumed to persist unchanged through a current-limiting device.":
+    [
+      "Die Hersteller-Durchlassenergie wird direkt verwendet; es wird nicht angenommen, dass der prospektive Fehlerstrom durch ein strombegrenzendes Gerät unverändert bestehen bleibt.",
+      "A ń lo manufacturer let-through energy tààrà; a kò ro pé prospective fault current yóò dúró láìyí padà nípasẹ̀ current-limiting device.",
+      "Manufacturer let-through energy dey used directly; the model no assume prospective fault current stays unchanged through a current-limiting device.",
+    ],
+  "Clearing duration exceeds the five-second boundary of this adiabatic worksheet; no pass/fail assessment is issued.":
+    [
+      "Die Abschaltdauer überschreitet die Fünf-Sekunden-Grenze dieses adiabatischen Arbeitsblatts; es wird keine Bestanden-/Nicht-bestanden-Bewertung ausgegeben.",
+      "Clearing duration ju ààlà ìṣẹ́jú-àáyá márùn-ún fún adiabatic worksheet yìí lọ; a kò fúnni ní pass/fail assessment.",
+      "Clearing duration pass the five-second limit of this adiabatic worksheet; no pass/fail assessment dey issued.",
+    ],
+  "Applicable let-through I²t (PE only)": [
+    "Anwendbares Durchlass-I²t (nur PE)",
+    "Let-through I²t tó yẹ (PE nìkan)",
+    "Applicable let-through I²t (PE only)",
+  ],
+  "Fault duration (PE only, ≤5 s)": [
+    "Fehlerdauer (nur PE, ≤5 s)",
+    "Àkókò fault (PE nìkan, ≤5 s)",
+    "Fault duration (PE only, ≤5 s)",
+  ],
+  "Not applicable to entered-minimum method": [
+    "Nicht auf die Methode mit eingegebenem Minimum anwendbar",
+    "Kò wúlò fún entered-minimum method",
+    "No applicable to entered-minimum method",
+  ],
+  "No universal conductor-size table is embedded. Loop impedance, continuity, termination and local material requirements remain separate.":
+    [
+      "Es ist keine universelle Leiterquerschnittstabelle hinterlegt. Schleifenimpedanz, Durchgängigkeit, Anschlüsse und lokale Materialanforderungen bleiben getrennte Prüfungen.",
+      "Kò sí conductor-size table kan fún gbogbo ibi nínú eto. Loop impedance, continuity, termination àti local material requirements ṣì wà lọ́tọ̀.",
+      "No universal conductor-size table dey embedded. Loop impedance, continuity, termination and local material requirements still dey separate.",
+    ],
+  "Rounding denominator must be positive.": [
+    "Der Rundungsnenner muss positiv sein.",
+    "Rounding denominator gbọ́dọ̀ jẹ́ rere.",
+    "Rounding denominator must be positive.",
+  ],
+  "Demand uses aligned intervals. Rolling-window demand and provider-specific tariff rules are not inferred.":
+    [
+      "Die Leistung verwendet ausgerichtete Intervalle. Gleitende Leistungsmittelung und anbieterspezifische Tarifregeln werden nicht abgeleitet.",
+      "Demand ń lo aligned intervals. A kò dá rolling-window demand tàbí provider-specific tariff rules sílẹ̀.",
+      "Demand uses aligned intervals. Rolling-window demand and provider-specific tariff rules no dey inferred.",
+    ],
+  "Currency selection is denomination only; it does not perform foreign-exchange conversion.":
+    [
+      "Die Währungsauswahl legt nur die Währungseinheit fest; sie führt keine Devisenumrechnung aus.",
+      "Yíyan currency jẹ́ denomination nìkan; kò ṣe foreign-exchange conversion.",
+      "Currency selection na denomination only; e no perform foreign-exchange conversion.",
+    ],
+  "Assumed 24-hour daily estimate; not a calendar/DST simulation.": [
+    "Angenommene 24-Stunden-Tagesschätzung; keine Kalender-/Sommerzeitsimulation.",
+    "Ìṣírò ọjọ́ wákàtí 24 tí a ro; kì í ṣe calendar/DST simulation.",
+    "Assumed 24-hour daily estimate; no be calendar/DST simulation.",
+  ],
+  "Equipment must provide comparable service. Fixed/demand charges and capital costs are separate.":
+    [
+      "Die Geräte müssen vergleichbare Leistungen erbringen. Fix-/Leistungsgebühren und Investitionskosten sind getrennt.",
+      "Ohun èlò gbọ́dọ̀ pèsè iṣẹ́ tí a lè fi wéra. Fixed/demand charges àti capital costs wà lọ́tọ̀.",
+      "Equipment must provide comparable service. Fixed/demand charges and capital costs dey separate.",
+    ],
+  "No automatic emissions credit for exports. Embodied impacts, offsets and supplier marketing claims are excluded.":
+    [
+      "Keine automatische Emissionsgutschrift für Einspeisung. Herstellungsbedingte Auswirkungen, Kompensationen und Lieferanten-Werbeaussagen sind ausgeschlossen.",
+      "Kò sí emissions credit aládàáṣiṣẹ́ fún exports. A kò kà embodied impacts, offsets àti supplier marketing claims sí.",
+      "No automatic emissions credit for exports. Embodied impacts, offsets and supplier marketing claims no dey included.",
+    ],
+  "The example factor is an analytical assumption, not a current national emissions value.":
+    [
+      "Der Beispielfaktor ist eine analytische Annahme, kein aktueller nationaler Emissionswert.",
+      "Example factor jẹ́ analytical assumption, kì í ṣe national emissions value ti ìsinsìnyí.",
+      "The example factor na analytical assumption, no be current national emissions value.",
+    ],
+  "No positive annual saving: no payback": [
+    "Keine positive jährliche Einsparung: keine Amortisation",
+    "Kò sí annual saving rere: kò sí payback",
+    "No positive yearly saving: no payback",
+  ],
+  "No under entered assumptions": [
+    "Nein unter den eingegebenen Annahmen",
+    "Rárá lábẹ́ assumptions tí a tẹ̀ wọlé",
+    "No, under the assumptions wey you enter",
+  ],
+  "No financing, discounting, tax, replacement, degradation or future price prediction is included. Use the discounted cash-flow worksheet for an explicit discount model.":
+    [
+      "Finanzierung, Abzinsung, Steuern, Ersatz, Alterung und künftige Preisprognosen sind nicht enthalten. Verwenden Sie das DCF-Arbeitsblatt für ein explizites Abzinsungsmodell.",
+      "A kò kà financing, discounting, tax, replacement, degradation tàbí future price prediction sí. Lo discounted cash-flow worksheet fún discount model tí a sọ kedere.",
+      "Financing, discounting, tax, replacement, degradation and future price prediction no dey included. Use discounted cash-flow worksheet for explicit discount model.",
+    ],
+  "Every sensitivity discount rate must be greater than −100%.": [
+    "Jeder Sensitivitäts-Abzinsungssatz muss größer als −100 % sein.",
+    "Gbogbo sensitivity discount rate gbọ́dọ̀ ju −100% lọ.",
+    "Every sensitivity discount rate must pass −100%.",
+  ],
+  "A first break-even year is not a guarantee that later cumulative cash flow remains positive.":
+    [
+      "Ein erstes Break-even-Jahr garantiert nicht, dass der spätere kumulierte Zahlungsstrom positiv bleibt.",
+      "Ọdún break-even àkọ́kọ́ kì í ṣe ìdánilójú pé cumulative cash flow lẹ́yìn náà yóò dúró ní rere.",
+      "First break-even year no guarantee say later cumulative cash flow go remain positive.",
+    ],
+  "Entered scenarios are assumptions, not forecasts or investment advice.": [
+    "Eingegebene Szenarien sind Annahmen, keine Prognosen oder Anlageberatung.",
+    "Scenarios tí a tẹ̀ wọlé jẹ́ assumptions, kì í ṣe àsọtẹ́lẹ̀ tàbí investment advice.",
+    "Entered scenarios na assumptions, no be forecasts or investment advice.",
+  ],
+} satisfies Record<string, [string, string, string]>);
+
+Object.assign(engineeringMessages, {
+  "Sets one DC load's electrical input and voltage. Connect only through a supported DC model; AC assignments must be disconnected first.":
+    [
+      "Setzt die elektrische Eingangsleistung und Spannung einer DC-Last. Nur über ein unterstütztes DC-Modell verbinden; AC-Zuordnungen müssen zuerst getrennt werden.",
+      "Ó ṣètò electrical input àti voltage ẹrù DC kan. So pọ̀ nípasẹ̀ DC model tí a ṣe àtìlẹ́yìn fún nìkan; kọ́kọ́ yọ AC assignments kúrò.",
+      "Sets electrical input and voltage for one DC load. Connect only through supported DC model; disconnect AC assignments first.",
+    ],
+  "Sets per-unit DC input, quantity, voltage and daily hours. The elapsed period must fit a 0–24 hour daily schedule.":
+    [
+      "Setzt DC-Eingangsleistung je Einheit, Anzahl, Spannung und Tagesstunden. Die verstrichene Dauer muss in einen Tagesplan von 0–24 Stunden passen.",
+      "Ó ṣètò DC input ẹyọ kọ̀ọ̀kan, quantity, voltage àti daily hours. Àkókò gbọ́dọ̀ bá daily schedule wákàtí 0–24 mu.",
+      "Sets DC input per unit, quantity, voltage and daily hours. Elapsed period must fit daily schedule of 0–24 hours.",
+    ],
+  "Sets one load's consumption kW and signed kvar. Negative real-power generation is not a supported appliance entry.":
+    [
+      "Setzt Verbrauch in kW und vorzeichenbehaftete kvar einer Last. Negative Wirkleistungserzeugung wird als Geräteeintrag nicht unterstützt.",
+      "Ó ṣètò consumption kW àti signed kvar ẹrù kan. Appliance entry kò ṣe àtìlẹ́yìn fún negative real-power generation.",
+      "Sets consumption kW and signed kvar for one load. Negative real-power generation no dey supported as appliance entry.",
+    ],
+  "Stores already-converted electrical input in kW. Efficiency is not applied a second time. Quantity becomes 1.":
+    [
+      "Speichert bereits umgerechnete elektrische Eingangsleistung in kW. Der Wirkungsgrad wird nicht erneut angewendet. Die Anzahl wird 1.",
+      "Ó fi electrical input tí a ti yí padà sí kW pamọ́. A kò tún lo efficiency lẹ́ẹ̀kejì. Quantity di 1.",
+      "Stores already-converted electrical input in kW. Efficiency no dey applied twice. Quantity becomes 1.",
+    ],
+  "Copies route length, cross-section and operating-temperature resistance per kilometre. Parallel conductors require a separately supported installation model.":
+    [
+      "Kopiert Streckenlänge, Querschnitt und Widerstand pro Kilometer bei Betriebstemperatur. Parallele Leiter erfordern ein separat unterstütztes Installationsmodell.",
+      "Ó da route length, cross-section àti resistance per kilometre ní operating temperature kọ. Parallel conductors nílò installation model tí a ṣe àtìlẹ́yìn fún lọ́tọ̀.",
+      "Copies route length, cross-section and resistance per kilometre at operating temperature. Parallel conductors need separately supported installation model.",
+    ],
+  "Copies entered route length and conductor R/X. Entered test current and PF are not forced onto connected loads.":
+    [
+      "Kopiert eingegebene Streckenlänge und Leiter-R/X. Eingegebener Prüfstrom und PF werden verbundenen Lasten nicht aufgezwungen.",
+      "Ó da route length àti conductor R/X tí a tẹ̀ wọlé kọ. A kò fi test current àti PF tí a tẹ̀ wọlé mú àwọn ẹrù tí a so pọ̀.",
+      "Copies entered route length and conductor R/X. Entered test current and PF no dey forced onto connected loads.",
+    ],
+  "Daily mode copies capacity, resource hours and combined performance factor and clears the old chronological profile. Profile mode requires exactly 24 one-hour values and stores delivered AC shape with losses/clipping already included.":
+    [
+      "Der Tagesmodus kopiert Kapazität, Ressourcenstunden und kombinierten Leistungsfaktor und löscht das alte Zeitprofil. Der Profilmodus benötigt genau 24 Stundenwerte und speichert die gelieferte AC-Form einschließlich Verlusten und Begrenzung.",
+      "Daily mode ń da capacity, resource hours àti combined performance factor kọ, ó sì ń pa chronological profile àtijọ́ rẹ́. Profile mode nílò iye wákàtí kan 24 gan-an, ó sì ń tọ́jú delivered AC shape pẹ̀lú losses/clipping tí a ti kà sí.",
+      "Daily mode copies capacity, resource hours and combined performance factor, then clears old chronological profile. Profile mode needs exactly 24 one-hour values and stores delivered AC shape with losses/clipping already included.",
+    ],
+  "Requires the tool's installed and individual maximum totals to match the current project. Applies only the coincidence factor.":
+    [
+      "Die installierten und individuellen Maximalsummen des Werkzeugs müssen zum aktuellen Projekt passen. Nur der Gleichzeitigkeitsfaktor wird angewendet.",
+      "Installed totals àti individual maximum totals tool gbọ́dọ̀ bá project ìsinsìnyí mu. Coincidence factor nìkan ni a ń lò.",
+      "Tool installed and individual maximum totals must match current project. Applies only coincidence factor.",
+    ],
+  "Copies kg CO₂e/kWh with geography, period and method. Export credits are not introduced.":
+    [
+      "Kopiert kg CO₂e/kWh mit Region, Zeitraum und Methode. Einspeisegutschriften werden nicht eingeführt.",
+      "Ó da kg CO₂e/kWh pẹ̀lú geography, period àti method kọ. A kò fi export credits kún un.",
+      "Copies kg CO₂e/kWh with geography, period and method. Export credits no dey introduced.",
+    ],
+  "Entered assumptions; no external evidence supplied.": [
+    "Eingegebene Annahmen; keine externen Nachweise angegeben.",
+    "Assumptions tí a tẹ̀ wọlé; a kò pèsè ẹ̀rí láti òde.",
+    "Entered assumptions; no external evidence dey supplied.",
+  ],
+  "This tool has no supported field mapping to the selected object. Attach a calculation note instead.":
+    [
+      "Dieses Werkzeug hat keine unterstützte Feldzuordnung zum ausgewählten Objekt. Fügen Sie stattdessen eine Berechnungsnotiz an.",
+      "Tool yìí kò ní field mapping tí a ṣe àtìlẹ́yìn fún sí object tí a yàn. So calculation note mọ́ ọn dípò rẹ̀.",
+      "This tool no get supported field mapping to selected object. Attach calculation note instead.",
+    ],
+  "Resolve missing or unsupported evidence before applying engineering fields. A labelled calculation note may still be attached.":
+    [
+      "Klären Sie fehlende oder nicht unterstützte Nachweise, bevor technische Felder angewendet werden. Eine gekennzeichnete Berechnungsnotiz kann weiterhin angefügt werden.",
+      "Yanjú ẹ̀rí tí kò sí tàbí tí a kò ṣe àtìlẹ́yìn fún kí o tó lo engineering fields. A ṣì lè so calculation note tó ní àkọlé mọ́ ọn.",
+      "Resolve missing or unsupported evidence before applying engineering fields. You fit still attach labelled calculation note.",
+    ],
+  "Apply a positive route length with one conductor per path. Parallel installation assessment requires its own supported cable model.":
+    [
+      "Wenden Sie eine positive Streckenlänge mit einem Leiter je Pfad an. Die Bewertung einer Parallelinstallation benötigt ein eigenes unterstütztes Kabelmodell.",
+      "Lo route length rere pẹ̀lú conductor kan fún path kọ̀ọ̀kan. Parallel installation assessment nílò cable model tirẹ̀ tí a ṣe àtìlẹ́yìn fún.",
+      "Apply positive route length with one conductor per path. Parallel installation assessment needs its own supported cable model.",
+    ],
+  "No finite upper fault-current result is available.": [
+    "Kein endliches oberes Fehlerstromergebnis verfügbar.",
+    "Kò sí upper fault-current result tí ó ní ààlà.",
+    "No finite upper fault-current result dey available.",
+  ],
+  "T39 entered daily resource assumptions; no chronological profile.": [
+    "T39: eingegebene tägliche Ressourcenannahmen; kein Zeitprofil.",
+    "T39 daily resource assumptions tí a tẹ̀ wọlé; kò sí chronological profile.",
+    "T39 entered daily resource assumptions; no chronological profile dey.",
+  ],
+  "Delivered AC profile must remain between 0 and 1 kW per installed kWp for this project model.":
+    [
+      "Das gelieferte AC-Profil muss für dieses Projektmodell zwischen 0 und 1 kW je installiertem kWp liegen.",
+      "Delivered AC profile gbọ́dọ̀ wà láàárín 0 àti 1 kW fún installed kWp kọ̀ọ̀kan nínú project model yìí.",
+      "Delivered AC profile must stay between 0 and 1 kW per installed kWp for this project model.",
+    ],
+  "Tool totals do not match this project's installed and operating maxima. Re-enter current project totals or attach a note.":
+    [
+      "Die Werkzeugsummen passen nicht zu den installierten und betrieblichen Maxima dieses Projekts. Geben Sie die aktuellen Projektsummen erneut ein oder fügen Sie eine Notiz an.",
+      "Tool totals kò bá installed àti operating maxima project yìí mu. Tún tẹ project totals ìsinsìnyí sínú tàbí so note mọ́ ọn.",
+      "Tool totals no match installed and operating maxima for this project. Re-enter current project totals or attach note.",
+    ],
+  "No direct field mapping exists for this method.": [
+    "Für diese Methode besteht keine direkte Feldzuordnung.",
+    "Kò sí direct field mapping fún method yìí.",
+    "No direct field mapping dey for this method.",
+  ],
+  "SOC must satisfy minimum ≤ initial ≤ maximum.": [
+    "Der SOC muss Minimum ≤ Anfangswert ≤ Maximum erfüllen.",
+    "SOC gbọ́dọ̀ tẹ̀lé minimum ≤ initial ≤ maximum.",
+    "SOC must follow minimum ≤ initial ≤ maximum.",
+  ],
+  "Fixed nominal-voltage energy approximation. Actual discharge capacity, temperature, aging and BMS limits require manufacturer data.":
+    [
+      "Energienäherung mit fester Nennspannung. Tatsächliche Entladekapazität, Temperatur, Alterung und BMS-Grenzen erfordern Herstellerdaten.",
+      "Energy approximation pẹ̀lú nominal voltage tí kò yí padà. Actual discharge capacity, temperature, aging àti BMS limits nílò manufacturer data.",
+      "Fixed nominal-voltage energy approximation. Actual discharge capacity, temperature, aging and BMS limits need manufacturer data.",
+    ],
+  "Energy availability does not establish output-power or island/backup compatibility.":
+    [
+      "Verfügbare Energie belegt weder die Ausgangsleistung noch die Insel-/Ersatzstromkompatibilität.",
+      "Energy availability kò fi output-power tàbí island/backup compatibility múlẹ̀.",
+      "Energy availability no establish output-power or island/backup compatibility.",
+    ],
+  "SOC must satisfy lower ≤ initial ≤ charge target.": [
+    "Der SOC muss Untergrenze ≤ Anfangswert ≤ Ladeziel erfüllen.",
+    "SOC gbọ́dọ̀ tẹ̀lé lower ≤ initial ≤ charge target.",
+    "SOC must follow lower ≤ initial ≤ charge target.",
+  ],
+  "Not achievable at zero charging power": [
+    "Bei Ladeleistung null nicht erreichbar",
+    "Kò ṣeé dé ní charging power odo",
+    "No achievable when charging power na zero",
+  ],
+  "Not feasible: load exceeds discharge limit": [
+    "Nicht umsetzbar: Last überschreitet Entladegrenze",
+    "Kò ṣeé ṣe: ẹrù ju discharge limit lọ",
+    "No feasible: load pass discharge limit",
+  ],
+  "Energy-normalized rates equal approximate C-rates only under a fixed nominal-voltage assumption.":
+    [
+      "Energienormierte Raten entsprechen nur unter der Annahme einer festen Nennspannung näherungsweise C-Raten.",
+      "Energy-normalized rates dọ́gba pẹ̀lú approximate C-rates lábẹ́ fixed nominal-voltage assumption nìkan.",
+      "Energy-normalized rates equal approximate C-rates only when nominal voltage dey assumed fixed.",
+    ],
+  "Charge and discharge are separate scenarios. Constant-power estimates omit taper, no-load loss, temperature and battery discharge curves.":
+    [
+      "Laden und Entladen sind getrennte Szenarien. Konstantleistungsschätzungen lassen Ladestromabsenkung, Leerlaufverluste, Temperatur und Batterieentladekurven aus.",
+      "Charge àti discharge jẹ́ scenarios lọ́tọ̀. Constant-power estimates kò kà taper, no-load loss, temperature àti battery discharge curves sí.",
+      "Charge and discharge na separate scenarios. Constant-power estimates no include taper, no-load loss, temperature and battery discharge curves.",
+    ],
+  "Stored energy must satisfy reserve ≤ initial ≤ maximum capacity.": [
+    "Gespeicherte Energie muss Reserve ≤ Anfangswert ≤ maximale Kapazität erfüllen.",
+    "Stored energy gbọ́dọ̀ tẹ̀lé reserve ≤ initial ≤ maximum capacity.",
+    "Stored energy must follow reserve ≤ initial ≤ maximum capacity.",
+  ],
+  "Greedy self-consumption dispatch with fixed reserve; no simultaneous charging and discharging.":
+    [
+      "Greedy-Eigenverbrauchsregelung mit fester Reserve; kein gleichzeitiges Laden und Entladen.",
+      "Greedy self-consumption dispatch pẹ̀lú fixed reserve; charge àti discharge kì í ṣẹlẹ̀ lẹ́ẹ̀kan náà.",
+      "Greedy self-consumption dispatch with fixed reserve; no charging and discharging at the same time.",
+    ],
+  "Elapsed durations are explicit; this worksheet does not reinterpret calendar dates or daylight saving.":
+    [
+      "Verstrichene Zeitdauern sind ausdrücklich angegeben; dieses Arbeitsblatt interpretiert Kalenderdaten oder Sommerzeit nicht neu.",
+      "Elapsed durations wà ní kedere; worksheet yìí kò tún túmọ̀ calendar dates tàbí daylight saving.",
+      "Elapsed durations dey explicit; this worksheet no reinterpret calendar dates or daylight saving.",
+    ],
+  "An outage begins at the entered initial stored energy. No free precharging is introduced.":
+    [
+      "Ein Ausfall beginnt mit der eingegebenen anfänglich gespeicherten Energie. Es wird keine kostenlose Vorladung eingeführt.",
+      "Outage bẹ̀rẹ̀ ní initial stored energy tí a tẹ̀ wọlé. A kò fi precharging ọ̀fẹ́ kún un.",
+      "Outage starts at entered initial stored energy. No free precharging dey introduced.",
+    ],
+  "Grid-following generation and battery output are unavailable during outage without the stated island-capable arrangement.":
+    [
+      "Netzfolgende Erzeugung und Batterieausgang stehen bei Ausfall ohne die angegebene inselfähige Anordnung nicht zur Verfügung.",
+      "Grid-following generation àti battery output kò wà nígbà outage láìsí island-capable arrangement tí a sọ.",
+      "Grid-following generation and battery output no dey available during outage without the stated island-capable arrangement.",
+    ],
+  "Outage without a supported island source: generation and battery discharge are unavailable; load is unserved.":
+    [
+      "Ausfall ohne unterstützte Inselquelle: Erzeugung und Batterieentladung sind nicht verfügbar; die Last wird nicht versorgt.",
+      "Outage láìsí island source tí a ṣe àtìlẹ́yìn fún: generation àti battery discharge kò wà; ẹrù kò rí ìpèsè.",
+      "Outage without supported island source: generation and battery discharge no dey available; load no dey served.",
+    ],
+  "Entered resource/profile assumptions; no live weather, location yield or orientation model is implied.":
+    [
+      "Eingegebene Ressourcen-/Profilannahmen; es wird kein Echtzeitwetter-, Standortertrags- oder Ausrichtungsmodell impliziert.",
+      "Resource/profile assumptions tí a tẹ̀ wọlé; kò túmọ̀ sí live weather, location yield tàbí orientation model.",
+      "Entered resource/profile assumptions; no live weather, location yield or orientation model dey implied.",
+    ],
+  "Daily totals cannot resolve inverter clipping or self-consumption; use a chronological profile for those checks.":
+    [
+      "Tagessummen können Wechselrichterbegrenzung oder Eigenverbrauch nicht auflösen; verwenden Sie dafür ein Zeitprofil.",
+      "Daily totals kò lè yanjú inverter clipping tàbí self-consumption; lo chronological profile fún àwọn ìṣàyẹ̀wò wọ̀nyẹn.",
+      "Daily totals no fit resolve inverter clipping or self-consumption; use chronological profile for those checks.",
+    ],
+  "Minimum design temperature must not exceed maximum.": [
+    "Die minimale Auslegungstemperatur darf die maximale nicht überschreiten.",
+    "Minimum design temperature kò gbọ́dọ̀ ju maximum lọ.",
+    "Minimum design temperature must no pass maximum.",
+  ],
+  "Module Vmp must not exceed Voc at the same reference condition.": [
+    "Modul-Vmp darf Voc unter derselben Referenzbedingung nicht überschreiten.",
+    "Module Vmp kò gbọ́dọ̀ ju Voc lọ ní reference condition kan náà.",
+    "Module Vmp must no pass Voc at the same reference condition.",
+  ],
+  "MPPT minimum must not exceed maximum.": [
+    "Das MPPT-Minimum darf das Maximum nicht überschreiten.",
+    "MPPT minimum kò gbọ́dọ̀ ju maximum lọ.",
+    "MPPT minimum must no pass maximum.",
+  ],
+  "Imp must not exceed Isc at the same stated reference condition.": [
+    "Imp darf Isc unter derselben angegebenen Referenzbedingung nicht überschreiten.",
+    "Imp kò gbọ́dọ̀ ju Isc lọ ní reference condition kan náà tí a sọ.",
+    "Imp must no pass Isc at the same stated reference condition.",
+  ],
+  "All limits, irradiance/current adjustments, tolerances and temperature bounds must be appropriate to the chosen equipment. Startup voltage, protection and overall installation compliance are separate.":
+    [
+      "Alle Grenzen, Einstrahlungs-/Stromanpassungen, Toleranzen und Temperaturgrenzen müssen zum gewählten Gerät passen. Startspannung, Schutz und die Konformität der Gesamtinstallation sind getrennte Aufgaben.",
+      "Gbogbo limits, irradiance/current adjustments, tolerances àti temperature bounds gbọ́dọ̀ yẹ fún equipment tí a yàn. Startup voltage, protection àti overall installation compliance wà lọ́tọ̀.",
+      "All limits, irradiance/current adjustments, tolerances and temperature bounds must suit chosen equipment. Startup voltage, protection and overall installation compliance dey separate.",
+    ],
+  "For example, each entry is speed in m/s : output in kW. No extrapolation.": [
+    "Beispielsweise enthält jeder Eintrag Geschwindigkeit in m/s : Leistung in kW. Keine Extrapolation.",
+    "Fún àpẹẹrẹ, entry kọ̀ọ̀kan jẹ́ speed ní m/s : output ní kW. Kò sí extrapolation.",
+    "For example, each entry na speed in m/s : output in kW. No extrapolation.",
+  ],
+  "Additional loss fraction not already in data": [
+    "Zusätzlicher, noch nicht in den Daten enthaltener Verlustanteil",
+    "Additional loss fraction tí kò tíì wà nínú data",
+    "Extra loss fraction wey no already dey inside data",
+  ],
+  "Every wind-speed sample must fall within the supplied curve; no extrapolation is performed.":
+    [
+      "Jeder Windgeschwindigkeitswert muss innerhalb der angegebenen Kennlinie liegen; es erfolgt keine Extrapolation.",
+      "Gbogbo wind-speed sample gbọ́dọ̀ wà láàárín curve tí a pèsè; a kò ṣe extrapolation.",
+      "Every wind-speed sample must fall inside supplied curve; no extrapolation dey performed.",
+    ],
+  "No live wind measurement, air-density correction or invented turbine curve.":
+    [
+      "Keine Echtzeit-Windmessung, Luftdichtekorrektur oder erfundene Turbinenkennlinie.",
+      "Kò sí live wind measurement, air-density correction tàbí turbine curve tí a dá sílẹ̀.",
+      "No live wind measurement, air-density correction or invented turbine curve dey included.",
+    ],
+  "Do not count losses already included in the supplied output/curve a second time.":
+    [
+      "Zählen Sie Verluste, die bereits in der angegebenen Leistung/Kennlinie enthalten sind, nicht ein zweites Mal.",
+      "Má tún ka losses tí a ti kà sí nínú output/curve tí a pèsè lẹ́ẹ̀kejì.",
+      "No count losses wey already dey inside supplied output/curve twice.",
+    ],
+  "A source reference records provenance; this application has not independently validated its applicability.":
+    [
+      "Eine Quellenangabe dokumentiert die Herkunft; diese Anwendung hat ihre Anwendbarkeit nicht unabhängig geprüft.",
+      "Source reference ń kọ provenance sílẹ̀; application yìí kò tíì ṣe ìfìdímúlẹ̀ applicability rẹ̀ lọ́tọ̀.",
+      "Source reference records provenance; this application never independently validate whether e applies.",
+    ],
+} satisfies Record<string, [string, string, string]>);
+
+export const engineeringTemplates: Array<[string, [string, string, string]]> = [
+  [
+    "Enter a positive finite supply {0}.",
+    [
+      "Geben Sie einen positiven endlichen Versorgungswert {0} ein.",
+      "Tẹ iye supply {0} rere tí ó ní ààlà sínú.",
+      "Enter positive finite supply {0}.",
+    ],
+  ],
+  [
+    "Enter a finite tariff {0}.",
+    [
+      "Geben Sie einen endlichen Tarifwert {0} ein.",
+      "Tẹ iye tariff {0} tí ó ní ààlà sínú.",
+      "Enter finite tariff {0}.",
+    ],
+  ],
+  [
+    "{0} design current exceeds the entered {1} A supply limit.",
+    [
+      "Der Auslegungsstrom {0} überschreitet die eingegebene Versorgungsgrenze von {1} A.",
+      "Design current {0} ju ààlà supply {1} A tí a tẹ̀ wọlé lọ.",
+      "{0} design current pass the entered {1} A supply limit.",
+    ],
+  ],
+  [
+    "Tariff coverage gap at {0} {1} h; enter a band or choose an explicit base-rate fallback.",
+    [
+      "Tariflücke bei {0} um {1} h; geben Sie ein Tarifband ein oder wählen Sie ausdrücklich einen Basispreis als Rückfall.",
+      "Àlàfo tariff coverage wà ní {0} {1} h; tẹ band kan sínú tàbí yan base-rate fallback kedere.",
+      "Tariff coverage gap dey at {0} {1} h; enter a band or choose explicit base-rate fallback.",
+    ],
+  ],
+  [
+    "Tariff band {0} has invalid boundaries or rate.",
+    [
+      "Tarifband {0} hat ungültige Grenzen oder einen ungültigen Preis.",
+      "Ààlà tàbí iye owó tariff band {0} kò pé.",
+      "Tariff band {0} get invalid boundaries or rate.",
+    ],
+  ],
+  [
+    "Tariff band {0} has invalid weekdays.",
+    [
+      "Tarifband {0} hat ungültige Wochentage.",
+      "Ọjọ́ ọ̀sẹ̀ tariff band {0} kò pé.",
+      "Tariff band {0} get invalid weekdays.",
+    ],
+  ],
+  [
+    "Tariff band {0} has invalid effective dates.",
+    [
+      "Tarifband {0} hat ungültige Gültigkeitsdaten.",
+      "Effective dates tariff band {0} kò pé.",
+      "Tariff band {0} get invalid effective dates.",
+    ],
+  ],
+  [
+    "Tariff bands {0} and {1} overlap.",
+    [
+      "Die Tarifbänder {0} und {1} überlappen.",
+      "Tariff bands {0} àti {1} ń wọ ara wọn.",
+      "Tariff bands {0} and {1} overlap.",
+    ],
+  ],
+  [
+    "Input resolution ({0} minutes) is coarser than the {1}-minute demand window. Demand charge is incomplete; no finer peak is invented.",
+    [
+      "Die Eingabeauflösung ({0} Minuten) ist gröber als das {1}-Minuten-Leistungsmessfenster. Die Leistungsgebühr ist unvollständig; eine feinere Spitze wird nicht erfunden.",
+      "Input resolution (ìṣẹ́jú {0}) tóbi ju demand window ìṣẹ́jú {1} lọ. Demand charge kò pé; a kò dá peak kékeré sílẹ̀.",
+      "Input resolution ({0} minutes) dey coarser than the {1}-minute demand window. Demand charge no complete; no finer peak dey invented.",
+    ],
+  ],
+  [
+    "{0}: {1} kWh cannot be allocated by the bounded heuristic within the entered windows, minimum runs and capacity limits. This is not proof of global infeasibility.",
+    [
+      "{0}: {1} kWh können durch die begrenzte Heuristik innerhalb der eingegebenen Fenster, Mindestlaufzeiten und Kapazitätsgrenzen nicht zugeteilt werden. Dies beweist keine globale Unlösbarkeit.",
+      "{0}: bounded heuristic kò lè pín {1} kWh nínú windows, minimum runs àti capacity limits tí a tẹ̀ wọlé. Èyí kì í ṣe ẹ̀rí global infeasibility.",
+      "{0}: bounded heuristic no fit allocate {1} kWh inside the entered windows, minimum runs and capacity limits. This no prove global infeasibility.",
+    ],
+  ],
+  [
+    "Charging deadline is infeasible: {0} kWh remains unmet within the entered limits.",
+    [
+      "Die Ladefrist ist nicht einhaltbar: {0} kWh bleiben innerhalb der eingegebenen Grenzen ungedeckt.",
+      "Charging deadline kò ṣeé dé: {0} kWh ṣì kù lábẹ́ ààlà tí a tẹ̀ wọlé.",
+      "Charging deadline no feasible: {0} kWh still dey unmet within the entered limits.",
+    ],
+  ],
+  [
+    "{0} must be finite.",
+    [
+      "{0} muss endlich sein.",
+      "{0} gbọ́dọ̀ jẹ́ iye tí ó ní ààlà.",
+      "{0} must be finite.",
+    ],
+  ],
+  [
+    "{0} must be a finite number.",
+    [
+      "{0} muss eine endliche Zahl sein.",
+      "{0} gbọ́dọ̀ jẹ́ nọ́ńbà tí ó ní ààlà.",
+      "{0} must be finite number.",
+    ],
+  ],
+  [
+    "{0} must be finite and between {1} and {2}.",
+    [
+      "{0} muss endlich sein und zwischen {1} und {2} liegen.",
+      "{0} gbọ́dọ̀ ní ààlà, kí ó sì wà láàárín {1} àti {2}.",
+      "{0} must be finite and dey between {1} and {2}.",
+    ],
+  ],
+  [
+    "{0} must be between {1} and {2}.",
+    [
+      "{0} muss zwischen {1} und {2} liegen.",
+      "{0} gbọ́dọ̀ wà láàárín {1} àti {2}.",
+      "{0} must dey between {1} and {2}.",
+    ],
+  ],
+  [
+    "{0} must be greater than zero.",
+    [
+      "{0} muss größer als null sein.",
+      "{0} gbọ́dọ̀ ju odo lọ.",
+      "{0} must pass zero.",
+    ],
+  ],
+  [
+    "{0} must be greater than zero and at most 1.",
+    [
+      "{0} muss größer als null und höchstens 1 sein.",
+      "{0} gbọ́dọ̀ ju odo lọ, kò sì gbọ́dọ̀ ju 1 lọ.",
+      "{0} must pass zero and no pass 1.",
+    ],
+  ],
+  [
+    "{0} must be a whole number.",
+    [
+      "{0} muss eine ganze Zahl sein.",
+      "{0} gbọ́dọ̀ jẹ́ odidi nọ́ńbà.",
+      "{0} must be whole number.",
+    ],
+  ],
+  [
+    "{0} contains an empty value. Enter an explicit zero if intended.",
+    [
+      "{0} enthält einen leeren Wert. Geben Sie ausdrücklich null ein, wenn dies beabsichtigt ist.",
+      "{0} ní iye tí ó ṣófo. Tẹ odo sínú kedere bí èyí bá jẹ́ ohun tí o fẹ́.",
+      "{0} get empty value. Enter explicit zero if na zero you mean.",
+    ],
+  ],
+  [
+    "{0} is limited to 4,096 values per worksheet.",
+    [
+      "{0} ist auf 4.096 Werte pro Arbeitsblatt begrenzt.",
+      "{0} kò gbọ́dọ̀ ju iye 4,096 lọ fún worksheet kọ̀ọ̀kan.",
+      "{0} get limit of 4,096 values for each worksheet.",
+    ],
+  ],
+  [
+    "{0}: value {1} must be finite and at least {2}.",
+    [
+      "{0}: Wert {1} muss endlich und mindestens {2} sein.",
+      "{0}: iye {1} gbọ́dọ̀ ní ààlà, ó sì gbọ́dọ̀ jẹ́ ó kéré tán {2}.",
+      "{0}: value {1} must be finite and at least {2}.",
+    ],
+  ],
+  [
+    "{0} needs one value or exactly {1} values.",
+    [
+      "{0} benötigt einen Wert oder genau {1} Werte.",
+      "{0} nílò iye kan tàbí iye {1} gan-an.",
+      "{0} need one value or exactly {1} values.",
+    ],
+  ],
+  [
+    "Generation profile must have {0} interval values.",
+    [
+      "Das Erzeugungsprofil muss {0} Intervallwerte enthalten.",
+      "Generation profile gbọ́dọ̀ ní interval values {0}.",
+      "Generation profile must get {0} interval values.",
+    ],
+  ],
+  [
+    "{0} must be an array of at most 10,000 intervals.",
+    [
+      "{0} muss eine Liste mit höchstens 10.000 Intervallen sein.",
+      "{0} gbọ́dọ̀ jẹ́ array tí kò ju interval 10,000 lọ.",
+      "{0} must be array of no more than 10,000 intervals.",
+    ],
+  ],
+  [
+    "{0} require increasing timestamps with explicit UTC offsets.",
+    [
+      "{0} erfordern aufsteigende Zeitstempel mit expliziten UTC-Offsets.",
+      "{0} nílò timestamps tí ń pọ̀ sí i pẹ̀lú UTC offsets tí a sọ kedere.",
+      "{0} need increasing timestamps with explicit UTC offsets.",
+    ],
+  ],
+  [
+    "Entered-current relationship only: {0} ≤ {1} ≤ {2} A. Operating characteristics still require separate verification.",
+    [
+      "Nur eingegebene Strombeziehung: {0} ≤ {1} ≤ {2} A. Auslösekennwerte müssen weiterhin gesondert geprüft werden.",
+      "Ìbámu current tí a tẹ̀ wọlé nìkan: {0} ≤ {1} ≤ {2} A. Operating characteristics ṣì nílò ìṣàyẹ̀wò lọ́tọ̀.",
+      "Entered-current relationship only: {0} ≤ {1} ≤ {2} A. Operating characteristics still need separate verification.",
+    ],
+  ],
+  [
+    "Exceeds / fails {0}",
+    [
+      "Überschreitung / nicht erfüllt: {0}",
+      "Ó kọjá / ó kùnà {0}",
+      "E pass limit / fail {0}",
+    ],
+  ],
+  [
+    "Assessment incomplete: enter {0}. Numerical results use unverified entered values.",
+    [
+      "Bewertung unvollständig: Geben Sie {0} ein. Die numerischen Ergebnisse verwenden ungeprüfte Eingabewerte.",
+      "Assessment kò pé: tẹ {0} sínú. Èsì nọ́ńbà ń lo iye tí a tẹ̀ wọlé tí a kò fìdí rẹ̀ múlẹ̀.",
+      "Assessment no complete: enter {0}. Numerical results use entered values wey never dey verified.",
+    ],
+  ],
+  [
+    "Choose a supported {0}.",
+    [
+      "Wählen Sie einen unterstützten Wert für {0}.",
+      "Yan {0} tí eto ṣe àtìlẹ́yìn fún.",
+      "Choose supported {0}.",
+    ],
+  ],
+];

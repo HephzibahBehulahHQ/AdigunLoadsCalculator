@@ -127,7 +127,14 @@ export interface ImportPreview {
   errors: string[];
   warnings: string[];
 }
-export async function previewImport(file: File): Promise<ImportPreview> {
+export interface CSVImportMapping {
+  columns?: Record<string, number>;
+  ratingUnit?: "native" | "W" | "kW" | "VA" | "kVA" | "A";
+}
+export async function previewImport(
+  file: File,
+  mapping: CSVImportMapping = {},
+): Promise<ImportPreview> {
   if (file.size > 5_000_000)
     throw new Error("File is too large. The import limit is 5 MB.");
   const text = await file.text();
@@ -178,7 +185,28 @@ export async function previewImport(file: File): Promise<ImportPreview> {
     hours: "hoursperday",
     powerfactor: "pf",
   };
-  const keys = headers.map((h) => aliases[h] || h);
+  const keys = headers.map((h, index) =>
+    mapping.columns
+      ? (Object.entries(mapping.columns)
+          .find(([, column]) => column === index)?.[0]
+          ?.toLowerCase() ?? `ignored_${index}`)
+      : aliases[h] || h,
+  );
+  if (
+    mapping.columns &&
+    (Object.values(mapping.columns).some(
+      (index) =>
+        !Number.isInteger(index) || index < 0 || index >= headers.length,
+    ) ||
+      new Set(Object.values(mapping.columns)).size !==
+        Object.values(mapping.columns).length)
+  )
+    throw new Error("Map each source column to one supported field.");
+  if (
+    new Set(keys.filter((key) => !key.startsWith("ignored_"))).size !==
+    keys.filter((key) => !key.startsWith("ignored_")).length
+  )
+    throw new Error("Duplicate CSV fields need explicit column mapping.");
   if (!keys.includes("name") || !keys.includes("rating"))
     throw new Error(
       "CSV requires name and rating (or power_kw) columns. Use Export loads for the complete supported template.",
@@ -197,8 +225,16 @@ export async function previewImport(file: File): Promise<ImportPreview> {
       const l = createLoad({
         name: row.name,
         quantity: number("quantity", 1),
-        entryMode: (row.entrymode || "kw") as Load["entryMode"],
-        rating: number("rating", NaN),
+        entryMode: (mapping.ratingUnit && mapping.ratingUnit !== "native"
+          ? mapping.ratingUnit === "A"
+            ? "amps"
+            : ["VA", "kVA"].includes(mapping.ratingUnit)
+              ? "kva"
+              : "kw"
+          : row.entrymode || "kw") as Load["entryMode"],
+        rating:
+          number("rating", NaN) /
+          (["W", "VA"].includes(mapping.ratingUnit ?? "") ? 1000 : 1),
         voltage: number("voltage", 230),
         connection: (row.connection || "single") as Load["connection"],
         pf: number("pf", 1),

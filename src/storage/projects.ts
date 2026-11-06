@@ -1,5 +1,6 @@
 import type { Project } from "../domain/types";
 import { validateProjectImport } from "../domain/project";
+import { openPowerLabDatabase as db } from "./database";
 const reported = new Set<string>();
 function safeRecords(items: unknown[]): ProjectRecord[] {
   return items.flatMap((item) => {
@@ -34,32 +35,6 @@ export interface ProjectRecord {
   project: Project;
   deleted: boolean;
   savedAt: string;
-}
-let connection: Promise<IDBDatabase> | undefined;
-function db() {
-  return (connection ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("AdigunPowerLab", 1);
-    request.onupgradeneeded = () => {
-      const d = request.result;
-      d.createObjectStore("projects", { keyPath: "id" });
-      d.createObjectStore("history", { keyPath: "key" });
-    };
-    request.onsuccess = () => {
-      request.result.onversionchange = () => {
-        request.result.close();
-        connection = undefined;
-      };
-      resolve(request.result);
-    };
-    request.onerror = () => {
-      connection = undefined;
-      reject(request.error);
-    };
-    request.onblocked = () =>
-      reject(
-        new Error("Close the older PowerLab tab to update local storage."),
-      );
-  }));
 }
 export async function listProjects(
   includeDeleted = false,

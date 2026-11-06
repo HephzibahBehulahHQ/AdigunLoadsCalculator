@@ -1,7 +1,10 @@
+import { liveDrafts, loadDraft, saveDraft } from "../storage/billing";
+export { loadBillingDocument, saveBillingDocument } from "../storage/billing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   billCsv,
   calculateBill,
+  currencyDigits,
   createBillPdf,
   decimalInteger,
   downloadReport,
@@ -17,6 +20,8 @@ import type {
   ReportLocale,
 } from "../import-export/reports";
 import "./Billing.css";
+import { translate } from "../i18n";
+import { LocaleDecimalInput } from "../i18n/LocaleDecimalInput";
 
 export type BillingProps = {
   projectName: string;
@@ -294,116 +299,6 @@ const blankBill = (
   taxPercent: "0",
   lines: [],
 });
-type StoredDraft = { key: string; revision: string; bill: BillDocument };
-const liveDrafts = new Map<
-  string,
-  { bill: BillDocument; revision: string | null; dirty: boolean }
->();
-let database: Promise<IDBDatabase> | undefined;
-function billingDb() {
-  if (!database)
-    database = new Promise<IDBDatabase>((resolve, reject) => {
-      if (!globalThis.indexedDB) {
-        reject(new Error("storage"));
-        return;
-      }
-      const request = indexedDB.open("AdigunPowerLab-billing", 1);
-      request.onupgradeneeded = () =>
-        request.result.createObjectStore("drafts", { keyPath: "key" });
-      request.onsuccess = () => {
-        request.result.onversionchange = () => {
-          request.result.close();
-          database = undefined;
-        };
-        resolve(request.result);
-      };
-      request.onerror = () => reject(new Error("storage"));
-      request.onblocked = () => reject(new Error("storage"));
-    }).catch((error) => {
-      database = undefined;
-      throw error;
-    });
-  return database;
-}
-async function loadDraft(key: string): Promise<StoredDraft | undefined> {
-  const db = await billingDb();
-  return new Promise((resolve, reject) => {
-    const request = db
-      .transaction("drafts", "readonly")
-      .objectStore("drafts")
-      .get(key);
-    request.onsuccess = () => {
-      try {
-        const record = request.result as StoredDraft | undefined;
-        if (record) record.bill = parseBillJson(JSON.stringify(record.bill));
-        resolve(record);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    request.onerror = () => reject(new Error("storage"));
-  });
-}
-async function saveDraft(
-  key: string,
-  bill: BillDocument,
-  expected: string | null,
-): Promise<string> {
-  const db = await billingDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("drafts", "readwrite");
-    const store = tx.objectStore("drafts");
-    const read = store.get(key);
-    let revision = "";
-    read.onsuccess = () => {
-      const existing = read.result as StoredDraft | undefined;
-      if ((existing?.revision ?? null) !== expected) {
-        reject(new Error("conflict"));
-        tx.abort();
-        return;
-      }
-      revision = crypto.randomUUID();
-      store.put({
-        key,
-        revision,
-        bill: structuredClone(bill),
-      } satisfies StoredDraft);
-    };
-    tx.oncomplete = () => resolve(revision);
-    tx.onerror = () => reject(new Error("storage"));
-    tx.onabort = () => reject(new Error("storage"));
-  });
-}
-
-/** Complete-project backup includes the active draft, even before its explicit Save action. */
-export async function loadBillingDocument(
-  projectId: string,
-): Promise<BillDocument | null> {
-  const live = liveDrafts.get(projectId);
-  if (live) return structuredClone(live.bill);
-  const stored = await loadDraft(projectId);
-  return stored ? structuredClone(stored.bill) : null;
-}
-
-/** Caller validates its entire import first and owns cross-database rollback, if needed. */
-export async function saveBillingDocument(
-  projectId: string,
-  document: BillDocument,
-): Promise<void> {
-  const bill = parseBillJson(JSON.stringify(document));
-  const stored = await loadDraft(projectId);
-  const revision = await saveDraft(projectId, bill, stored?.revision ?? null);
-  liveDrafts.set(projectId, {
-    bill: structuredClone(bill),
-    revision,
-    dirty: false,
-  });
-  if (typeof window !== "undefined")
-    window.dispatchEvent(
-      new CustomEvent("adigun-billing-restored", { detail: { projectId } }),
-    );
-}
-
 function localizedError(error: string, locale: ReportLocale): string {
   if (locale === "en") return error;
   const translations: Record<string, [string, string, string]> = {
@@ -450,16 +345,7 @@ function localizedError(error: string, locale: ReportLocale): string {
   };
   const index = locale === "de" ? 0 : locale === "yo" ? 1 : 2;
   if (translations[error]) return translations[error][index];
-  const match = error.match(
-    /line (\d+)|Quantity (\d+)|Unit price (\d+)|Description (\d+)/i,
-  );
-  const n = match?.slice(1).find(Boolean);
-  return (
-    ui[locale].required +
-    (n
-      ? ` (${locale === "de" ? "Position" : locale === "yo" ? "Ìlà" : "Line"} ${n})`
-      : "")
-  );
+  return translate(error, locale);
 }
 
 export function Billing({
@@ -565,7 +451,26 @@ export function Billing({
   }, [bill]);
   const errors = useMemo(() => validateBill(bill), [bill]);
   const update = (field: keyof BillDocument, value: unknown) => {
-    setBill((current) => ({ ...current, [field]: value }));
+    setBill((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "lines" && next.numericDrafts) {
+        const allowed = new Set([
+          "discountPercent",
+          "taxPercent",
+          ...next.lines.flatMap((line) => [
+            `line:${line.id}:quantity`,
+            `line:${line.id}:unitPrice`,
+          ]),
+        ]);
+        next.numericDrafts = Object.fromEntries(
+          Object.entries(next.numericDrafts).filter(([key]) =>
+            allowed.has(key),
+          ),
+        );
+        if (!Object.keys(next.numericDrafts).length) delete next.numericDrafts;
+      }
+      return next;
+    });
     setDirty(true);
     setStatus("");
   };
@@ -576,6 +481,31 @@ export function Billing({
         line.id === id ? { ...line, [field]: value } : line,
       ),
     }));
+    setDirty(true);
+    setStatus("");
+  };
+  const decimalChange = (
+    path: string,
+    change:
+      { canonical: string } | { draft: { text: string; locale: ReportLocale } },
+    lineId?: string,
+    field?: "quantity" | "unitPrice",
+  ) => {
+    setBill((current) => {
+      const next = structuredClone(current);
+      next.numericDrafts ??= {};
+      if ("draft" in change) next.numericDrafts[path] = change.draft;
+      else {
+        delete next.numericDrafts[path];
+        if (lineId && field) {
+          const line = next.lines.find((row) => row.id === lineId);
+          if (line) line[field] = change.canonical;
+        } else if (path === "discountPercent" || path === "taxPercent")
+          next[path] = change.canonical;
+      }
+      if (!Object.keys(next.numericDrafts).length) delete next.numericDrafts;
+      return next;
+    });
     setDirty(true);
     setStatus("");
   };
@@ -912,25 +842,43 @@ export function Billing({
                         </select>
                       </td>
                       <td>
-                        <input
+                        <LocaleDecimalInput
                           aria-label={`${l.quantity} ${i + 1}`}
-                          inputMode="decimal"
                           maxLength={32}
                           value={line.quantity}
-                          onChange={(e) =>
-                            changeLine(line.id, "quantity", e.target.value)
+                          locale={locale}
+                          decimalPlaces={3}
+                          draft={
+                            bill.numericDrafts?.[`line:${line.id}:quantity`]
+                          }
+                          onDecimalChange={(change) =>
+                            decimalChange(
+                              `line:${line.id}:quantity`,
+                              change,
+                              line.id,
+                              "quantity",
+                            )
                           }
                           disabled={disabled}
                         />
                       </td>
                       <td>
-                        <input
+                        <LocaleDecimalInput
                           aria-label={`${l.unitPrice} ${i + 1}`}
-                          inputMode="decimal"
                           maxLength={32}
                           value={line.unitPrice}
-                          onChange={(e) =>
-                            changeLine(line.id, "unitPrice", e.target.value)
+                          locale={locale}
+                          decimalPlaces={currencyDigits(bill.currency)}
+                          draft={
+                            bill.numericDrafts?.[`line:${line.id}:unitPrice`]
+                          }
+                          onDecimalChange={(change) =>
+                            decimalChange(
+                              `line:${line.id}:unitPrice`,
+                              change,
+                              line.id,
+                              "unitPrice",
+                            )
                           }
                           disabled={disabled}
                         />
@@ -969,21 +917,29 @@ export function Billing({
           <div className="billing-adjustments">
             <label className="field">
               {u.discount}
-              <input
-                inputMode="decimal"
+              <LocaleDecimalInput
                 maxLength={8}
                 value={bill.discountPercent}
-                onChange={(e) => update("discountPercent", e.target.value)}
+                locale={locale}
+                decimalPlaces={2}
+                draft={bill.numericDrafts?.discountPercent}
+                onDecimalChange={(change) =>
+                  decimalChange("discountPercent", change)
+                }
                 disabled={disabled}
               />
             </label>
             <label className="field">
               {u.tax}
-              <input
-                inputMode="decimal"
+              <LocaleDecimalInput
                 maxLength={8}
                 value={bill.taxPercent}
-                onChange={(e) => update("taxPercent", e.target.value)}
+                locale={locale}
+                decimalPlaces={2}
+                draft={bill.numericDrafts?.taxPercent}
+                onDecimalChange={(change) =>
+                  decimalChange("taxPercent", change)
+                }
                 disabled={disabled}
               />
             </label>

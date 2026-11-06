@@ -36,7 +36,7 @@ Standalone toolbox experiments do not silently modify a project. They accept val
 
 The `AdigunPowerLab` IndexedDB database stores engineering projects and revision history. Autosave runs after committed edits. Writes check the expected saved revision; a concurrent tab cannot silently overwrite a newer revision. BroadcastChannel reports conflicting edits. Trash is a recoverable record flag rather than immediate destruction.
 
-Customer billing uses a separate `AdigunPowerLab-billing` IndexedDB store keyed by project ID, with its own revision token and explicit Save draft action. Active drafts also survive route changes in session memory. `loadBillingDocument` and `saveBillingDocument` provide integration points for combined backups; the exported billing JSON remains independently portable. Cross-database restores need caller-owned validation and rollback. See the current backup behavior in `USER_GUIDE.md` and `LEGACY_MIGRATION.md`.
+IndexedDB version 2 uses one database for projects, revisions, bills, measurements, metadata and recovery records. A validated one-time migration retains the original legacy databases and quarantines invalid records. Separate billing/measurement APIs remain compatible, but unified archive restoration uses one transaction with prevalidated IDs, relationships and SHA-256 integrity. Restore-as-copies remaps related project IDs and diagram/BOM references; preserve-if-absent never overwrites records or tombstones. Native project JSON remains a narrower engineering export.
 
 Small non-sensitive preferences such as language, theme and layout are namespaced separately. Browser storage is not encrypted secret storage and is not a remote backup. The app does not upload customer data merely because the network becomes available.
 
@@ -44,7 +44,7 @@ Small non-sensitive preferences such as language, theme and layout are namespace
 
 Reports clone their source before asynchronous rendering. Engineering PDFs reject a project/result revision mismatch. jsPDF is loaded on demand and embeds local DejaVu Sans; the renderer paginates, repeats schedule headers and adds page numbers. Customer billing parses decimal strings into integer minor units before line rounding, discounts and tax. JSON retains original strings and stable IDs; CSV neutralizes formula-looking text.
 
-The PDF renderer supports optional engineering sections: summary, loads, circuits, issues and trace. The first release UI may expose the standard complete report rather than every renderer option. Direct PDF output is independent of browser-print layout.
+The report workspace exposes 16 sections and freezes a project/result/evidence snapshot. Completed calendar, energy and EV results carry their actual project/revision, inputs and calculation timestamp. Stale results are discarded. Saved measurement and bill records are loaded when freezing; absent evidence is explicit. SVG/PDF diagrams derive from the same typed graph. Model-derived BOM lines require entered pricing and reviewed merging into customer bills. Direct PDF output is independent of browser-print layout.
 
 ## Assistant, translations and deployment boundary
 
@@ -53,3 +53,10 @@ Adigun BOT is local deterministic help, not an imitation generative provider. Ch
 Language, currency and engineering jurisdiction remain independent. Navigation, all 51 toolbox titles/categories, common controls, billing and PDF headings have explicit EN/DE/YO/PCM messages. Untranslated technical prose remains visible in English instead of being hidden or misrepresented as reviewed translation. Native-language review is a separate release requirement.
 
 The build uses a project base path suitable for GitHub Pages. Deployment configuration and offline caching are owned by the product repository. Their verified status is recorded in `TEST_EVIDENCE.md`; a checked-in workflow, manifest or successful build alone is not proof of deployment or offline acceptance.
+
+
+## Shared editing and asynchronous analysis
+
+`src/commands/projectCommands.ts` is the validated mutation boundary for load, circuit, board, topology and tool-application commands. Previews are bound to project identity/revision. A private WeakMap retains a validated candidate and canonical source/command fingerprints; Apply checks both fingerprints and returns a detached copy. Public preview fields, deserialized previews and same-revision mutated sources cannot bypass validation. The root workspace owns Undo/Redo, optimistic persistence and autosave.
+
+Calendar, dispatch and period-comparison workers are cancelled on obsolete project/input revisions or unmount. Result consumers preserve the distinction between representative on-state models, energy-average profiles, explicit starting events and measured data. Dated comparison orchestration uses the existing pure engine functions, with a declared 31-day interactive scope. Perspective rendering is lazy, derives hierarchy/edges from the same graph and does not act as a solver. The report workspace, PDF renderer, BOT and spatial scene are deferred feature chunks.

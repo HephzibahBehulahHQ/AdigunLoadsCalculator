@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useState,
   useRef,
   useContext,
   useId,
@@ -22,19 +23,29 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const t = useT();
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     const old = document.activeElement as HTMLElement | null;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    ref.current?.focus();
+    const firstInput = ref.current?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])',
+    );
+    (firstInput || ref.current)?.focus();
     function key(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        close.current();
       }
       if (e.key === "Tab") {
-        const els = ref.current?.querySelectorAll<HTMLElement>(
-          'button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]',
+        const els = Array.from(
+          ref.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]',
+          ) || [],
+        ).filter(
+          (element) =>
+            element.getClientRects().length > 0 && !element.closest("[inert]"),
         );
         if (!els?.length) return;
         const a = els[0],
@@ -58,7 +69,7 @@ export function Modal({
       document.body.style.overflow = previous;
       old?.focus();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div
       className="modal-backdrop"
@@ -148,6 +159,85 @@ export function Empty({
     </div>
   );
 }
+export function ResizeHandle({
+  value,
+  min,
+  max,
+  variable,
+  label,
+  reverse = false,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  variable: string;
+  label: string;
+  reverse?: boolean;
+  onChange: (value: number) => void;
+}) {
+  const drag = useRef<
+    { x: number; value: number; current: number } | undefined
+  >(undefined);
+  const clamp = (next: number) => Math.max(min, Math.min(max, next));
+  return (
+    <div
+      className={"resize-handle " + (reverse ? "resize-left" : "resize-right")}
+      role="separator"
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          onChange(
+            event.key === "Home"
+              ? min
+              : event.key === "End"
+                ? max
+                : clamp(
+                    value +
+                      (event.key === "ArrowRight" ? 1 : -1) *
+                        (reverse ? -1 : 1) *
+                        10,
+                  ),
+          );
+        }
+      }}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.current = { x: event.clientX, value, current: value };
+      }}
+      onPointerMove={(event) => {
+        if (drag.current) {
+          drag.current.current = clamp(
+            drag.current.value +
+              (event.clientX - drag.current.x) * (reverse ? -1 : 1),
+          );
+          document.documentElement.style.setProperty(
+            variable,
+            drag.current.current + "px",
+          );
+        }
+      }}
+      onPointerUp={(event) => {
+        if (drag.current) {
+          onChange(drag.current.current);
+          drag.current = undefined;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancel={() => {
+        drag.current = undefined;
+        document.documentElement.style.setProperty(variable, value + "px");
+      }}
+    />
+  );
+}
 export function LineChart({
   points,
   secondary,
@@ -167,6 +257,12 @@ export function LineChart({
 }) {
   const locale = useContext(LanguageContext);
   const t = useT();
+  const [tablePage, setTablePage] = useState(0);
+  const min = Math.min(
+    0,
+    ...points.map((p) => p.y),
+    ...(secondary?.map((p) => p.y) ?? []),
+  );
   const max =
     Math.max(
       1,
@@ -180,7 +276,8 @@ export function LineChart({
     padB = 30;
   const n = Math.max(1, points.length - 1);
   const x = (i: number) => padL + (i / n) * (width - padL - padR);
-  const y = (v: number) => height - padB - (v / max) * (height - padT - padB);
+  const y = (v: number) =>
+    height - padB - ((v - min) / (max - min)) * (height - padT - padB);
   const path = (list: { x: number; y: number }[]) =>
     list.map((p, i) => (i ? "L" : "M") + x(i) + "," + y(p.y)).join(" ");
   const id = useRef("chart-" + Math.random().toString(36).slice(2)).current;
@@ -198,7 +295,7 @@ export function LineChart({
           </linearGradient>
         </defs>
         {Array.from({ length: 5 }, (_, i) => {
-          const v = (max * i) / 4;
+          const v = min + ((max - min) * i) / 4;
           return (
             <g key={i}>
               <line
@@ -297,6 +394,105 @@ export function LineChart({
             </rect>
           ))}
       </svg>
+      {onSelect && points.length > 0 && (
+        <input
+          className="chart-keyboard"
+          type="range"
+          min={0}
+          max={points.length - 1}
+          step={1}
+          value={Math.min(selected ?? 0, points.length - 1)}
+          aria-label={t("Chart cursor")}
+          onChange={(e) => onSelect(Number(e.target.value))}
+        />
+      )}
+      <details className="chart-data">
+        <summary>{t("Chart data table")}</summary>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t("Position")}</th>
+                <th>{label}</th>
+                {secondary && (
+                  <th>
+                    {t("Comparison")} ({label})
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {points
+                .slice(
+                  Math.min(
+                    tablePage,
+                    Math.max(0, Math.ceil(points.length / 50) - 1),
+                  ) * 50,
+                  Math.min(
+                    tablePage,
+                    Math.max(0, Math.ceil(points.length / 50) - 1),
+                  ) *
+                    50 +
+                    50,
+                )
+                .map((point, i) => (
+                  <tr key={i}>
+                    <td>{numberFormat(point.x, 3, locale)}</td>
+                    <td>{numberFormat(point.y, 6, locale)}</td>
+                    {secondary && (
+                      <td>
+                        {secondary[
+                          Math.min(
+                            tablePage,
+                            Math.max(0, Math.ceil(points.length / 50) - 1),
+                          ) *
+                            50 +
+                            i
+                        ]
+                          ? numberFormat(
+                              secondary[
+                                Math.min(
+                                  tablePage,
+                                  Math.max(
+                                    0,
+                                    Math.ceil(points.length / 50) - 1,
+                                  ),
+                                ) *
+                                  50 +
+                                  i
+                              ].y,
+                              6,
+                              locale,
+                            )
+                          : "—"}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+        {points.length > 50 && (
+          <div className="button-row">
+            <button
+              type="button"
+              className="button"
+              disabled={tablePage === 0}
+              onClick={() => setTablePage((p) => Math.max(0, p - 1))}
+            >
+              {t("Previous")}
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={(tablePage + 1) * 50 >= points.length}
+              onClick={() => setTablePage((p) => p + 1)}
+            >
+              {t("Next")}
+            </button>
+          </div>
+        )}
+      </details>
     </div>
   );
 }

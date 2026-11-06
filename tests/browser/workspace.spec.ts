@@ -142,7 +142,7 @@ test("calendar worker integrates a DST day and cancels on a project edit", async
   await expect(page.locator(".metric-strip")).toContainText("25 kWh");
   await expect(page.locator(".panel-head")).toContainText([
     "Calculated · 25 h",
-    "24-hour estimate",
+    "Completed simulation timeline",
   ]);
   const download = page.waitForEvent("download");
   await page

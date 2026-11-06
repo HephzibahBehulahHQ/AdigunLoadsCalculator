@@ -30,11 +30,22 @@ import type {
   Phase,
   Circuit,
 } from "../domain/types";
-import { createBoard, createCircuit } from "../domain/project";
+import {
+  createBoard,
+  createCircuit,
+  validateProjectImport,
+} from "../domain/project";
 import { previewPhaseBalance, applyPhaseBalance } from "../engine/planning";
 import { assessCircuit } from "../engine/assessments";
-import type { CalendarResult } from "../engine/simulation";
+import type { CalendarResult, RangeOptions } from "../engine/simulation";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
+import { parseLocaleNumberList, formatEditableNumber } from "../i18n/numbers";
+import {
+  applyProjectCommand,
+  previewProjectCommand,
+  type ProjectCommand,
+} from "../commands/projectCommands";
+import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
 import { Field, Notice, Modal, Empty, LineChart } from "./ui";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
 type Change = (mutator: (draft: Project) => void) => void;
@@ -325,7 +336,7 @@ export function Overview({
                 onClick={() => onRoute("history")}
               >
                 <AlertTriangle size={16} />
-                <span>{issue.message}</span>
+                <span>{t(issue.message)}</span>
                 <ArrowUpRight size={14} />
               </button>
             ))
@@ -391,6 +402,37 @@ export function Loads({
   const [query, setQuery] = useState("");
   const [phase, setPhase] = useState("");
   const [page, setPage] = useState(0);
+  const [context, setContext] = useState<{
+    load: Load;
+    x: number;
+    y: number;
+  }>();
+  const menu = useRef<HTMLDivElement>(null);
+  const restoreMenuFocus = useRef(true);
+  useEffect(() => {
+    if (!context) return;
+    const prior = document.activeElement as HTMLElement | null;
+    menu.current?.querySelector<HTMLElement>("button")?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!menu.current?.contains(event.target as Node)) {
+        restoreMenuFocus.current = false;
+        setContext(undefined);
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      if (restoreMenuFocus.current) prior?.focus();
+    };
+  }, [context]);
+  const openContext = (load: Load, x: number, y: number) => {
+    restoreMenuFocus.current = true;
+    setContext({
+      load,
+      x: Math.min(x, innerWidth - 200),
+      y: Math.min(y, innerHeight - 190),
+    });
+  };
   const filtered = project.loads.filter(
     (l) =>
       (!phase || l.phase === phase) &&
@@ -403,6 +445,62 @@ export function Loads({
   const visible = filtered.slice(page * 75, (page + 1) * 75);
   return (
     <>
+      {context && (
+        <div
+          ref={menu}
+          role="menu"
+          aria-label={t("Load actions")}
+          className="object-context-menu"
+          style={{ left: Math.max(8, context.x), top: Math.max(8, context.y) }}
+          onKeyDown={(event) => {
+            const buttons = Array.from(
+              menu.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+            );
+            const index = buttons.indexOf(
+              document.activeElement as HTMLButtonElement,
+            );
+            if (event.key === "Tab") {
+              restoreMenuFocus.current = false;
+              setContext(undefined);
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              setContext(undefined);
+            } else if (
+              ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
+            ) {
+              event.preventDefault();
+              buttons[
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? buttons.length - 1
+                    : (index +
+                        (event.key === "ArrowDown" ? 1 : -1) +
+                        buttons.length) %
+                      buttons.length
+              ]?.focus();
+            }
+          }}
+        >
+          {[
+            ["Inspect", () => onSelect(context.load.id)],
+            ["Edit load", () => onEdit(context.load)],
+            ["Duplicate", () => onDuplicate(context.load)],
+            ["Delete", () => onDelete(context.load.id)],
+          ].map(([label, action]) => (
+            <button
+              key={label as string}
+              role="menuitem"
+              onClick={() => {
+                setContext(undefined);
+                (action as () => void)();
+              }}
+            >
+              {t(label as string)}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="page-actions">
         <div className="search-field">
           <Search size={17} />
@@ -480,12 +578,27 @@ export function Loads({
                   return (
                     <tr
                       key={load.id}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        openContext(load, event.clientX, event.clientY);
+                      }}
                       className={selected === load.id ? "selected-row" : ""}
                     >
                       <td>
                         <button
                           className="load-name"
                           onClick={() => onSelect(load.id)}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === "ContextMenu" ||
+                              (event.shiftKey && event.key === "F10")
+                            ) {
+                              event.preventDefault();
+                              const rect =
+                                event.currentTarget.getBoundingClientRect();
+                              openContext(load, rect.x, rect.bottom);
+                            }
+                          }}
                         >
                           <span className="load-icon">
                             <Zap size={15} />
@@ -641,6 +754,14 @@ export function Boards({
   onSelect: (id: string) => void;
 }) {
   const t = useT();
+  const locale = useContext(LanguageContext);
+  const execute = (command: ProjectCommand) => {
+    const preview = previewProjectCommand(project, command);
+    if (!preview.errors.length && !preview.changes.length) return;
+    change((draft) =>
+      Object.assign(draft, applyProjectCommand(draft, preview)),
+    );
+  };
   const [newBoard, setNewBoard] = useState("");
   const [newCircuit, setNewCircuit] = useState("");
   const [boardId, setBoardId] = useState(project.boards[0]?.id || "");
@@ -704,32 +825,31 @@ export function Boards({
             <div className="panel-pad">
               <div className="form-grid">
                 <Field label={t("Supply limit")} unit="A">
-                  <input
-                    type="number"
-                    min="1"
+                  <LocaleNumberInput
+                    min={1}
                     value={board.ratedA}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (v > 0)
-                        change((p) => {
-                          p.boards.find((b) => b.id === board.id)!.ratedA = v;
-                        });
-                    }}
+                    onValueChange={(value) =>
+                      execute({
+                        kind: "board.patch",
+                        id: board.id,
+                        patch: { ratedA: value },
+                      })
+                    }
                   />
                 </Field>
                 <Field label={t("Ways")}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="200"
+                  <LocaleNumberInput
+                    min={1}
+                    max={200}
+                    integer
                     value={board.ways}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (Number.isInteger(v) && v > 0 && v <= 200)
-                        change((p) => {
-                          p.boards.find((b) => b.id === board.id)!.ways = v;
-                        });
-                    }}
+                    onValueChange={(value) =>
+                      execute({
+                        kind: "board.patch",
+                        id: board.id,
+                        patch: { ways: value },
+                      })
+                    }
                   />
                 </Field>
               </div>
@@ -746,9 +866,10 @@ export function Boards({
         onSubmit={(e) => {
           e.preventDefault();
           if (newBoard.trim()) {
-            change((p) =>
-              p.boards.push(createBoard({ name: newBoard.trim() })),
-            );
+            execute({
+              kind: "board.add",
+              board: createBoard({ name: newBoard.trim() }),
+            });
             setNewBoard("");
           }
         }}
@@ -818,31 +939,10 @@ export function Boards({
                             : undefined
                         }
                         onChange={(e) =>
-                          change((p) => {
-                            const phase = e.target.value as Phase;
-                            if (
-                              p.loads.some(
-                                (l) =>
-                                  l.circuitId === c.id &&
-                                  l.locked &&
-                                  l.connection === "single" &&
-                                  l.phase !== phase,
-                              )
-                            )
-                              throw new Error(
-                                "An assigned load has a locked phase.",
-                              );
-                            p.circuits.find((v) => v.id === c.id)!.phase =
-                              phase;
-                            p.loads
-                              .filter(
-                                (l) =>
-                                  l.circuitId === c.id &&
-                                  l.connection === "single",
-                              )
-                              .forEach((l) => {
-                                l.phase = phase;
-                              });
+                          execute({
+                            kind: "circuit.patch",
+                            id: c.id,
+                            patch: { phase: e.target.value as Phase },
                           })
                         }
                       >
@@ -869,7 +969,11 @@ export function Boards({
                             source: c.cable?.source || "",
                             protectiveA: c.protectiveA || 0,
                             correctionFactors:
-                              c.cable?.correctionFactors?.join(", ") || "",
+                              c.cable?.correctionFactors
+                                ?.map((value) =>
+                                  formatEditableNumber(value, locale),
+                                )
+                                .join("; ") || "",
                           });
                           setCableError("");
                         }}
@@ -884,9 +988,10 @@ export function Boards({
                             type="checkbox"
                             checked={c.locked}
                             onChange={(e) =>
-                              change((p) => {
-                                p.circuits.find((v) => v.id === c.id)!.locked =
-                                  e.target.checked;
+                              execute({
+                                kind: "circuit.patch",
+                                id: c.id,
+                                patch: { locked: e.target.checked },
                               })
                             }
                           />
@@ -901,17 +1006,7 @@ export function Boards({
                                 `${t("Delete")} ${c.name}? ${loads.length} ${t("Load Schedule")} → ${t("Unassigned")}`,
                               )
                             )
-                              change((p) => {
-                                p.circuits = p.circuits.filter(
-                                  (v) => v.id !== c.id,
-                                );
-                                p.loads
-                                  .filter((l) => l.circuitId === c.id)
-                                  .forEach((l) => {
-                                    delete l.circuitId;
-                                    delete l.boardId;
-                                  });
-                              });
+                              execute({ kind: "circuit.remove", id: c.id });
                           }}
                         >
                           <Trash2 size={15} />
@@ -929,11 +1024,10 @@ export function Boards({
           onSubmit={(e) => {
             e.preventDefault();
             if (newCircuit.trim() && boardId) {
-              change((p) =>
-                p.circuits.push(
-                  createCircuit(boardId, { name: newCircuit.trim() }),
-                ),
-              );
+              execute({
+                kind: "circuit.add",
+                circuit: createCircuit(boardId, { name: newCircuit.trim() }),
+              });
               setNewCircuit("");
             }
           }}
@@ -981,19 +1075,10 @@ export function Boards({
                       (c) => c.id === e.target.value,
                     );
                     if (c)
-                      change((p) => {
-                        const load = p.loads.find((x) => x.id === l.id)!;
-                        if (
-                          load.locked &&
-                          load.connection === "single" &&
-                          load.phase !== c.phase
-                        )
-                          throw new Error(
-                            "Unlock this load before assigning a differently phased circuit.",
-                          );
-                        load.circuitId = c.id;
-                        load.boardId = c.boardId;
-                        if (load.connection === "single") load.phase = c.phase;
+                      execute({
+                        kind: "loads.assign",
+                        ids: [l.id],
+                        circuitId: c.id,
                       });
                   }}
                 >
@@ -1045,7 +1130,7 @@ export function Boards({
             {!balance.moves.length && <p>{t("No phase moves required")}</p>}
             {balance.issues.map((i) => (
               <Notice key={i.id} tone="warning">
-                {i.message}
+                {t(i.message)}
               </Notice>
             ))}
           </div>
@@ -1080,12 +1165,16 @@ export function Boards({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const factors = cableDraft.correctionFactors.trim()
-                ? cableDraft.correctionFactors
-                    .trim()
-                    .split(/[,;\s]+/)
-                    .map(Number)
+              const parsed = cableDraft.correctionFactors.trim()
+                ? parseLocaleNumberList(cableDraft.correctionFactors, locale, {
+                    min: 0.000001,
+                  })
                 : undefined;
+              if (parsed && !parsed.ok) {
+                setCableError(parsed.message);
+                return;
+              }
+              const factors = parsed?.ok ? parsed.values : undefined;
               if (
                 (cableDraft.baseAmpacityA > 0 && !factors) ||
                 factors?.some((v) => !Number.isFinite(v) || v <= 0)
@@ -1107,21 +1196,24 @@ export function Boards({
                 );
                 return;
               }
-              change((p) => {
-                const c = p.circuits.find((c) => c.id === circuit.id)!;
-                c.cable = {
-                  lengthM: cableDraft.lengthM,
-                  resistanceOhmPerKm: cableDraft.resistanceOhmPerKm,
-                  reactanceOhmPerKm: cableDraft.reactanceOhmPerKm,
-                  baseAmpacityA: cableDraft.baseAmpacityA,
-                  voltageDropLimitPercent: cableDraft.voltageDropLimitPercent,
-                  source: cableDraft.source,
-                  correctionFactors: factors,
-                };
-                c.protectiveA =
-                  cableDraft.protectiveA > 0
-                    ? cableDraft.protectiveA
-                    : undefined;
+              execute({
+                kind: "circuit.patch",
+                id: circuit.id,
+                patch: {
+                  cable: {
+                    lengthM: cableDraft.lengthM,
+                    resistanceOhmPerKm: cableDraft.resistanceOhmPerKm,
+                    reactanceOhmPerKm: cableDraft.reactanceOhmPerKm,
+                    baseAmpacityA: cableDraft.baseAmpacityA,
+                    voltageDropLimitPercent: cableDraft.voltageDropLimitPercent,
+                    source: cableDraft.source,
+                    correctionFactors: factors,
+                  },
+                  protectiveA:
+                    cableDraft.protectiveA > 0
+                      ? cableDraft.protectiveA
+                      : undefined,
+                },
               });
               setCableId(undefined);
             }}
@@ -1144,16 +1236,11 @@ export function Boards({
                   ["protectiveA", "Protective device rating", "A"],
                 ].map(([k, label, unit]) => (
                   <Field key={k} label={label} unit={unit}>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={cableDraft[k as keyof typeof cableDraft]}
-                      onChange={(e) =>
-                        setCableDraft((d) => ({
-                          ...d,
-                          [k]: Number(e.target.value),
-                        }))
+                    <LocaleNumberInput
+                      min={0}
+                      value={Number(cableDraft[k as keyof typeof cableDraft])}
+                      onValueChange={(value) =>
+                        setCableDraft((d) => ({ ...d, [k]: value }))
                       }
                     />
                   </Field>
@@ -1161,7 +1248,9 @@ export function Boards({
               </div>
               <Field
                 label="Correction factors"
-                hint="Separate positive factors with commas. Enter 1 explicitly only when no correction applies."
+                hint={t(
+                  "Separate positive factors with semicolons. Enter 1 explicitly only when no correction applies.",
+                )}
               >
                 <input
                   value={cableDraft.correctionFactors}
@@ -1494,9 +1583,13 @@ function midnight(date: string, timezone: string) {
 export function Simulation({
   project,
   result,
+  onComplete,
+  animationsPaused = false,
 }: {
   project: Project;
   result: CalculationResult;
+  onComplete?: (result: CalendarResult, inputs: RangeOptions) => void;
+  animationsPaused?: boolean;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -1510,6 +1603,27 @@ export function Simulation({
   const [error, setError] = useState("");
   const [cursor, setCursor] = useState(0);
   const [play, setPlay] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [completedRange, setCompletedRange] = useState<{
+    start: string;
+    end: string;
+    interval: number;
+  }>();
+  const timelineLength = calendar?.points.length || result.profile.length;
+  const stride = Math.max(1, Math.ceil(timelineLength / 200));
+  const timelinePoints = calendar
+    ? calendar.points
+        .filter((_, i) => i % stride === 0)
+        .map((point, i) => ({ x: i * stride, y: point.kw }))
+    : result.profile.map((point) => ({ x: point.hour, y: point.kw }));
+  const timelineCursor = Math.min(cursor, Math.max(0, timelineLength - 1));
+  const cursorValue =
+    calendar?.points[timelineCursor]?.kw ??
+    result.profile[timelineCursor]?.kw ??
+    0;
+  const cursorLabel =
+    calendar?.points[timelineCursor]?.localTime ??
+    `${String(timelineCursor).padStart(2, "0")}:00`;
   const worker = useRef<Worker | null>(null);
   const requestId = useRef(0);
   const currentRange = useRef({ start, end, interval });
@@ -1529,14 +1643,24 @@ export function Simulation({
     worker.current?.terminate();
     worker.current = null;
     setBusy(false);
-    setCalendar(undefined);
     setPlay(false);
   }, [project.revision, project.id, start, end, interval]);
   useEffect(() => {
-    if (!play) return;
-    const handle = setInterval(() => setCursor((c) => (c + 1) % 24), 500);
+    setCalendar(undefined);
+    setCompletedRange(undefined);
+    setCursor(0);
+  }, [project.id, project.revision]);
+  useEffect(() => {
+    if (animationsPaused) setPlay(false);
+  }, [animationsPaused]);
+  useEffect(() => {
+    if (!play || animationsPaused || !timelineLength) return;
+    const handle = setInterval(
+      () => setCursor((c) => (c + 1) % timelineLength),
+      500 / speed,
+    );
     return () => clearInterval(handle);
-  }, [play]);
+  }, [play, speed, timelineLength, animationsPaused]);
   function run() {
     setBusy(true);
     setError("");
@@ -1562,8 +1686,16 @@ export function Simulation({
       }
       setBusy(false);
       if (e.data.error) setError(e.data.error);
-      else if (e.data.result.revision === context.revision)
+      else if (e.data.result.revision === context.revision) {
         setCalendar(e.data.result);
+        setCompletedRange({ start, end, interval });
+        setCursor(0);
+        onComplete?.(e.data.result, {
+          start: midnight(start, project.timezone),
+          end: midnight(end, project.timezone),
+          intervalMinutes: interval,
+        });
+      }
       worker.current = null;
       w.terminate();
     };
@@ -1603,7 +1735,6 @@ export function Simulation({
               value={start}
               onChange={(e) => {
                 setStart(e.target.value);
-                setCalendar(undefined);
               }}
             />
           </Field>
@@ -1614,7 +1745,6 @@ export function Simulation({
               min={start}
               onChange={(e) => {
                 setEnd(e.target.value);
-                setCalendar(undefined);
               }}
             />
           </Field>
@@ -1623,7 +1753,6 @@ export function Simulation({
               value={interval}
               onChange={(e) => {
                 setIntervalValue(Number(e.target.value) as 15 | 60);
-                setCalendar(undefined);
               }}
             >
               <option value="15">15 min</option>
@@ -1635,6 +1764,19 @@ export function Simulation({
           </Field>
         </div>
         <div className="button-row">
+          <button
+            className="button"
+            onClick={() => {
+              const validation = validateProjectImport(project);
+              setError(
+                validation.valid
+                  ? t("Inputs validated for the supported model.")
+                  : validation.errors.join(" "),
+              );
+            }}
+          >
+            {t("Validate inputs")}
+          </button>
           <button
             className="button primary"
             onClick={run}
@@ -1710,6 +1852,16 @@ export function Simulation({
               {t("Revision")} {calendar.revision}
             </span>
           </div>
+          <p className="panel-pad small muted">
+            {completedRange?.start} → {completedRange?.end} ·{" "}
+            {completedRange?.interval} min ·{" "}
+            {completedRange &&
+            (completedRange.start !== start ||
+              completedRange.end !== end ||
+              completedRange.interval !== interval)
+              ? t("Previous completed range")
+              : t("Completed range")}
+          </p>
           <div className="metric-strip">
             <div>
               <span>{t("Energy")}</span>
@@ -1737,45 +1889,82 @@ export function Simulation({
           />
           {calendar.issues.map((i) => (
             <Notice key={i.id} tone="warning">
-              {i.message}
+              {t(i.message)}
             </Notice>
           ))}
         </section>
       )}
       <section className="panel">
         <div className="panel-head">
-          <h3>{t("24-hour estimate")}</h3>
+          <h3>
+            {t(calendar ? "Completed simulation timeline" : "24-hour estimate")}
+          </h3>
           <button
             className="button"
             onClick={() => setPlay((p) => !p)}
-            disabled={!project.loads.length}
+            disabled={!project.loads.length || animationsPaused}
           >
             {play ? <Pause size={15} /> : <Play size={15} />}{" "}
             {t(play ? "Pause" : "Play")}
           </button>
         </div>
         <LineChart
-          points={result.profile.map((p) => ({ x: p.hour, y: p.kw }))}
-          selected={cursor}
-          onSelect={setCursor}
+          points={timelinePoints}
+          selected={Math.floor(timelineCursor / stride)}
+          onSelect={(index) => setCursor(index * stride)}
         />
+        <div className="button-row panel-pad">
+          <button
+            className="button"
+            disabled={timelineCursor === 0}
+            onClick={() => {
+              setPlay(false);
+              setCursor((c) => Math.max(0, c - 1));
+            }}
+          >
+            {t("Step backward")}
+          </button>
+          <button
+            className="button"
+            disabled={timelineCursor >= timelineLength - 1}
+            onClick={() => {
+              setPlay(false);
+              setCursor((c) => Math.min(timelineLength - 1, c + 1));
+            }}
+          >
+            {t("Step forward")}
+          </button>
+          <Field label={t("Playback speed")}>
+            <select
+              value={speed}
+              onChange={(e) => setSpeed(Number(e.target.value))}
+            >
+              {[0.5, 1, 2, 4, 8].map((value) => (
+                <option key={value} value={value}>
+                  {value}×
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
         <div className="timeline">
           <input
             aria-label={t("Timeline hour")}
             type="range"
             min="0"
-            max="23"
+            max={Math.max(0, timelineLength - 1)}
             step="1"
-            value={cursor}
+            value={timelineCursor}
             onChange={(e) => setCursor(Number(e.target.value))}
           />
           <strong>
-            {String(cursor).padStart(2, "0")}:00 ·{" "}
-            {numberFormat(result.profile[cursor]?.kw || 0, 3, locale)} kW
+            {cursorLabel} · {numberFormat(cursorValue, 3, locale)} kW
           </strong>
         </div>
         <details className="panel-pad">
-          <summary>{t("Show details")}</summary>
+          <summary>
+            {t("24-hour estimate")} · {t("Show details")}
+          </summary>
           <div className="table-wrap">
             <table>
               <thead>

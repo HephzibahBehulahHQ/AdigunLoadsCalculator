@@ -1,28 +1,37 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { Plus, Save } from "lucide-react";
 import type { Load, Project } from "../domain/types";
 import { createLoad } from "../domain/project";
 import { normalizeLoad } from "../engine/electrical";
 import { Modal, Field, Notice } from "./ui";
-import { useT } from "../i18n";
+import { useT, LanguageContext } from "../i18n";
+import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
+import { parseLocaleNumber, formatEditableNumber } from "../i18n/numbers";
 export function LoadEditor({
   load,
   project,
   onSave,
   onClose,
+  purpose = "load",
+  detailMode = "engineering",
 }: {
   load?: Load;
   project: Project;
   onSave: (load: Load) => void;
   onClose: () => void;
+  purpose?: "load" | "template";
+  detailMode?: "simple" | "engineering";
 }) {
   const t = useT();
+  const locale = useContext(LanguageContext);
   const [draft, setDraft] = useState(() =>
     load
       ? structuredClone(load)
       : createLoad({ name: "", rating: 0, voltage: project.supply.voltageLN }),
   );
-  const [rating, setRating] = useState(load ? String(load.rating) : "");
+  const [rating, setRating] = useState(
+    load ? formatEditableNumber(load.rating, locale) : "",
+  );
   const [error, setError] = useState("");
   const set = <K extends keyof Load>(key: K, value: Load[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -35,20 +44,24 @@ export function LoadEditor({
     step = "any",
   ) => (
     <Field label={t(label)} unit={unit}>
-      <input
-        type="number"
+      <LocaleNumberInput
         min={min}
         max={max}
         step={step}
         value={draft[key] as number}
-        onChange={(e) => set(key, Number(e.target.value) as never)}
+        onValueChange={(value) => set(key, value as never)}
         required
       />
     </Field>
   );
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const l = { ...draft, rating: Number(rating) };
+    const parsedRating = parseLocaleNumber(rating, locale, { min: 0 });
+    if (!parsedRating.ok) {
+      setError(t(parsedRating.message));
+      return;
+    }
+    const l = { ...draft, rating: parsedRating.value };
     if (!rating.trim() || !draft.name.trim()) {
       setError("Enter a name and rating.");
       return;
@@ -58,12 +71,33 @@ export function LoadEditor({
       setError(normalized.issues.map((i) => i.message).join(" "));
       return;
     }
-    onSave(l);
+    try {
+      onSave(l);
+    } catch (error) {
+      setError((error as Error).message);
+    }
   }
   return (
-    <Modal title={t(load ? "Edit load" : "Add load")} onClose={onClose} wide>
+    <Modal
+      title={t(
+        purpose === "template"
+          ? "Equipment template"
+          : load
+            ? "Edit load"
+            : "Add load",
+      )}
+      onClose={onClose}
+      wide
+    >
       <form onSubmit={submit}>
         <div className="modal-body">
+          {detailMode === "simple" && (
+            <Notice>
+              {t(
+                "Enter electrical input power, supply voltage and operating time. Power factor affects current; energy duty affects consumption. Source evidence and every failed or incomplete check remain visible.",
+              )}
+            </Notice>
+          )}
           <div className="form-grid">
             <Field label={t("Name")}>
               <input
@@ -136,9 +170,8 @@ export function LoadEditor({
               }
             >
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={rating}
                 onChange={(e) => setRating(e.target.value)}
                 required
@@ -223,8 +256,11 @@ export function LoadEditor({
             {num("hoursPerDay", "Operating hours", "h/day", 0, 24)}
             {num("startHour", "Start hour", "h", 0, 23.999)}
             {num("duty", "Energy duty", "0–1", 0, 1)}
-            {num("utilization", "Utilization", "0–1", 0, 1)}
-            {num("standbyW", "Standby power", "W")}
+            <details open={detailMode === "engineering"}>
+              <summary>{t("Utilization and standby assumptions")}</summary>
+              {num("utilization", "Utilization", "0–1", 0, 1)}
+              {num("standbyW", "Standby power", "W")}
+            </details>
             <Field label={t("Circuit")}>
               <select
                 value={draft.circuitId || ""}
@@ -322,7 +358,13 @@ export function LoadEditor({
           </button>
           <button className="button primary" type="submit">
             {load ? <Save size={16} /> : <Plus size={16} />}{" "}
-            {t(load ? "Save" : "Add load")}
+            {t(
+              purpose === "template"
+                ? "Save template"
+                : load
+                  ? "Save"
+                  : "Add load",
+            )}
           </button>
         </div>
       </form>

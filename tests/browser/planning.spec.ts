@@ -60,6 +60,14 @@ test("home circuits, locked phase balancing, and independent scenario copy", asy
     await page
       .getByLabel(circuit.name + " Phase", { exact: true })
       .selectOption("L1");
+  const unchanged = await exported(page);
+  await page
+    .getByLabel(initial.circuits[0].name + " Phase", { exact: true })
+    .selectOption("L1");
+  expect((await exported(page)).revision).toBe(unchanged.revision);
+  await expect(
+    page.getByText("The command does not change any fields.", { exact: true }),
+  ).toHaveCount(0);
   const lockedCircuit = initial.circuits[0];
   const lockedRow = page
     .locator("tbody tr")

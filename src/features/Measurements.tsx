@@ -315,7 +315,7 @@ export function Measurements({ projectId }: { projectId: string }) {
       </div>
       <Notice>
         {t(
-          "Measured data is stored separately for this project on this browser. Export a measurement backup as well as your engineering project for recovery on another device.",
+          "Save measured data before exporting a Workspace backup. Saved measurements are included with projects and bills; an unsaved preview is not included.",
         )}
       </Notice>
       <div className="measurement-controls">

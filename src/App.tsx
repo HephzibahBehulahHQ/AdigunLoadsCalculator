@@ -81,9 +81,14 @@ import {
   exportProject,
   exportLoads,
   previewImport,
+  parseCSV,
   safeName,
 } from "./import-export/files";
-import type { ImportPreview } from "./import-export/files";
+import type { ImportPreview, CSVImportMapping } from "./import-export/files";
+import {
+  mergeProjectObjects,
+  replaceProjectContents,
+} from "./import-export/projectDestination";
 import {
   LanguageContext,
   languages,
@@ -92,7 +97,13 @@ import {
   money,
 } from "./i18n";
 import type { Locale } from "./i18n";
-import { Modal, Field, Notice } from "./features/ui";
+import { LocaleNumberInput } from "./i18n/LocaleNumberInput";
+import { CommandReview } from "./features/CommandReview";
+import type {
+  CommandPreview,
+  ProjectCommand,
+} from "./commands/projectCommands";
+import { Modal, Field, Notice, ResizeHandle } from "./features/ui";
 import { LoadEditor } from "./features/LoadEditor";
 import {
   Overview,
@@ -108,11 +119,39 @@ import {
   Scenarios,
 } from "./features/EnergyPages";
 import { Toolbox } from "./features/Toolbox";
+import { EquipmentLibrary } from "./features/EquipmentLibrary";
+import {
+  ScenarioWorkspace,
+  RevisionComparison,
+} from "./features/ProjectComparison";
+import { WorkspaceRecovery } from "./features/WorkspaceRecovery";
+import { LoadOperations } from "./features/LoadOperations";
+import { TopologyEditor } from "./features/TopologyEditor";
+import { AdvancedPlanning } from "./features/AdvancedPlanning";
+import { FeederAssessment } from "./features/FeederAssessment";
+import { SourceRegistry, ProjectOrganization } from "./features/SourceRegistry";
+
+import type { ReportContext } from "./import-export/reportSnapshot";
+import type {
+  CalendarResult,
+  RangeOptions,
+  EnergyOptions,
+} from "./engine/simulation";
+import {
+  previewProjectCommand,
+  applyProjectCommand,
+} from "./commands/projectCommands";
 import { tools } from "./tools";
 import { resetBotWindowState } from "./bot/windowState";
+const ReportWorkspace = lazy(() =>
+  import("./features/ReportWorkspace").then((module) => ({
+    default: module.ReportWorkspace,
+  })),
+);
 const Billing = lazy(() =>
   import("./features/Billing").then((m) => ({ default: m.Billing })),
 );
+const SpatialView = lazy(() => import("./features/SpatialView"));
 const Measurements = lazy(() => import("./features/Measurements"));
 const LocalBot = lazy(() =>
   import("./bot/LocalBot").then((m) => ({ default: m.LocalBot })),
@@ -251,21 +290,96 @@ export default function App() {
   const [sidebar, setSidebar] = useState(() =>
     readPreference("sidebar", innerWidth > 900),
   );
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    readPreference("sidebarWidth", 240),
+  );
+  const [inspectorWidth, setInspectorWidth] = useState(() =>
+    readPreference("inspectorWidth", 300),
+  );
+  const [detailMode, setDetailMode] = useState(() =>
+    readPreference("detailMode", "engineering"),
+  );
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>(() =>
+    readPreference("collapsedGroups", []),
+  );
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--sidebar",
+      sidebarWidth + "px",
+    );
+    document.documentElement.style.setProperty(
+      "--inspector",
+      inspectorWidth + "px",
+    );
+    writePreference("sidebarWidth", sidebarWidth);
+    writePreference("inspectorWidth", inspectorWidth);
+    writePreference("detailMode", detailMode);
+    writePreference("collapsedGroups", collapsedGroups);
+  }, [sidebarWidth, inspectorWidth, detailMode, collapsedGroups]);
   const [selected, setSelected] = useState<string>();
   const [showTrace, setShowTrace] = useState(false);
+  const [diagramView, setDiagramView] = useState<"single" | "spatial">(
+    "single",
+  );
   const [editor, setEditor] = useState<{ load?: Load } | null>(null);
   const [dialog, setDialog] = useState<
-    "projects" | "import" | "commands" | "references" | null
+    "projects" | "import" | "commands" | "references" | "rename" | null
   >(null);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
+  const [commandReview, setCommandReview] = useState<{
+    preview: CommandPreview;
+    selectedId?: string;
+  }>();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importBusy, setImportBusy] = useState(false);
+  const [csvFile, setCSVFile] = useState<File>();
+  const [csvHeaders, setCSVHeaders] = useState<string[]>([]);
+  const [csvMapping, setCSVMapping] = useState<CSVImportMapping>({});
+  const [mappingDirty, setMappingDirty] = useState(false);
+  const [importMode, setImportMode] = useState<"new" | "merge" | "replace">(
+    "new",
+  );
+  const [importTarget, setImportTarget] = useState<{
+    id: string;
+    revision: number;
+  }>();
   const [botOpen, setBotOpen] = useState(false);
   const [reportTab, setReportTab] = useState<"engineering" | "billing">(
     "engineering",
   );
-  const [reportBusy, setReportBusy] = useState(false);
+  const [, setReportBusy] = useState(false);
+  const [reportContext, setReportContext] = useState<ReportContext>({});
+  useEffect(
+    () =>
+      setReportContext((previous) => {
+        const next = { ...previous };
+        for (const key of ["calendar", "energy", "ev"] as const)
+          if (
+            next[key] &&
+            (next[key]!.projectId !== project.id ||
+              next[key]!.revision !== project.revision)
+          )
+            delete next[key];
+        return next;
+      }),
+    [project.id, project.revision],
+  );
+  const rememberCalendar = (
+    calculated: CalendarResult,
+    inputs: Record<string, unknown> | RangeOptions,
+  ) =>
+    setReportContext((context) => ({
+      ...context,
+      calendar: {
+        projectId: project.id,
+        revision: project.revision,
+        calculatedAt: new Date().toISOString(),
+        result: calculated,
+        inputs: inputs as RangeOptions,
+        source: "Completed calendar simulation",
+      },
+    }));
   const [toolId, setToolId] = useState("");
   const [revisions, setRevisions] = useState<Project[]>([]);
   const [update, setUpdate] = useState<ServiceWorkerRegistration>();
@@ -281,6 +395,11 @@ export default function App() {
   const result = useMemo(() => calculateProject(project), [project]);
   const selectedLoad = project.loads.find((l) => l.id === selected);
   const selectedResult = result.loads.find((l) => l.id === selected);
+  const selectedBoard = project.boards.find((row) => row.id === selected);
+  const selectedCircuit = project.circuits.find((row) => row.id === selected);
+  const selectedSource = project.sources?.find((row) => row.id === selected);
+  const selectedObject =
+    selectedLoad ?? selectedBoard ?? selectedCircuit ?? selectedSource;
   const refreshRecords = useCallback(async () => {
     try {
       setRecords(await listProjects(true));
@@ -530,16 +649,62 @@ export default function App() {
       setError((e as Error).message);
     }
   }
+  async function closeProject(trash: boolean) {
+    const source = latest.current;
+    const next = createProject("Untitled project");
+    await createAndOpen(next);
+    if (latest.current.id !== next.id) return;
+    try {
+      if (trash) await setTrashed(source.id, true);
+      await refreshRecords();
+      setMessage(
+        t(
+          trash
+            ? "Project moved to trash"
+            : "Project closed; saved work remains available in Open project.",
+        ),
+      );
+    } catch (error) {
+      setError((error as Error).message);
+    }
+  }
   function saveLoad(load: Load) {
-    change((p) => {
-      const i = p.loads.findIndex((l) => l.id === load.id);
-      if (i < 0) p.loads.push(load);
-      else p.loads[i] = load;
+    const prior = project.loads.find((row) => row.id === load.id);
+    if (
+      prior?.locked &&
+      (prior.phase !== load.phase ||
+        prior.connection !== load.connection ||
+        JSON.stringify(prior.phasePair) !== JSON.stringify(load.phasePair))
+    )
+      throw new Error(
+        t("Unlock the load first before changing its phase or connection."),
+      );
+    const commands: ProjectCommand[] = [];
+    if (!prior) commands.push({ kind: "loads.insert", loads: [load] });
+    else {
+      const { id, phase, boardId, circuitId, ...patch } = load;
+      commands.push({ kind: "loads.patch", ids: [id], patch });
+      if (prior.circuitId !== circuitId || prior.boardId !== boardId)
+        commands.push({ kind: "loads.assign", ids: [id], boardId, circuitId });
+      if (prior.phase !== phase)
+        commands.push({ kind: "loads.phase", ids: [id], phase });
+    }
+    const reviewed = previewProjectCommand(project, {
+      kind: "batch",
+      commands,
     });
-    setEditor(null);
-    setSelected(load.id);
-    setMessage(t("Load updated"));
-    go("loads");
+    if (reviewed.errors.length) throw new Error(reviewed.errors.join(" "));
+    if (reviewed.changes.some((item) => item.objectId !== load.id)) {
+      setEditor(null);
+      setCommandReview({ preview: reviewed, selectedId: load.id });
+      return;
+    }
+    if (change((p) => Object.assign(p, applyProjectCommand(p, reviewed)))) {
+      setEditor(null);
+      setSelected(load.id);
+      setMessage(t("Load updated"));
+      go("loads");
+    }
   }
   async function pdf() {
     setReportBusy(true);
@@ -598,8 +763,77 @@ export default function App() {
     setImportBusy(true);
     setError("");
     try {
-      const next = await previewImport(file);
+      let next: ImportPreview;
+      setCSVFile(undefined);
+      setCSVHeaders([]);
+      setCSVMapping({});
+      setMappingDirty(false);
+      if (file.name.toLowerCase().endsWith(".csv") && file.size <= 5_000_000) {
+        const headers = parseCSV(await file.text())[0] ?? [];
+        setCSVFile(file);
+        setCSVHeaders(headers);
+        const aliases: Record<string, string> = {
+          power_kw: "rating",
+          kw: "rating",
+          power: "rating",
+          hours: "hoursperday",
+          powerfactor: "pf",
+        };
+        const columns: Record<string, number> = {};
+        headers.forEach((header, index) => {
+          const key = header
+            .trim()
+            .toLowerCase()
+            .replace(/^\uFEFF/, "");
+          if (
+            [
+              "name",
+              "rating",
+              "quantity",
+              "entrymode",
+              "voltage",
+              "connection",
+              "pf",
+              "phase",
+              "hoursperday",
+              "starthour",
+              "duty",
+              "utilization",
+              "efficiency",
+              "reactive",
+              "standbyw",
+              "pfkind",
+              "reactivekvar",
+              "phasepair",
+              "source",
+            ].includes(aliases[key] ?? key)
+          )
+            columns[aliases[key] ?? key] = index;
+        });
+        setCSVMapping({ columns, ratingUnit: "native" });
+        try {
+          next = await previewImport(file);
+        } catch (error) {
+          next = {
+            kind: "loads",
+            loads: [],
+            warnings: [],
+            errors: [(error as Error).message],
+          };
+        }
+      } else next = await previewImport(file);
+      if (next.kind !== "project") {
+        next.project = {
+          ...createProject(file.name.replace(/\.[^.]+$/, "")),
+          loads: next.loads,
+        };
+      }
       setPreview(next);
+      setImportMode(next.kind === "project" ? "new" : "merge");
+      setImportTarget({
+        id: latest.current.id,
+        revision: latest.current.revision,
+      });
       setDialog("import");
     } catch (e) {
       setError((e as Error).message);
@@ -609,21 +843,54 @@ export default function App() {
     }
   }
   async function applyImport() {
-    if (!preview || preview.errors.length) return;
-    if (preview.kind === "project" && preview.project) {
-      const next = duplicateProject(
-        preview.project,
-        preview.project.name + " · imported",
-      );
-      await createAndOpen(next);
-    } else change((p) => p.loads.push(...preview.loads));
-    setDialog(null);
-    setPreview(null);
-    go("loads");
+    if (!preview?.project || preview.errors.length) return;
+    setError("");
+    try {
+      if (
+        importMode !== "new" &&
+        (latest.current.id !== importTarget?.id ||
+          latest.current.revision !== importTarget?.revision)
+      )
+        throw new Error(
+          t("Project changed. Preview the import again before applying."),
+        );
+      if (importMode === "new") {
+        const next = duplicateProject(
+          preview.project,
+          preview.project.name + " · imported",
+        );
+        await createAndOpen(next);
+        if (latest.current.id !== next.id) return;
+      } else {
+        const next =
+          importMode === "merge"
+            ? mergeProjectObjects(latest.current, preview.project)
+            : replaceProjectContents(latest.current, preview.project);
+        if (
+          !change((p) => {
+            for (const key of Object.keys(p))
+              delete (p as unknown as Record<string, unknown>)[key];
+            Object.assign(p, next);
+          })
+        )
+          return;
+      }
+      setDialog(null);
+      setPreview(null);
+      go("loads");
+    } catch (error) {
+      setError((error as Error).message);
+    }
   }
   function libraryPage() {
     return (
       <>
+        <EquipmentLibrary
+          key={project.id}
+          project={project}
+          change={change}
+          onAdd={(load) => setEditor({ load })}
+        />
         <Notice>
           {t("Typical estimate")}. Generic analytical starting values, clearly
           identified as assumptions. Review each rating and source before adding
@@ -692,6 +959,12 @@ export default function App() {
   function historyPage() {
     return (
       <>
+        <RevisionComparison
+          key={project.id}
+          project={project}
+          revisions={revisions}
+          change={change}
+        />
         <section className="panel panel-pad">
           <div className="panel-title">
             <h3>{t("Issues")}</h3>
@@ -709,7 +982,7 @@ export default function App() {
                   >
                     {issue.assessment}
                   </span>
-                  <p>{issue.message}</p>
+                  <p>{t(issue.message)}</p>
                   {issue.entityId && (
                     <button
                       className="text-button"
@@ -764,6 +1037,8 @@ export default function App() {
                     )
                       change((d) => {
                         const id = d.id;
+                        for (const key of Object.keys(d))
+                          delete (d as unknown as Record<string, unknown>)[key];
                         Object.assign(d, structuredClone(p), { id });
                       });
                   }}
@@ -871,7 +1146,15 @@ export default function App() {
   const current = routes.find((r) => r.id === route)!;
   return (
     <LanguageContext.Provider value={locale}>
-      <div className={"app " + (sidebar ? "" : "sidebar-collapsed")}>
+      <div
+        className={
+          "app " +
+          (sidebar ? "" : "sidebar-collapsed") +
+          " " +
+          detailMode +
+          "-mode"
+        }
+      >
         <a href="#workspace" className="skip-link">
           {t("Workspace")}
         </a>
@@ -967,30 +1250,44 @@ export default function App() {
             {["Workspace", "Engineering", "Energy & Planning", "Resources"].map(
               (group) => (
                 <div className="nav-group" key={group}>
-                  <span className="nav-heading">{t(group)}</span>
-                  {routes
-                    .filter((r) => r.group === group)
-                    .map((r) => (
-                      <button
-                        key={r.id}
-                        className={
-                          "nav-item " + (route === r.id ? "active" : "")
-                        }
-                        onClick={() => go(r.id)}
-                        aria-current={route === r.id ? "page" : undefined}
-                      >
-                        <r.icon size={17} />
-                        <span>{t(r.label)}</span>
-                        {r.id === "loads" && (
-                          <span className="nav-count">
-                            {project.loads.length}
-                          </span>
-                        )}
-                        {r.id === "tools" && (
-                          <span className="nav-count">{tools.length}</span>
-                        )}
-                      </button>
-                    ))}
+                  <button
+                    className="nav-heading nav-group-toggle"
+                    aria-expanded={!collapsedGroups.includes(group)}
+                    onClick={() =>
+                      setCollapsedGroups((groups) =>
+                        groups.includes(group)
+                          ? groups.filter((item) => item !== group)
+                          : [...groups, group],
+                      )
+                    }
+                  >
+                    {t(group)}
+                    <ChevronDown size={12} />
+                  </button>
+                  {!collapsedGroups.includes(group) &&
+                    routes
+                      .filter((r) => r.group === group)
+                      .map((r) => (
+                        <button
+                          key={r.id}
+                          className={
+                            "nav-item " + (route === r.id ? "active" : "")
+                          }
+                          onClick={() => go(r.id)}
+                          aria-current={route === r.id ? "page" : undefined}
+                        >
+                          <r.icon size={17} />
+                          <span>{t(r.label)}</span>
+                          {r.id === "loads" && (
+                            <span className="nav-count">
+                              {project.loads.length}
+                            </span>
+                          )}
+                          {r.id === "tools" && (
+                            <span className="nav-count">{tools.length}</span>
+                          )}
+                        </button>
+                      ))}
                 </div>
               ),
             )}
@@ -1009,6 +1306,14 @@ export default function App() {
               <HelpCircle size={17} />
             </button>
           </div>
+          <ResizeHandle
+            value={sidebarWidth}
+            min={190}
+            max={390}
+            variable="--sidebar"
+            label={t("Navigation width")}
+            onChange={setSidebarWidth}
+          />
         </aside>
         <div className="workspace-shell">
           <div className="workspace-toolbar">
@@ -1027,6 +1332,81 @@ export default function App() {
               <strong>{t(current?.label || "Overview")}</strong>
             </div>
             <span className="spacer" />
+            <details className="project-actions">
+              <summary className="button small-button">{t("Project")}</summary>
+              <div
+                className="project-menu"
+                role="group"
+                aria-label={t("Project actions")}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest("button"))
+                    (
+                      event.currentTarget.parentElement as HTMLDetailsElement
+                    ).open = false;
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setName("");
+                    setDialog("projects");
+                    void refreshRecords();
+                  }}
+                >
+                  {t("New project")}
+                </button>
+                <button
+                  onClick={() => {
+                    setDialog("projects");
+                    void refreshRecords();
+                  }}
+                >
+                  {t("Open project")}
+                </button>
+                <button
+                  onClick={() => {
+                    setName(project.name);
+                    setDialog("rename");
+                  }}
+                >
+                  {t("Rename project")}
+                </button>
+                <button
+                  onClick={() => void createAndOpen(duplicateProject(project))}
+                >
+                  {t("Duplicate project")}
+                </button>
+                <button onClick={() => void persist()}>{t("Save")}</button>
+                <button onClick={() => exportProject(project)}>
+                  {t("Export project")}
+                </button>
+                <button onClick={() => fileInput.current?.click()}>
+                  {t("Import project")}
+                </button>
+                <button onClick={() => go("history")}>
+                  {t("Revision history")}
+                </button>
+                <button
+                  onClick={() => {
+                    setDialog("projects");
+                    void refreshRecords();
+                  }}
+                >
+                  {t("Restore from trash")}
+                </button>
+                <button onClick={() => void closeProject(false)}>
+                  {t("Close project")}
+                </button>
+                <button
+                  className="danger"
+                  onClick={() => {
+                    if (confirm(t("Move to trash") + " " + project.name + "?"))
+                      void closeProject(true);
+                  }}
+                >
+                  {t("Move to trash")}
+                </button>
+              </div>
+            </details>
             <div className="history-buttons">
               <button
                 className="icon-button"
@@ -1141,7 +1521,7 @@ export default function App() {
           <div
             className={
               "workspace-content " +
-              (selectedLoad || showTrace ? "with-inspector" : "")
+              (selectedObject || showTrace ? "with-inspector" : "")
             }
           >
             <main id="workspace" className="main-content">
@@ -1176,54 +1556,117 @@ export default function App() {
                     />
                   )}
                   {route === "loads" && (
-                    <Loads
-                      project={project}
-                      result={result}
-                      selected={selected}
-                      onAdd={() => setEditor({})}
-                      onEdit={(load) => setEditor({ load })}
-                      onSelect={(id) => {
-                        setSelected(id);
-                        setShowTrace(false);
-                      }}
-                      onDuplicate={(load) =>
-                        change((p) =>
-                          p.loads.push({
-                            ...structuredClone(load),
-                            id: crypto.randomUUID(),
-                            name: load.name + " · copy",
-                          }),
-                        )
-                      }
-                      onDelete={(id) => {
-                        change((p) => {
-                          p.loads = p.loads.filter((l) => l.id !== id);
-                        });
-                        if (selected === id) setSelected(undefined);
-                      }}
-                      onImport={() => fileInput.current?.click()}
-                      onExport={() => exportLoads(project)}
-                      onLibrary={() => go("library")}
-                    />
+                    <>
+                      <LoadOperations project={project} change={change} />
+                      <button className="button" onClick={() => go("library")}>
+                        {t("Add from library")}
+                      </button>
+                      <Loads
+                        project={project}
+                        result={result}
+                        selected={selected}
+                        onAdd={() => setEditor({})}
+                        onEdit={(load) => setEditor({ load })}
+                        onSelect={(id) => {
+                          setSelected(id);
+                          setShowTrace(false);
+                        }}
+                        onDuplicate={(load) =>
+                          change((p) =>
+                            p.loads.push({
+                              ...structuredClone(load),
+                              id: crypto.randomUUID(),
+                              name: load.name + " · copy",
+                            }),
+                          )
+                        }
+                        onDelete={(id) =>
+                          setCommandReview({
+                            preview: previewProjectCommand(project, {
+                              kind: "loads.delete",
+                              ids: [id],
+                            }),
+                          })
+                        }
+                        onImport={() => fileInput.current?.click()}
+                        onExport={() => exportLoads(project)}
+                        onLibrary={() => go("library")}
+                      />
+                    </>
                   )}
                   {route === "boards" && (
-                    <Boards
-                      project={project}
-                      result={result}
-                      change={change}
-                      onSelect={setSelected}
-                    />
+                    <>
+                      <ProjectOrganization project={project} change={change} />
+                      <Boards
+                        project={project}
+                        result={result}
+                        change={change}
+                        onSelect={setSelected}
+                      />
+                    </>
                   )}
                   {route === "diagram" && (
-                    <Diagram
-                      project={project}
-                      result={result}
-                      onSelect={setSelected}
-                    />
+                    <>
+                      <div className="tab-bar">
+                        <button
+                          className={diagramView === "single" ? "active" : ""}
+                          onClick={() => setDiagramView("single")}
+                        >
+                          {t("Single-line diagram")}
+                        </button>
+                        <button
+                          className={diagramView === "spatial" ? "active" : ""}
+                          onClick={() => setDiagramView("spatial")}
+                        >
+                          {t("Analytical spatial view")}
+                        </button>
+                      </div>
+                      {diagramView === "single" ? (
+                        <TopologyEditor
+                          project={project}
+                          result={result}
+                          onSelect={setSelected}
+                          selectedId={selected}
+                          change={change}
+                        />
+                      ) : (
+                        <Suspense
+                          fallback={
+                            <div className="loading">
+                              <LoaderCircle className="spin" />
+                            </div>
+                          }
+                        >
+                          <SpatialView
+                            project={project}
+                            result={result}
+                            onSelect={setSelected}
+                          />
+                        </Suspense>
+                      )}
+                    </>
                   )}
                   {route === "simulation" && (
                     <>
-                      <Simulation project={project} result={result} />
+                      <Simulation
+                        project={project}
+                        result={result}
+                        onComplete={rememberCalendar}
+                        animationsPaused={motion === "paused"}
+                      />
+                      <details
+                        className="advanced-section"
+                        open={detailMode === "engineering"}
+                      >
+                        <summary>
+                          {t("Advanced schedules, starts and flexible loads")}
+                        </summary>
+                        <AdvancedPlanning
+                          project={project}
+                          onChange={change}
+                          onCalendarComplete={rememberCalendar}
+                        />
+                      </details>
                       <Suspense
                         fallback={
                           <div className="loading">
@@ -1235,8 +1678,21 @@ export default function App() {
                       </Suspense>
                     </>
                   )}
+                  {route === "motors" && (
+                    <SourceRegistry
+                      project={project}
+                      change={change}
+                      onSelect={setSelected}
+                    />
+                  )}
+                  {route === "cables" && (
+                    <FeederAssessment project={project} onChange={change} />
+                  )}
                   {["cables", "motors", "quality", "tools"].includes(route) && (
                     <Toolbox
+                      project={project}
+                      change={change}
+                      selectedId={selected}
                       key={route + toolId}
                       initialTool={toolId}
                       category={
@@ -1255,6 +1711,20 @@ export default function App() {
                       key={project.id}
                       project={project}
                       change={change}
+                      onComplete={(calculated, inputs) =>
+                        setReportContext((context) => ({
+                          ...context,
+                          energy: {
+                            projectId: latest.current.id,
+                            revision: calculated.revision,
+                            calculatedAt: new Date().toISOString(),
+                            result: calculated,
+                            inputs: inputs as EnergyOptions,
+                            source:
+                              "Completed renewable/storage dispatch with entered profiles",
+                          },
+                        }))
+                      }
                     />
                   )}
                   {route === "ev" && (
@@ -1262,6 +1732,32 @@ export default function App() {
                       project={project}
                       result={result}
                       change={change}
+                      onComplete={(sessionId, plan, inputs) =>
+                        setReportContext((context) => {
+                          const revision = latest.current.revision;
+                          const prior =
+                            context.ev?.revision === revision
+                              ? context.ev.result
+                              : [];
+                          return {
+                            ...context,
+                            ev: {
+                              projectId: latest.current.id,
+                              revision,
+                              calculatedAt: new Date().toISOString(),
+                              result: [
+                                ...prior.filter(
+                                  (row) => row.sessionId !== sessionId,
+                                ),
+                                { sessionId, plan },
+                              ],
+                              inputs,
+                              source:
+                                "Completed dated EV allocation with entered session constraints",
+                            },
+                          };
+                        })
+                      }
                     />
                   )}
                   {route === "costs" && (
@@ -1273,7 +1769,14 @@ export default function App() {
                     />
                   )}
                   {route === "scenarios" && (
-                    <Scenarios
+                    <ScenarioWorkspace
+                      key={project.id}
+                      change={change}
+                      onTrash={(id) =>
+                        void setTrashed(id, true)
+                          .then(refreshRecords)
+                          .catch((e) => setError(e.message))
+                      }
                       project={project}
                       records={records}
                       onCreate={(p) => void createAndOpen(p)}
@@ -1317,105 +1820,44 @@ export default function App() {
                           />
                         </Suspense>
                       ) : (
-                        <section className="panel panel-pad report-preview">
-                          <div className="report-cover">
-                            <span className="eyebrow">BY HB ELEKTRONIKER</span>
-                            <h2>AdigunPowerLab</h2>
-                            <h3>{project.name}</h3>
-                            <p>
-                              {t("Engineering report")} · {t("Revision")}{" "}
-                              {project.revision}
-                            </p>
-                          </div>
-                          <div className="metric-strip">
-                            <div>
-                              <span>{t("Installed load")}</span>
-                              <strong>
-                                {numberFormat(result.installedKW, 3, locale)} kW
-                              </strong>
+                        <Suspense
+                          fallback={
+                            <div className="loading">
+                              <LoaderCircle className="spin" />
                             </div>
-                            <div>
-                              <span>{t("Design demand")}</span>
-                              <strong>
-                                {numberFormat(result.designKW, 3, locale)} kW
-                              </strong>
-                            </div>
-                            <div>
-                              <span>{t("Daily energy")}</span>
-                              <strong>
-                                {numberFormat(result.dailyKWh, 3, locale)} kWh
-                              </strong>
-                            </div>
-                          </div>
-                          <p>{project.notes}</p>
-                          <Notice>
-                            {t(
-                              "Engineering estimate, not installation approval.",
-                            )}
-                          </Notice>
-                          <div className="button-row">
-                            <button
-                              className="button primary"
-                              disabled={reportBusy}
-                              onClick={() => void pdf()}
-                            >
-                              {reportBusy ? (
-                                <LoaderCircle size={16} className="spin" />
-                              ) : (
-                                <Download size={16} />
-                              )}{" "}
-                              PDF
-                            </button>
-                            <button
-                              className="button"
-                              onClick={() => window.print()}
-                            >
-                              {t("Print report")}
-                            </button>
-                            <button
-                              className="button"
-                              onClick={() => exportLoads(project)}
-                            >
-                              {t("Export loads")}
-                            </button>
-                            <button
-                              className="button"
-                              onClick={() => setShowTrace(true)}
-                            >
-                              {t("Calculation trace")}
-                            </button>
-                          </div>
-                          <details>
-                            <summary>{t("Show details")}</summary>
-                            <div className="table-wrap">
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>{t("Name")}</th>
-                                    <th>kW</th>
-                                    <th>A</th>
-                                    <th>kWh/day</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {project.loads.map((l) => {
-                                    const n = result.loads.find(
-                                      (n) => n.id === l.id,
-                                    );
-                                    return (
-                                      <tr key={l.id}>
-                                        <td>{l.name}</td>
-                                        <td>{n?.operatingKW.toFixed(3)}</td>
-                                        <td>{n?.currentA.toFixed(3)}</td>
-                                        <td>{n?.energyKWh.toFixed(3)}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </details>
-                        </section>
+                          }
+                        >
+                          <ReportWorkspace
+                            project={project}
+                            result={result}
+                            locale={locale}
+                            context={{
+                              ...reportContext,
+                              scenarios: records
+                                .filter(
+                                  (r) =>
+                                    !r.deleted &&
+                                    r.id !== project.id &&
+                                    (r.project.scenarioOf === project.id ||
+                                      r.id === project.scenarioOf ||
+                                      (project.scenarioOf &&
+                                        r.project.scenarioOf ===
+                                          project.scenarioOf)),
+                                )
+                                .map((r) => ({
+                                  project: r.project,
+                                  result: calculateProject(r.project),
+                                  label: r.project.name,
+                                })),
+                            }}
+                            onDetailsChange={(details) =>
+                              change((p) => {
+                                p.reportDetails = details;
+                              })
+                            }
+                            onOpenBilling={() => setReportTab("billing")}
+                          />
+                        </Suspense>
                       )}
                     </>
                   )}
@@ -1445,6 +1887,17 @@ export default function App() {
                               ))}
                             </select>
                           </Field>
+                          <Field label={t("Detail level")}>
+                            <select
+                              value={detailMode}
+                              onChange={(e) => setDetailMode(e.target.value)}
+                            >
+                              <option value="simple">{t("Simple")}</option>
+                              <option value="engineering">
+                                {t("Engineering")}
+                              </option>
+                            </select>
+                          </Field>
                           <Field label={t("Theme")}>
                             <select
                               value={theme}
@@ -1462,19 +1915,57 @@ export default function App() {
                               value={motion}
                               onChange={(e) => setMotion(e.target.value)}
                             >
-                              {["system", "reduced", "full"].map((v) => (
-                                <option key={v} value={v}>
-                                  {t(v[0].toUpperCase() + v.slice(1))}
-                                </option>
-                              ))}
+                              {["system", "reduced", "full", "paused"].map(
+                                (v) => (
+                                  <option key={v} value={v}>
+                                    {t(v[0].toUpperCase() + v.slice(1))}
+                                  </option>
+                                ),
+                              )}
                             </select>
                           </Field>
                         </div>
+                        <div className="form-grid three">
+                          <Field label={t("Navigation width")} unit="px">
+                            <input
+                              type="range"
+                              min="190"
+                              max="390"
+                              value={sidebarWidth}
+                              onChange={(e) =>
+                                setSidebarWidth(Number(e.target.value))
+                              }
+                            />
+                          </Field>
+                          <Field label={t("Inspector width")} unit="px">
+                            <input
+                              type="range"
+                              min="250"
+                              max="550"
+                              value={inspectorWidth}
+                              onChange={(e) =>
+                                setInspectorWidth(Number(e.target.value))
+                              }
+                            />
+                          </Field>
+                          <button
+                            className="button"
+                            onClick={() => {
+                              setSidebarWidth(240);
+                              setInspectorWidth(300);
+                              setCollapsedGroups([]);
+                              setSidebar(innerWidth > 900);
+                              setDetailMode("engineering");
+                            }}
+                          >
+                            {t("Reset layout")}
+                          </button>
+                        </div>
                         <Notice>
-                          {t("Local only")}. Exported engineering projects and
-                          separate billing backups are stored wherever you
-                          download them. Local browser storage is not a remote
-                          backup.
+                          {t("Local only")}.{" "}
+                          {t(
+                            "Use Workspace backup to export projects, histories, bills and measurements together. Local browser storage is not a remote backup.",
+                          )}
                         </Notice>
                         <div className="button-row">
                           <button
@@ -1502,6 +1993,18 @@ export default function App() {
                           </button>
                         </div>
                       </section>
+                      <WorkspaceRecovery
+                        activeProject={project}
+                        onRestored={async ({ activeIds }) => {
+                          await refreshRecords();
+                          const saved = await listProjects();
+                          const restored = saved.find(
+                            (record) =>
+                              activeIds.includes(record.id) && !record.deleted,
+                          );
+                          if (restored) await openProject(restored.project);
+                        }}
+                      />
                       <section className="panel panel-pad">
                         <h3>Adigun BOT</h3>
                         <p>
@@ -1528,8 +2031,17 @@ export default function App() {
                 </>
               )}
             </main>
-            {(selectedLoad || showTrace) && (
+            {(selectedObject || showTrace) && (
               <aside className="inspector">
+                <ResizeHandle
+                  value={inspectorWidth}
+                  min={250}
+                  max={550}
+                  variable="--inspector"
+                  label={t("Inspector width")}
+                  reverse
+                  onChange={setInspectorWidth}
+                />
                 <div className="inspector-head">
                   <span>
                     {t(showTrace ? "Calculation trace" : "Selected object")}
@@ -1558,7 +2070,7 @@ export default function App() {
                         <dt>{t("Origin")}</dt>
                         <dd>{result.trace.origin}</dd>
                         <dt>{t("Method")}</dt>
-                        <dd>{result.trace.method}</dd>
+                        <dd>{t(result.trace.method)}</dd>
                       </dl>
                       <div className="formula">{result.trace.formula}</div>
                     </div>
@@ -1566,7 +2078,7 @@ export default function App() {
                       <h4>{t("Assumptions")}</h4>
                       {result.trace.assumptions.map((a, i) => (
                         <p className="small muted" key={i}>
-                          {a}
+                          {t(a)}
                         </p>
                       ))}
                     </div>
@@ -1574,11 +2086,57 @@ export default function App() {
                       <h4>{t("Issues")}</h4>
                       {result.issues.map((i) => (
                         <p className="small" key={i.id}>
-                          {i.message}
+                          {t(i.message)}
                         </p>
                       ))}
                     </div>
                   </>
+                ) : selectedObject && !selectedLoad ? (
+                  <div className="inspector-section">
+                    <span className="tag">
+                      {t(
+                        selectedBoard
+                          ? "Board"
+                          : selectedCircuit
+                            ? "Circuit"
+                            : "Source equipment",
+                      )}
+                    </span>
+                    <h3>{selectedObject.name}</h3>
+                    <dl className="detail-list">
+                      {Object.entries(selectedObject)
+                        .filter(([key]) => key !== "id" && key !== "name")
+                        .map(([key, value]) => (
+                          <div key={key}>
+                            <dt>{t(key)}</dt>
+                            <dd>
+                              {typeof value === "object" ? (
+                                <details>
+                                  <summary>{t("Show details")}</summary>
+                                  <pre className="comparison-value">
+                                    {JSON.stringify(value, null, 2)}
+                                  </pre>
+                                </details>
+                              ) : (
+                                String(value ?? "—")
+                              )}
+                            </dd>
+                          </div>
+                        ))}
+                    </dl>
+                    <button
+                      className="button"
+                      onClick={() => go(selectedSource ? "motors" : "boards")}
+                    >
+                      {t("Edit selected object")}
+                    </button>
+                    <button
+                      className="text-button"
+                      onClick={() => setShowTrace(true)}
+                    >
+                      {t("Calculation trace")}
+                    </button>
+                  </div>
                 ) : (
                   selectedLoad && (
                     <>
@@ -1654,6 +2212,9 @@ export default function App() {
               · {t("Revision")} {project.revision}
             </span>
             <span className="spacer" />
+            <span>
+              {t("Engine")} {result.engineVersion}
+            </span>
             <span>{t("Engineering estimate, not installation approval.")}</span>
             <button onClick={() => go("history")} className="status-issues">
               <AlertTriangle size={13} />
@@ -1701,6 +2262,7 @@ export default function App() {
           <LoadEditor
             load={editor.load}
             project={project}
+            detailMode={detailMode === "simple" ? "simple" : "engineering"}
             onSave={saveLoad}
             onClose={() => setEditor(null)}
           />
@@ -1741,6 +2303,44 @@ export default function App() {
                 ))}
               </div>
             </div>
+          </Modal>
+        )}
+        {dialog === "rename" && (
+          <Modal title={t("Rename project")} onClose={() => setDialog(null)}>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (
+                  change((draft) => {
+                    if (!name.trim()) throw new Error("Enter a project name.");
+                    draft.name = name.trim();
+                  })
+                )
+                  setDialog(null);
+              }}
+            >
+              <div className="modal-body">
+                <Field label={t("Project name")}>
+                  <input
+                    autoFocus
+                    required
+                    maxLength={160}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="button"
+                  type="button"
+                  onClick={() => setDialog(null)}
+                >
+                  {t("Cancel")}
+                </button>
+                <button className="button primary">{t("Save")}</button>
+              </div>
+            </form>
           </Modal>
         )}
         {dialog === "projects" && (
@@ -1861,6 +2461,19 @@ export default function App() {
             </div>
           </Modal>
         )}
+        {commandReview && (
+          <CommandReview
+            project={project}
+            preview={commandReview.preview}
+            change={change}
+            onClose={() => setCommandReview(undefined)}
+            onApplied={() => {
+              setSelected(commandReview.selectedId);
+              setCommandReview(undefined);
+              go("loads");
+            }}
+          />
+        )}
         {dialog === "import" && preview && (
           <Modal
             title={t("Preview import")}
@@ -1868,6 +2481,109 @@ export default function App() {
             wide
           >
             <div className="modal-body">
+              {csvFile && (
+                <details open={preview.errors.length > 0}>
+                  <summary>{t("CSV column and unit mapping")}</summary>
+                  <div className="form-grid three">
+                    {[
+                      "name",
+                      "rating",
+                      "quantity",
+                      "entrymode",
+                      "voltage",
+                      "connection",
+                      "pf",
+                      "phase",
+                      "hoursperday",
+                      "starthour",
+                      "duty",
+                      "utilization",
+                      "efficiency",
+                      "reactive",
+                      "standbyw",
+                      "pfkind",
+                      "reactivekvar",
+                      "phasepair",
+                      "source",
+                    ].map((field) => (
+                      <Field key={field} label={field}>
+                        <select
+                          value={csvMapping.columns?.[field] ?? ""}
+                          onChange={(e) => {
+                            const columns = { ...csvMapping.columns };
+                            if (e.target.value === "") delete columns[field];
+                            else columns[field] = Number(e.target.value);
+                            setCSVMapping({ ...csvMapping, columns });
+                            setMappingDirty(true);
+                          }}
+                        >
+                          <option value="">{t("Use default / omit")}</option>
+                          {csvHeaders.map((header, index) => (
+                            <option key={index} value={index}>
+                              {header}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ))}
+                    <Field label={t("Imported rating unit")}>
+                      <select
+                        value={csvMapping.ratingUnit ?? "native"}
+                        onChange={(e) => {
+                          setCSVMapping({
+                            ...csvMapping,
+                            ratingUnit: e.target
+                              .value as CSVImportMapping["ratingUnit"],
+                          });
+                          setMappingDirty(true);
+                        }}
+                      >
+                        {["native", "W", "kW", "VA", "kVA", "A"].map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit === "native"
+                              ? t("Use entry-mode column (default kW)")
+                              : unit}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                  <p className="small muted">
+                    {t(
+                      "CSV numeric values use decimal points. Explicit rating units override the entry-mode column; W and VA are converted to kW and kVA.",
+                    )}
+                  </p>
+                  <button
+                    className="button"
+                    disabled={importBusy}
+                    onClick={async () => {
+                      setImportBusy(true);
+                      try {
+                        const next = await previewImport(csvFile, csvMapping);
+                        next.project = {
+                          ...createProject(
+                            csvFile.name.replace(/\.[^.]+$/, ""),
+                          ),
+                          loads: next.loads,
+                        };
+                        setPreview(next);
+                        setMappingDirty(false);
+                        setImportTarget({
+                          id: project.id,
+                          revision: project.revision,
+                        });
+                        setError("");
+                      } catch (error) {
+                        setError((error as Error).message);
+                      } finally {
+                        setImportBusy(false);
+                      }
+                    }}
+                  >
+                    {t("Refresh import preview")}
+                  </button>
+                </details>
+              )}
               <div className="metric-strip">
                 <div>
                   <span>{t("Valid rows")}</span>
@@ -1892,10 +2608,41 @@ export default function App() {
                   {e}
                 </p>
               ))}
+              <Field label={t("Import destination")}>
+                <select
+                  value={importMode}
+                  onChange={(e) =>
+                    setImportMode(e.target.value as typeof importMode)
+                  }
+                >
+                  <option value="new">{t("New project")}</option>
+                  <option value="merge">
+                    {t("Merge into current project")}
+                  </option>
+                  <option value="replace">
+                    {t("Replace current project contents")}
+                  </option>
+                </select>
+              </Field>
               <p>
-                {preview.kind === "project" ? t("New project") : t("Add load")}{" "}
-                → {preview.project?.name || project.name}
+                {importMode === "new" ? preview.project?.name : project.name} ·{" "}
+                {t("Revision")} {importTarget?.revision}
               </p>
+              <Notice tone={importMode === "replace" ? "warning" : "info"}>
+                {t(
+                  importMode === "merge"
+                    ? "Imports objects with new IDs and their dependencies. Current supply, tariff, energy, baseline and diagram settings are retained."
+                    : importMode === "replace"
+                      ? "Replaces the current project contents. The prior state remains available through Undo and saved history."
+                      : "Creates a separate project. Imported object IDs and evidence are preserved.",
+                )}
+              </Notice>
+              <p className="small muted">
+                {preview.project?.boards.length ?? 0} {t("Boards")} ·{" "}
+                {preview.project?.circuits.length ?? 0} {t("Circuits")} ·{" "}
+                {preview.project?.loads.length ?? 0} {t("Loads")}
+              </p>
+              {error && <Notice tone="error">{error}</Notice>}
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -1925,7 +2672,9 @@ export default function App() {
               </button>
               <button
                 className="button primary"
-                disabled={preview.errors.length > 0 || importBusy}
+                disabled={
+                  preview.errors.length > 0 || importBusy || mappingDirty
+                }
                 onClick={() => void applyImport()}
               >
                 {t("Apply import")}
@@ -1997,6 +2746,44 @@ export default function App() {
                       >
                         <Zap size={17} />
                         {l.name}
+                        <ChevronRight size={14} />
+                      </button>
+                    ))}
+                {!!query &&
+                  [
+                    ...project.boards.map((row) => ({
+                      ...row,
+                      route: "boards",
+                    })),
+                    ...project.circuits.map((row) => ({
+                      ...row,
+                      route: "boards",
+                    })),
+                    ...(project.sources ?? []).map((row) => ({
+                      ...row,
+                      route: "motors",
+                    })),
+                    ...(project.equipmentLibrary ?? []).map((row) => ({
+                      ...row,
+                      route: "library",
+                    })),
+                  ]
+                    .filter((row) =>
+                      row.name
+                        .toLocaleLowerCase()
+                        .includes(query.toLocaleLowerCase()),
+                    )
+                    .slice(0, 12)
+                    .map((row) => (
+                      <button
+                        key={row.id}
+                        onClick={() => {
+                          setSelected(row.id);
+                          go(row.route);
+                        }}
+                      >
+                        <Network size={17} />
+                        {row.name}
                         <ChevronRight size={14} />
                       </button>
                     ))}
@@ -2101,43 +2888,37 @@ function ProjectSettings({
           ["limitA", "Supply limit", "A"],
         ].map(([key, label, unit]) => (
           <Field key={key} label={t(label)} unit={unit}>
-            <input
+            <LocaleNumberInput
               required
-              min=".01"
-              type="number"
-              step="any"
+              min={0.01}
               value={draft.supply[key as keyof typeof draft.supply]}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setDraft({
                   ...draft,
-                  supply: { ...draft.supply, [key]: Number(e.target.value) },
+                  supply: { ...draft.supply, [key]: value },
                 })
               }
             />
           </Field>
         ))}
         <Field label={t("Coincidence factor")} unit="0–1">
-          <input
-            min="0"
-            max="1"
+          <LocaleNumberInput
             required
-            type="number"
-            step="any"
+            min={0}
+            max={1}
             value={draft.coincidence}
-            onChange={(e) =>
-              setDraft({ ...draft, coincidence: Number(e.target.value) })
+            onValueChange={(value) =>
+              setDraft({ ...draft, coincidence: value })
             }
           />
         </Field>
         <Field label={t("Growth allowance")} unit="%">
-          <input
-            min="0"
+          <LocaleNumberInput
             required
-            type="number"
-            step="any"
+            min={0}
             value={draft.growthPercent}
-            onChange={(e) =>
-              setDraft({ ...draft, growthPercent: Number(e.target.value) })
+            onValueChange={(value) =>
+              setDraft({ ...draft, growthPercent: value })
             }
           />
         </Field>

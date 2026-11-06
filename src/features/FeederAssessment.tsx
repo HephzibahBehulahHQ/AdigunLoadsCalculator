@@ -1,0 +1,411 @@
+import {
+  LocaleNumberInput,
+  OptionalLocaleNumberInput,
+} from "../i18n/LocaleNumberInput";
+import { useContext, useEffect, useState, useRef } from "react";
+import type { Cable, Project } from "../domain/types";
+import { validateProjectImport } from "../domain/project";
+import { assessEndpointRoute, type FeederRouteResult } from "../engine/feeders";
+import { LanguageContext, numberFormat, useT } from "../i18n";
+import { downloadFile, makeCSV, safeName } from "../import-export/files";
+import { Field, Notice } from "./ui";
+import "./advanced-planning.css";
+import { PlanningNumberList, validPlanningInputs } from "./PlanningInputs";
+
+export function FeederAssessment({
+  project,
+  onChange,
+}: {
+  project: Project;
+  onChange: (mutator: (draft: Project) => void) => void;
+}) {
+  const t = useT(),
+    locale = useContext(LanguageContext);
+  const [loadId, setLoadId] = useState(project.loads[0]?.id ?? "");
+  const [target, setTarget] = useState(`board:${project.boards[0]?.id ?? ""}`);
+  const [cable, setCable] = useState<Cable>({ lengthM: 0, source: "" });
+  const [scenario, setScenario] = useState<"running" | "starting">("running");
+  const [at, setAt] = useState("");
+  const [limit, setLimit] = useState<number>();
+  const [result, setResult] = useState<FeederRouteResult>();
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const container = useRef<HTMLElement>(null);
+  const kind = target.startsWith("board:") ? "board" : "circuit";
+  const targetId = target.slice(target.indexOf(":") + 1);
+  const existingCable =
+    kind === "board"
+      ? project.boards.find((board) => board.id === targetId)?.feeder
+      : project.circuits.find((circuit) => circuit.id === targetId)?.cable;
+  useEffect(() => {
+    setCable(structuredClone(existingCable ?? { lengthM: 0, source: "" }));
+    setSaved(false);
+  }, [project.id, project.revision, target]);
+  useEffect(() => {
+    setResult(undefined);
+    setError("");
+  }, [project.id, project.revision, loadId, scenario, at, limit]);
+  useEffect(() => {
+    if (!project.loads.some((load) => load.id === loadId))
+      setLoadId(project.loads[0]?.id ?? "");
+  }, [project.loads, loadId]);
+  const f = (value: number | null | undefined) =>
+    value === null || value === undefined
+      ? "—"
+      : numberFormat(value, 4, locale);
+  function save(remove = false) {
+    if (!remove && !validPlanningInputs(container.current)) return;
+    try {
+      const mutator = (draft: Project) => {
+        if (kind === "board") {
+          const board = draft.boards.find((row) => row.id === targetId);
+          if (!board) throw new Error(t("Select an existing board."));
+          board.feeder = remove ? undefined : structuredClone(cable);
+        } else {
+          const circuit = draft.circuits.find((row) => row.id === targetId);
+          if (!circuit) throw new Error(t("Select an existing circuit."));
+          circuit.cable = remove ? undefined : structuredClone(cable);
+        }
+      };
+      const candidate = structuredClone(project);
+      mutator(candidate);
+      const checked = validateProjectImport(candidate);
+      if (!checked.valid) throw new Error(checked.errors.join(" "));
+      onChange(mutator);
+      setError("");
+      setSaved(true);
+    } catch (caught) {
+      setError((caught as Error).message);
+    }
+  }
+  function run() {
+    if (!validPlanningInputs(container.current)) return;
+    try {
+      setResult(
+        assessEndpointRoute(project, loadId, {
+          scenario,
+          at: at.trim() || undefined,
+          limitPercent: limit,
+        }),
+      );
+      setError("");
+    } catch (caught) {
+      setResult(undefined);
+      setError((caught as Error).message);
+    }
+  }
+  return (
+    <section
+      ref={container}
+      className="advanced-planning panel panel-pad"
+      aria-label={t("Cumulative feeder assessment")}
+    >
+      <div className="section-title">
+        <div>
+          <span className="eyebrow">{t("Source-to-load route")}</span>
+          <h2>{t("Cumulative feeder assessment")}</h2>
+        </div>
+      </div>
+      <Notice>
+        {t(
+          "Every upstream board needs its entered feeder impedance, including the source-to-main-board segment. Missing data is incomplete, never an assumed zero. Set explicit zero only for a documented ideal boundary. Shared feeders carry all descendant loads under the same scenario.",
+        )}
+      </Notice>
+      <h3>{t("Segment input evidence")}</h3>
+      <Field label={t("Segment to edit")}>
+        <select value={target} onChange={(e) => setTarget(e.target.value)}>
+          {project.boards.map((board) => (
+            <option key={board.id} value={`board:${board.id}`}>
+              {t("Feeder")}: {board.name}
+            </option>
+          ))}
+          {project.circuits.map((circuit) => (
+            <option key={circuit.id} value={`circuit:${circuit.id}`}>
+              {t("Final circuit")}: {circuit.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <div className="form-grid three">
+        {(
+          [
+            ["lengthM", "One-way route length", "m"],
+            ["resistanceOhmPerKm", "Outgoing conductor resistance", "Ω/km"],
+            ["reactanceOhmPerKm", "Outgoing conductor reactance", "Ω/km"],
+            [
+              "returnResistanceOhmPerKm",
+              "Return / neutral resistance (optional)",
+              "Ω/km",
+            ],
+            [
+              "returnReactanceOhmPerKm",
+              "Return / neutral reactance (optional)",
+              "Ω/km",
+            ],
+            ["areaMm2", "Cross-section (record only)", "mm²"],
+            ["baseAmpacityA", "Sourced base ampacity", "A"],
+            ["voltageDropLimitPercent", "Entered voltage criterion", "%"],
+          ] as const
+        ).map(([key, label, unit]) => (
+          <Field key={key} label={t(label)} unit={unit}>
+            <OptionalLocaleNumberInput
+              min={0}
+              step="any"
+              value={cable[key] ?? undefined}
+              onValueChange={(value) => {
+                setCable({
+                  ...cable,
+                  [key]:
+                    value === undefined && key !== "lengthM"
+                      ? undefined
+                      : value,
+                });
+                setSaved(false);
+              }}
+            />
+          </Field>
+        ))}
+      </div>
+      <div className="form-grid">
+        <Field
+          label={t("Applicable ampacity correction factors")}
+          hint={t(
+            "Separate factors with semicolons; use explicit 1 when no derating applies.",
+          )}
+        >
+          <PlanningNumberList
+            value={cable.correctionFactors}
+            min={Number.MIN_VALUE}
+            onValueChange={(values) =>
+              setCable({ ...cable, correctionFactors: values })
+            }
+          />
+        </Field>
+        <Field label={t("Impedance / ampacity source and conditions")}>
+          <input
+            value={cable.source ?? ""}
+            onChange={(e) => setCable({ ...cable, source: e.target.value })}
+          />
+        </Field>
+      </div>
+      <p className="muted">
+        {t(
+          "Return impedance left blank means equal outgoing and return conductors, not zero return impedance. Cross-section alone does not select ampacity.",
+        )}
+      </p>
+      <div className="button-row">
+        <button className="button primary" onClick={() => save()}>
+          {t("Save segment evidence")}
+        </button>
+        <button className="button danger" onClick={() => save(true)}>
+          {t("Remove segment evidence")}
+        </button>
+        {saved && <span role="status">{t("Saved")}</span>}
+      </div>
+      <div className="advanced-section">
+        <h3>{t("Endpoint and scenario")}</h3>
+        <div className="form-grid three">
+          <Field label={t("Endpoint load")}>
+            <select value={loadId} onChange={(e) => setLoadId(e.target.value)}>
+              <option value="">{t("Select a load")}</option>
+              {project.loads.map((load) => (
+                <option key={load.id} value={load.id}>
+                  {load.name || load.id}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t("Operating scenario")}>
+            <select
+              value={scenario}
+              onChange={(e) =>
+                setScenario(e.target.value as "running" | "starting")
+              }
+            >
+              <option value="running">{t("Conservative running")}</option>
+              <option value="starting">{t("Entered start instant")}</option>
+            </select>
+          </Field>
+          <Field label={t("Cumulative voltage criterion override")} unit="%">
+            <OptionalLocaleNumberInput
+              min={0.001}
+              max={100}
+              step="any"
+              value={limit}
+              onValueChange={(value) => setLimit(value)}
+            />
+          </Field>
+          <Field label={t("Scenario instant (optional for running)")}>
+            <input
+              value={at}
+              onChange={(e) => setAt(e.target.value)}
+              placeholder="2026-01-01T08:00:00+01:00"
+            />
+          </Field>
+          {scenario === "starting" && (
+            <Field label={t("Use an entered start event")}>
+              <select value="" onChange={(e) => setAt(e.target.value)}>
+                <option value="">{t("Select a start event")}</option>
+                {project.startEvents?.map((event) => (
+                  <option key={event.id} value={event.start}>
+                    {
+                      project.loads.find((load) => load.id === event.loadId)
+                        ?.name
+                    }{" "}
+                    · {event.start}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+        </div>
+        <p className="muted">
+          {t(
+            "Without an instant, running assessment uses every assigned load at on-state current. A selected instant applies its calendar while retaining conservative duty headroom. Starting assessment requires an entered active event.",
+          )}
+        </p>
+        <button className="button primary" disabled={!loadId} onClick={run}>
+          {t("Assess complete route")}
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="error-text">
+          {t(error)}
+        </p>
+      )}
+      {result && (
+        <div className="advanced-section">
+          <h3>
+            {t("Route result")} · {t(result.assessment)}
+          </h3>
+          <div className="kpi-grid">
+            <div className="kpi-card">
+              <span>{t("Signed cumulative drop")}</span>
+              <strong>
+                {f(result.totalDropV)} V / {f(result.percent)}%
+              </strong>
+            </div>
+            <div className="kpi-card">
+              <span>{t("Receiving voltage estimate")}</span>
+              <strong>{f(result.receivingVoltage)} V</strong>
+            </div>
+            <div className="kpi-card">
+              <span>{t("Total shared segment losses")}</span>
+              <strong>{f(result.lossW)} W</strong>
+            </div>
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("Segment")}</th>
+                  <th>L1 A</th>
+                  <th>L2 A</th>
+                  <th>L3 A</th>
+                  <th>N A</th>
+                  <th>{t("Loss")}</th>
+                  <th>{t("Voltage contributions")}</th>
+                  <th>{t("Capacity check")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.segments.map((segment) => (
+                  <tr key={`${segment.kind}:${segment.id}`}>
+                    <td>
+                      {segment.name}
+                      <small className="muted">
+                        {" "}
+                        · {segment.downstreamLoadIds.length} {t("loads")}
+                      </small>
+                    </td>
+                    <td>{f(segment.phaseCurrents.L1)}</td>
+                    <td>{f(segment.phaseCurrents.L2)}</td>
+                    <td>{f(segment.phaseCurrents.L3)}</td>
+                    <td>{f(segment.neutralA)}</td>
+                    <td>{f(segment.lossW)} W</td>
+                    <td>
+                      {segment.complete
+                        ? Object.entries(segment.channelDropV)
+                            .map(([key, value]) => `${key}: ${f(value)} V`)
+                            .join("; ")
+                        : t("Incomplete")}
+                    </td>
+                    <td>
+                      {t(segment.capacityAssessment)} · {f(segment.currentA)} /{" "}
+                      {f(segment.capacityA)} A
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("Endpoint connection")}</th>
+                  <th>{t("Signed drop")}</th>
+                  <th>%</th>
+                  <th>{t("Receiving voltage")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.channels.map((channel) => (
+                  <tr key={channel.name}>
+                    <td>{channel.name}</td>
+                    <td>{f(channel.dropV)} V</td>
+                    <td>{f(channel.percent)}</td>
+                    <td>{f(channel.receivingVoltage)} V</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Notice>{t(result.method)}</Notice>
+          {result.issues.map((issue, i) => (
+            <Notice key={`${issue.id}:${i}`}>{t(issue.message)}</Notice>
+          ))}
+          <button
+            className="button"
+            onClick={() =>
+              downloadFile(
+                `${safeName(project.name)}-feeder-route.csv`,
+                makeCSV([
+                  [
+                    "project_revision",
+                    "segment",
+                    "kind",
+                    "L1_A",
+                    "L2_A",
+                    "L3_A",
+                    "neutral_A",
+                    "loss_W",
+                    "capacity_A",
+                    "capacity_assessment",
+                    "voltage_contributions_V",
+                    "source",
+                  ],
+                  ...result.segments.map((segment) => [
+                    result.revision,
+                    segment.name,
+                    segment.kind,
+                    segment.phaseCurrents.L1,
+                    segment.phaseCurrents.L2,
+                    segment.phaseCurrents.L3,
+                    segment.neutralA,
+                    segment.lossW,
+                    segment.capacityA,
+                    segment.capacityAssessment,
+                    JSON.stringify(segment.channelDropV),
+                    segment.source,
+                  ]),
+                ]),
+                "text/csv",
+              )
+            }
+          >
+            {t("Export route evidence")}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}

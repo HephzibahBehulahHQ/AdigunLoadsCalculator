@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-06",
+  "sourceCommit": "93d5e46b484ac787c0b57249e2eaea10dd179ef8",
+  "branch": "feat/verified-workflows",
+  "runtime": "Node 24.22.1",
+  "numericalAndBuildCommit": "77d02dc406d384d9a709ef69e2c85282fe9201c6",
+  "laterDiff": [
+    "tests/browser/library-spatial.spec.ts"
+  ],
+  "unit": {
+    "passed": 331,
+    "failed": 0,
+    "files": 21
+  },
+  "browser": {
+    "passed": 32,
+    "failed": 0,
+    "durationMinutes": 2.1,
+    "independentCheckout": true
+  },
+  "install": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "offline": {
+    "paths": [
+      "/",
+      "/AdigunPowerLab/"
+    ],
+    "savedRecovery": true,
+    "tools": true,
+    "lazyBilling": true,
+    "pdfExport": true,
+    "pageErrors": 0,
+    "failedRequests": 0
+  },
+  "pdfVisualReview": {
+    "reportPages": 10,
+    "diagramPages": 3,
+    "outOfPageGlyphs": 0
+  },
+  "freshLocalCheckout": true,
+  "newRemoteCheckpoint": false,
+  "newDeployment": false,
+  "publicationBlock": null,
+  "originalSpecificationFullyAccepted": false,
+  "publicationAuthorized": true,
+  "authorizationDate": "2026-11-06"
+}

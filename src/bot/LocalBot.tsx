@@ -447,7 +447,7 @@ export default function LocalBot({
               </p>
             )}
             {summary(response)}
-            <p className="bot-formula">{response.result.trace.formula}</p>
+            <p className="bot-formula">{t(response.result.trace.formula)}</p>
             <p>
               {l("Circuit checks and manufacturer evidence remain separate.")}
             </p>
@@ -467,7 +467,7 @@ export default function LocalBot({
                 {response.issues.map((issue) => (
                   <li key={issue.id}>
                     <strong>{t("Incomplete")}: </strong>
-                    {issue.message}
+                    {t(issue.message)}
                   </li>
                 ))}
               </ul>
@@ -805,7 +805,7 @@ export default function LocalBot({
           </div>
           {error && (
             <p className="bot-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <form

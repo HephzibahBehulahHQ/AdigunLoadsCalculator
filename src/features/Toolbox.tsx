@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useContext, useRef, useEffect } from "react";
 import {
   Search,
   ArrowRight,
@@ -11,16 +11,30 @@ import {
 import { tools } from "../tools";
 import type { EngineeringTool } from "../tools";
 import { Field, Notice } from "./ui";
-import { useT } from "../i18n";
+import { useT, LanguageContext, numberFormat } from "../i18n";
+import { parseLocaleNumber, formatEditableNumber } from "../i18n/numbers";
+import type { Project } from "../domain/types";
+import { ToolboxApply } from "./ToolboxApply";
 import { downloadFile, safeName } from "../import-export/files";
 export function Toolbox({
   category,
   initialTool,
+  project,
+  change,
+  selectedId,
 }: {
   category?: string;
   initialTool?: string;
+  project: Project;
+  change: (mutator: (draft: Project) => void) => boolean | void;
+  selectedId?: string;
 }) {
   const t = useT();
+  const locale = useContext(LanguageContext);
+  const previousLocale = useRef(locale);
+  const [calculatedInputs, setCalculatedInputs] = useState<
+    Record<string, number | string>
+  >({});
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(initialTool || "");
   const [values, setValues] = useState<Record<string, number | string>>({});
@@ -44,6 +58,31 @@ export function Toolbox({
     [query, category],
   );
   const tool = tools.find((tool) => tool.id === selected);
+  useEffect(() => {
+    if (previousLocale.current === locale) return;
+    const before = previousLocale.current;
+    previousLocale.current = locale;
+    setValues((current) => {
+      const next = { ...current };
+      for (const input of tool?.inputs || []) {
+        if (
+          input.options ||
+          input.type === "text" ||
+          next[input.key] === undefined ||
+          next[input.key] === ""
+        )
+          continue;
+        const value = next[input.key];
+        if (typeof value === "number") continue;
+        const parsed = parseLocaleNumber(value, before, {
+          min: input.min,
+          max: input.max,
+        });
+        if (parsed.ok) next[input.key] = parsed.value;
+      }
+      return next;
+    });
+  }, [locale, tool]);
   function choose(id: string) {
     setSelected(id);
     setValues({});
@@ -54,7 +93,25 @@ export function Toolbox({
     e.preventDefault();
     try {
       if (!tool) return;
-      setResult(tool.calculate(values));
+      const normalized = { ...values };
+      for (const input of tool.inputs) {
+        if (input.options || input.type === "text") continue;
+        const value = values[input.key];
+        if (value === undefined || value === "") continue;
+        if (typeof value === "number") {
+          normalized[input.key] = value;
+          continue;
+        }
+        const parsed = parseLocaleNumber(value, locale, {
+          min: input.min,
+          max: input.max,
+        });
+        if (!parsed.ok)
+          throw new Error(t(input.label) + ": " + t(parsed.message));
+        normalized[input.key] = parsed.value;
+      }
+      setResult(tool.calculate(normalized));
+      setCalculatedInputs(normalized);
       setError("");
     } catch (e) {
       setResult(null);
@@ -133,11 +190,21 @@ export function Toolbox({
                       </select>
                     ) : (
                       <input
-                        type={input.type === "text" ? "text" : "number"}
+                        type="text"
+                        inputMode={
+                          input.type === "text" ? undefined : "decimal"
+                        }
                         min={input.min}
                         max={input.max}
                         step={input.step ?? "any"}
-                        value={values[input.key] ?? ""}
+                        value={
+                          typeof values[input.key] === "number"
+                            ? formatEditableNumber(
+                                values[input.key] as number,
+                                locale,
+                              )
+                            : (values[input.key] ?? "")
+                        }
                         onChange={(e) => {
                           setValues({ ...values, [input.key]: e.target.value });
                           setResult(null);
@@ -185,6 +252,16 @@ export function Toolbox({
               )}
             </form>
             {result && (
+              <ToolboxApply
+                project={project}
+                change={change}
+                toolId={tool.id}
+                values={calculatedInputs}
+                result={result}
+                selectedId={selectedId}
+              />
+            )}
+            {result && (
               <section className="panel panel-pad tool-result">
                 <div className="panel-title">
                   <h3>{t("Result")}</h3>
@@ -203,16 +280,14 @@ export function Toolbox({
                       <span>{t(r.label)}</span>
                       <strong>
                         {typeof r.value === "number"
-                          ? new Intl.NumberFormat(undefined, {
-                              maximumFractionDigits: 6,
-                            }).format(r.value)
+                          ? numberFormat(r.value, 6, locale)
                           : t(r.value)}{" "}
                         <small>{r.unit}</small>
                       </strong>
                     </div>
                   ))}
                 </div>
-                <div className="formula">{result.formula}</div>
+                <div className="formula">{t(result.formula)}</div>
                 {result.warnings?.map((w, i) => (
                   <Notice key={i} tone="warning">
                     {t(w)}
@@ -246,7 +321,7 @@ export function Toolbox({
                       try {
                         await navigator.clipboard.writeText(
                           JSON.stringify(
-                            { tool: tool.id, inputs: values, result },
+                            { tool: tool.id, inputs: calculatedInputs, result },
                             null,
                             2,
                           ),
@@ -267,7 +342,7 @@ export function Toolbox({
                       downloadFile(
                         safeName(tool.title) + ".json",
                         JSON.stringify(
-                          { tool: tool.id, inputs: values, result },
+                          { tool: tool.id, inputs: calculatedInputs, result },
                           null,
                           2,
                         ),

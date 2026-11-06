@@ -1,4 +1,5 @@
 import type { CalculationResult, Project } from "../domain/types";
+import { translate } from "../i18n";
 
 export type ReportLocale = "en" | "de" | "yo" | "pcm";
 export type BillKind = "estimate" | "invoice";
@@ -8,6 +9,15 @@ export type BillLine = {
   category: "material" | "labour" | "other";
   quantity: string;
   unitPrice: string;
+  source?: {
+    projectId: string;
+    revision: number;
+    entityIds: string[];
+    kind: string;
+    quantity: number;
+    unit: "piece" | "m";
+    wastePercent: string;
+  };
 };
 export type BillDocument = {
   schemaVersion: 1;
@@ -27,6 +37,7 @@ export type BillDocument = {
   discountPercent: string;
   taxPercent: string;
   lines: BillLine[];
+  numericDrafts?: Record<string, { text: string; locale: ReportLocale }>;
 };
 export type BillTotals = {
   digits: number;
@@ -213,8 +224,13 @@ export function calculateBill(
   bill: Pick<
     BillDocument,
     "currency" | "lines" | "discountPercent" | "taxPercent"
-  >,
+  > &
+    Pick<BillDocument, "numericDrafts">,
 ): BillTotals {
+  if (bill.numericDrafts && Object.keys(bill.numericDrafts).length)
+    throw new Error(
+      "Resolve invalid numeric draft fields before calculating the bill.",
+    );
   const digits = currencyDigits(bill.currency);
   const lineBig = bill.lines.map((line, i) => {
     const quantity = decimalInteger(line.quantity, 3, `Quantity ${i + 1}`);
@@ -383,7 +399,7 @@ export const reportFilename = (
   }.${extension}`;
 
 let fontPromise: Promise<string> | undefined;
-async function embeddedFont(): Promise<string> {
+export async function embeddedFont(): Promise<string> {
   if (!fontPromise)
     fontPromise = (async () => {
       const response = await fetch(
@@ -619,13 +635,61 @@ export function parseBillJson(text: string): BillDocument {
   }
   if (!Array.isArray(b.lines) || b.lines.length > 1000)
     throw new Error("Invalid billing lines.");
+  if (b.numericDrafts !== undefined) {
+    if (
+      !b.numericDrafts ||
+      typeof b.numericDrafts !== "object" ||
+      Array.isArray(b.numericDrafts) ||
+      Object.keys(b.numericDrafts).length > 2002
+    )
+      throw new Error("Invalid numeric draft data.");
+    for (const [key, raw] of Object.entries(b.numericDrafts)) {
+      const draft = raw as { text?: unknown; locale?: unknown };
+      if (
+        key.length > 300 ||
+        !draft ||
+        typeof draft !== "object" ||
+        typeof draft.text !== "string" ||
+        draft.text.length > 64 ||
+        !["en", "de", "yo", "pcm"].includes(String(draft.locale))
+      )
+        throw new Error("Invalid numeric draft data.");
+    }
+  }
   const ids = new Set<string>();
   for (const line of b.lines) {
     if (!line || typeof line !== "object" || Array.isArray(line))
       throw new Error("Invalid billing line.");
     for (const key of ["id", "description", "quantity", "unitPrice"])
-      if (typeof line[key] !== "string" || line[key].length > 240)
+      if (
+        typeof line[key] !== "string" ||
+        line[key].length > (key === "description" ? 1000 : 240)
+      )
         throw new Error(`Invalid line ${key}.`);
+    if (line.source !== undefined) {
+      const source = line.source;
+      if (
+        !source ||
+        typeof source !== "object" ||
+        Array.isArray(source) ||
+        typeof source.projectId !== "string" ||
+        !source.projectId ||
+        !Number.isSafeInteger(source.revision) ||
+        source.revision < 1 ||
+        !Array.isArray(source.entityIds) ||
+        source.entityIds.length > 1000 ||
+        source.entityIds.some(
+          (id: unknown) => typeof id !== "string" || id.length > 240,
+        ) ||
+        typeof source.kind !== "string" ||
+        !Number.isFinite(source.quantity) ||
+        source.quantity < 0 ||
+        !["piece", "m"].includes(source.unit) ||
+        typeof source.wastePercent !== "string" ||
+        source.wastePercent.length > 32
+      )
+        throw new Error("Invalid bill-of-materials source annotation.");
+    }
     if (
       !line.id ||
       ids.has(line.id) ||
@@ -635,12 +699,39 @@ export function parseBillJson(text: string): BillDocument {
     ids.add(line.id);
   }
   const bill = b as unknown as BillDocument;
+  if (bill.numericDrafts) {
+    const allowed = new Set([
+      "discountPercent",
+      "taxPercent",
+      ...bill.lines.flatMap((line) => [
+        `line:${line.id}:quantity`,
+        `line:${line.id}:unitPrice`,
+      ]),
+    ]);
+    if (Object.keys(bill.numericDrafts).some((key) => !allowed.has(key)))
+      throw new Error("Numeric draft refers to a missing bill field.");
+  }
   currencyDigits(bill.currency);
   return structuredClone(bill);
 }
 
 export type EngineeringReportSection =
-  "summary" | "loads" | "circuits" | "issues" | "trace";
+  | "summary"
+  | "loads"
+  | "circuits"
+  | "issues"
+  | "trace"
+  | "boards"
+  | "assessments"
+  | "motors"
+  | "energy"
+  | "storage"
+  | "ev"
+  | "scenarios"
+  | "bom"
+  | "diagram"
+  | "measurements"
+  | "series";
 const engineeringLabels: Record<ReportLocale, Record<string, string>> = {
   en: {
     title: "Electrical engineering report",
@@ -875,6 +966,7 @@ export async function createEngineeringPdf(
     locale?: ReportLocale;
     sections?: EngineeringReportSection[];
     fontBase64?: string;
+    snapshot?: import("./reportSnapshot").ReportSnapshot;
   } = {},
 ): Promise<Blob> {
   const project = structuredClone(projectInput);
@@ -884,6 +976,7 @@ export async function createEngineeringPdf(
       "Recalculate the current project revision before exporting.",
     );
   const locale = options.locale ?? "en";
+  const t = (value: string) => translate(value, locale);
   const l = engineeringLabels[locale];
   const sections = options.sections ?? [
     "summary",
@@ -892,6 +985,39 @@ export async function createEngineeringPdf(
     "issues",
     "trace",
   ];
+  if (
+    !sections.length ||
+    sections.some(
+      (section) =>
+        ![
+          "summary",
+          "loads",
+          "circuits",
+          "issues",
+          "trace",
+          "boards",
+          "assessments",
+          "motors",
+          "energy",
+          "storage",
+          "ev",
+          "scenarios",
+          "bom",
+          "diagram",
+          "measurements",
+          "series",
+        ].includes(section),
+    )
+  )
+    throw new Error("Select at least one supported report section.");
+  const { freezeReportSnapshot } = await import("./reportSnapshot");
+  const snapshot = options.snapshot
+    ? freezeReportSnapshot(project, result, {
+        locale,
+        context: options.snapshot.context,
+        generatedAt: options.snapshot.generatedAt,
+      })
+    : freezeReportSnapshot(project, result, { locale });
   const [{ jsPDF }, font] = await Promise.all([
     import("jspdf"),
     options.fontBase64 ? Promise.resolve(options.fontBase64) : embeddedFont(),
@@ -973,12 +1099,27 @@ export async function createEngineeringPdf(
     need(rowHeight(headers) + 12);
     draw(headers, true);
     for (const cells of rows) {
-      const height = rowHeight(cells);
-      if (y + height > 277) {
-        page();
-        draw(headers, true);
+      const lines = cells.map((cell, i) => split(cell, widths[i] - 4, 8));
+      const total = Math.max(1, ...lines.map((cell) => cell.length));
+      let offset = 0;
+      while (offset < total) {
+        let available = Math.floor((277 - y - 5) / 4.2);
+        if (available < 1) {
+          page();
+          draw(headers, true);
+          available = Math.floor((277 - y - 5) / 4.2);
+        }
+        const count = Math.min(total - offset, available);
+        draw(
+          lines.map((cell) => cell.slice(offset, offset + count).join("\n")),
+          false,
+        );
+        offset += count;
+        if (offset < total) {
+          page();
+          draw(headers, true);
+        }
       }
-      draw(cells, false);
     }
     y += 6;
   };
@@ -999,6 +1140,18 @@ export async function createEngineeringPdf(
     8,
   );
   paragraph(`${l.jurisdiction}: ${project.jurisdiction}`, 8);
+  if (project.reportDetails?.reference)
+    paragraph(
+      `${l.reference ?? "Reference"}: ${project.reportDetails.reference}`,
+      8,
+    );
+  if (project.reportDetails?.preparedBy)
+    paragraph(project.reportDetails.preparedBy, 8);
+  if (project.reportDetails?.customer)
+    paragraph(project.reportDetails.customer, 8);
+  paragraph(`${snapshot.generatedAt} · ${project.id}`, 7);
+  if (project.reportDetails?.scopeNotes)
+    paragraph(project.reportDetails.scopeNotes, 8);
   y += 4;
   paragraph(l.boundary, 8);
   if (sections.includes("summary")) {
@@ -1118,22 +1271,22 @@ export async function createEngineeringPdf(
         [l.severity, l.message],
         [35, 147],
         result.issues.map((issue) => [
-          `${issue.severity}\n${issue.assessment}`,
-          `${issue.message}${issue.entityId ? `\nID: ${issue.entityId}` : ""}`,
+          `${t(issue.severity)}\n${t(issue.assessment)}`,
+          `${t(issue.message)}${issue.entityId ? `\nID: ${issue.entityId}` : ""}`,
         ]),
       );
   }
   if (sections.includes("trace")) {
     heading(l.trace);
-    paragraph(result.trace.method);
+    paragraph(t(result.trace.method));
     paragraph(result.trace.formula, 8);
     paragraph(
-      `${result.trace.origin} · ${result.trace.assessment} · ${l.revision} ${result.trace.revision}`,
+      `${t(result.trace.origin)} · ${t(result.trace.assessment)} · ${l.revision} ${result.trace.revision}`,
       8,
     );
     heading(l.assumptions);
     for (const assumption of result.trace.assumptions)
-      paragraph(`• ${assumption}`, 8);
+      paragraph(`• ${t(assumption)}`, 8);
     if (result.trace.sources.length) {
       heading(l.references);
       for (const source of result.trace.sources) paragraph(source, 8);
@@ -1151,6 +1304,36 @@ export async function createEngineeringPdf(
       heading(l.notes);
       paragraph(project.notes, 8);
     }
+  }
+  const { reportBlocks } = await import("./reportSections");
+  for (const section of sections.filter(
+    (section) =>
+      !["summary", "loads", "circuits", "issues", "trace", "diagram"].includes(
+        section,
+      ),
+  )) {
+    for (const block of reportBlocks(snapshot, section)) {
+      if (block.kind === "heading") heading(block.text);
+      else if (block.kind === "paragraph") paragraph(block.text);
+      else if (block.rows.length)
+        table(
+          block.headers,
+          block.widths ?? block.headers.map(() => width / block.headers.length),
+          block.rows,
+        );
+    }
+  }
+  if (sections.includes("diagram")) {
+    const [{ appendDiagramPages }, { buildDiagramSnapshot }] =
+      await Promise.all([
+        import("./diagramPdf"),
+        import("../commands/diagram"),
+      ]);
+    appendDiagramPages(
+      doc,
+      snapshot.context.diagram ?? buildDiagramSnapshot(project, result),
+      { locale, showTileFooter: false },
+    );
   }
   const count = doc.getNumberOfPages();
   for (let p = 1; p <= count; p++) {
