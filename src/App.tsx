@@ -114,6 +114,7 @@ import {
 } from "./features/DetailViews";
 import { UpdateBanner } from "./features/UpdateBanner";
 import { useUpdateGuard } from "./pwa/useUpdateGuard";
+import { updateBlockers } from "./pwa/updates";
 import {
   Overview,
   Loads,
@@ -339,6 +340,7 @@ export default function App() {
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
   const [helpQuery, setHelpQuery] = useState("");
+  const [helpNavigationBlocked, setHelpNavigationBlocked] = useState(false);
   const [commandReview, setCommandReview] = useState<{
     preview: CommandPreview;
     selectedId?: string;
@@ -393,6 +395,7 @@ export default function App() {
       },
     }));
   const [toolId, setToolId] = useState("");
+  const [toolRequest, setToolRequest] = useState(0);
   const [revisions, setRevisions] = useState<Project[]>([]);
   const undo = useRef<Project[]>([]),
     redo = useRef<Project[]>([]);
@@ -591,6 +594,7 @@ export default function App() {
   }
   function openHelp(query = "") {
     setHelpQuery(query);
+    setHelpNavigationBlocked(false);
     setDialog("help");
   }
   async function openProject(next: Project) {
@@ -1716,7 +1720,7 @@ export default function App() {
                       project={project}
                       change={change}
                       selectedId={selected}
-                      key={route + toolId}
+                      key={`${route}:${toolId}:${toolRequest}`}
                       initialTool={toolId}
                       category={
                         route === "cables"
@@ -2765,6 +2769,7 @@ export default function App() {
                         key={tool.id}
                         onClick={() => {
                           setToolId(tool.id);
+                          setToolRequest((request) => request + 1);
                           go("tools");
                         }}
                       >
@@ -2835,11 +2840,31 @@ export default function App() {
           </Modal>
         )}
         {dialog === "help" && (
-          <Modal title={t("Help & Support")} onClose={() => setDialog(null)} wide>
+          <Modal
+            title={t("Help & Support")}
+            onClose={() => setDialog(null)}
+            wide
+          >
+            {helpNavigationBlocked && (
+              <div role="status">
+                <Notice tone="warning">
+                  {t(
+                    "Finish or cancel your current edits before opening another workspace.",
+                  )}
+                </Notice>
+              </div>
+            )}
             <HelpSupport
               initialQuery={helpQuery}
               onNavigate={(nextRoute, nextToolId) => {
-                if (nextToolId) setToolId(nextToolId);
+                if (updateBlockers().length) {
+                  setHelpNavigationBlocked(true);
+                  return;
+                }
+                if (nextToolId) {
+                  setToolId(nextToolId);
+                  setToolRequest((request) => request + 1);
+                }
                 go(nextRoute);
               }}
             />
