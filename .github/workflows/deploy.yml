@@ -7,9 +7,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: pages
-  cancel-in-progress: false
 jobs:
   prepare:
     if: >-
@@ -103,6 +100,9 @@ jobs:
         with:
           path: ${{ runner.temp }}/powerlab-site
   deploy:
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

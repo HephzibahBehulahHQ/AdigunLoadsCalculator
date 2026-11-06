@@ -341,6 +341,8 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [helpQuery, setHelpQuery] = useState("");
   const [helpNavigationBlocked, setHelpNavigationBlocked] = useState(false);
+  const commandOpener = useRef<HTMLElement | null>(null);
+  const helpOpener = useRef<HTMLElement | null>(null);
   const [commandReview, setCommandReview] = useState<{
     preview: CommandPreview;
     selectedId?: string;
@@ -593,9 +595,18 @@ export default function App() {
         .catch((e) => setError(e.message));
   }
   function openHelp(query = "") {
+    helpOpener.current =
+      dialog === "commands"
+        ? commandOpener.current
+        : (document.activeElement as HTMLElement | null);
     setHelpQuery(query);
     setHelpNavigationBlocked(false);
     setDialog("help");
+  }
+  function openCommands() {
+    commandOpener.current = document.activeElement as HTMLElement | null;
+    setQuery("");
+    setDialog("commands");
   }
   async function openProject(next: Project) {
     try {
@@ -750,8 +761,7 @@ export default function App() {
       );
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setDialog("commands");
-        setQuery("");
+        openCommands();
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
@@ -1224,10 +1234,7 @@ export default function App() {
             <span>{t(saveState)}</span>
           </span>
           <span className="spacer" />
-          <button
-            className="command-button"
-            onClick={() => setDialog("commands")}
-          >
+          <button className="command-button" onClick={openCommands}>
             <Search size={16} />
             <span>{t("Search")}</span>
             <kbd>⌘ K</kbd>
@@ -2843,6 +2850,7 @@ export default function App() {
           <Modal
             title={t("Help & Support")}
             onClose={() => setDialog(null)}
+            returnFocus={helpOpener.current}
             wide
           >
             {helpNavigationBlocked && (

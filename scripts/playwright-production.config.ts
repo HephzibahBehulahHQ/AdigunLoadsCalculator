@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
+  metadata: { production: true },
   testDir: "../tests/browser",
   testMatch: [
     "detail-modes.spec.ts",
