@@ -118,6 +118,7 @@ export interface Board {
   /** Source/parent-to-board radial segment, using per-conductor impedance and one-way length. */
   feeder?: Cable;
   notes?: string;
+  zoneId?: string;
 }
 export interface Circuit {
   id: string;
@@ -189,6 +190,46 @@ export interface EnergySettings {
   /** Explicit normalized hourly profile. Missing profile uses no chronological PV generation. */
   pvHourlyProfile?: number[];
   source: string;
+  /** Entered AC wind output, one value per hour. No turbine/weather model is inferred. */
+  windHourlyKW?: number[];
+  windSource?: string;
+  inverterACLimitKW?: number;
+  gridImportLimitKW?: number;
+  gridExportLimitKW?: number;
+  dispatch?: {
+    strategy: "self-consumption" | "reserve" | "time-of-use" | "peak-shaving";
+    reserveSoc: number;
+    peakLimitKW?: number;
+    allowGridCharge: boolean;
+    gridChargeWindows: { startHour: number; endHour: number; targetSoc: number }[];
+  };
+  backup?: {
+    sourceId?: string;
+    criticalOnly: boolean;
+    priorityLoadIds: string[];
+    restartDelayMinutes: number;
+    requireBlackStart: boolean;
+  };
+}
+export interface SourceEquipment {
+  id: string;
+  name: string;
+  type: "grid" | "transformer" | "generator" | "inverter" | "ups";
+  boardId?: string;
+  connection: "single" | "three" | "dc";
+  phase?: Phase;
+  voltageV: number;
+  continuousKW: number;
+  continuousKVA: number;
+  derating: number;
+  overload?: { kw: number; kva: number; durationSeconds: number; source: string };
+  islandCapable: boolean;
+  gridForming: boolean;
+  transferIsolationVerified: boolean;
+  blackStart: boolean;
+  restartSeconds: number;
+  source: SourceEvidence;
+  notes: string;
 }
 export interface EVSession {
   id: string;
@@ -291,6 +332,8 @@ export interface Project {
   startEvents?: StartEvent[];
   flexibleLoads?: FlexibleLoad[];
   reportDetails?: { reference: string; preparedBy: string; customer: string; scopeNotes: string };
+  sources?: SourceEquipment[];
+  zones?: { id: string; name: string; kind: "building" | "zone"; parentId?: string }[];
 }
 export interface Issue {
   id: string;

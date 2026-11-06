@@ -164,16 +164,71 @@ function validateCable(value: unknown, label: string, errors: string[]) {
 /** Reusable trust-boundary checks for optional planning data, without mutating the project. */
 export function validateProjectExtensions(candidate: Record<string, unknown>): string[] {
   const errors: string[] = [];
+  if (candidate.zones !== undefined) {
+    if (!Array.isArray(candidate.zones) || candidate.zones.length > 10000) errors.push("Organization must contain at most 10,000 buildings/zones.");
+    else {
+      uniqueIds(candidate.zones, "Buildings/zones", errors);
+      const zones = new Map(candidate.zones.filter(record).map((row) => [row.id, row]));
+      for (const zone of zones.values()) {
+        if (!text(zone.name) || !["building", "zone"].includes(String(zone.kind)) || (zone.parentId !== undefined && (!text(zone.parentId) || !zones.has(zone.parentId)))) errors.push("Invalid building/zone name, kind or parent reference.");
+        const seen = new Set<unknown>([zone.id]);
+        let parent = zone.parentId;
+        while (parent !== undefined) {
+          if (seen.has(parent) || seen.size > 100) { errors.push("Building/zone hierarchy contains a cycle or exceeds 100 levels."); break; }
+          seen.add(parent); parent = zones.get(parent)?.parentId;
+        }
+      }
+    }
+  }
   if (candidate.reportDetails !== undefined) {
     if (!record(candidate.reportDetails)) errors.push("Invalid report details.");
     else for (const [key, limit] of [["reference", 120], ["preparedBy", 1000], ["customer", 1000], ["scopeNotes", 4000]] as const)
       if (typeof candidate.reportDetails[key] !== "string" || candidate.reportDetails[key].length > limit) errors.push(`Report ${key} must be text of at most ${limit} characters.`);
+  }
+  if (candidate.sources !== undefined) {
+    if (!Array.isArray(candidate.sources) || candidate.sources.length > 1000) errors.push("Source equipment must be an array of at most 1,000 records.");
+    else {
+      uniqueIds(candidate.sources, "Source equipment", errors);
+      for (const source of candidate.sources) {
+        if (!record(source)) continue;
+        if (!text(source.name) || !text(source.notes) || !["grid", "transformer", "generator", "inverter", "ups"].includes(String(source.type)) || !["single", "three", "dc"].includes(String(source.connection))) errors.push("Invalid source equipment description or connection.");
+        if (source.connection === "single" && !["L1", "L2", "L3"].includes(String(source.phase))) errors.push("Single-phase sources require an explicit phase.");
+        if (!finite(source.voltageV) || source.voltageV <= 0 || !finite(source.continuousKW) || source.continuousKW < 0 || !finite(source.continuousKVA) || source.continuousKVA <= 0 || source.continuousKW > source.continuousKVA || !finite(source.derating) || source.derating <= 0 || source.derating > 1 || !finite(source.restartSeconds) || source.restartSeconds < 0) errors.push("Source ratings, derating and restart time must be finite and physically consistent.");
+        for (const key of ["islandCapable", "gridForming", "transferIsolationVerified", "blackStart"]) if (typeof source[key] !== "boolean") errors.push(`Source ${key} evidence must be explicit.`);
+        if (!record(source.source) || !text(source.source.reference) || !["nameplate", "measured", "datasheet", "estimate", "user"].includes(String(source.source.kind))) errors.push("Source equipment requires entered provenance.");
+        if (source.boardId !== undefined && (!text(source.boardId) || !Array.isArray(candidate.boards) || !candidate.boards.some((board) => record(board) && board.id === source.boardId))) errors.push("Source equipment references a missing board.");
+        if (source.overload !== undefined) {
+          const limit = source.overload;
+          if (!record(limit) || !finite(limit.kw) || limit.kw < 0 || !finite(limit.kva) || limit.kva <= 0 || limit.kw > limit.kva || !finite(limit.durationSeconds) || limit.durationSeconds <= 0 || !text(limit.source)) errors.push("Overload limits require entered kW/kVA/time and provenance.");
+        }
+      }
+    }
+  }
+  if (record(candidate.energy)) {
+    const energy = candidate.energy;
+    if (energy.windHourlyKW !== undefined && (!Array.isArray(energy.windHourlyKW) || energy.windHourlyKW.length !== 24 || energy.windHourlyKW.some((value) => !finite(value) || value < 0))) errors.push("Entered wind profile requires 24 nonnegative AC kW values.");
+    if (energy.windSource !== undefined && !text(energy.windSource)) errors.push("Wind provenance must be text.");
+    for (const key of ["inverterACLimitKW", "gridImportLimitKW", "gridExportLimitKW"]) if (energy[key] !== undefined && (!finite(energy[key]) || energy[key] < 0)) errors.push(`Energy ${key} must be finite and nonnegative.`);
+    if (energy.dispatch !== undefined) {
+      const dispatch = energy.dispatch;
+      if (!record(dispatch) || !["self-consumption", "reserve", "time-of-use", "peak-shaving"].includes(String(dispatch.strategy)) || !finite(dispatch.reserveSoc) || dispatch.reserveSoc < 0 || dispatch.reserveSoc > 1 || typeof dispatch.allowGridCharge !== "boolean" || !Array.isArray(dispatch.gridChargeWindows) || dispatch.gridChargeWindows.length > 100) errors.push("Invalid battery dispatch strategy, reserve or charging permission.");
+      else {
+        if (dispatch.peakLimitKW !== undefined && (!finite(dispatch.peakLimitKW) || dispatch.peakLimitKW < 0)) errors.push("Peak-shaving target must be finite and nonnegative.");
+        for (const row of dispatch.gridChargeWindows) if (!record(row) || !finite(row.startHour) || row.startHour < 0 || row.startHour >= 24 || !finite(row.endHour) || row.endHour < 0 || row.endHour > 24 || row.startHour === row.endHour || !finite(row.targetSoc) || row.targetSoc < 0 || row.targetSoc > 1) errors.push("Invalid grid-charge window or target SOC.");
+      }
+    }
+    if (energy.backup !== undefined) {
+      const backup = energy.backup;
+      if (!record(backup) || typeof backup.criticalOnly !== "boolean" || typeof backup.requireBlackStart !== "boolean" || !finite(backup.restartDelayMinutes) || backup.restartDelayMinutes < 0 || backup.restartDelayMinutes > 1440 || !Array.isArray(backup.priorityLoadIds) || backup.priorityLoadIds.some((id) => typeof id !== "string" || !Array.isArray(candidate.loads) || !candidate.loads.some((load) => record(load) && load.id === id))) errors.push("Invalid backup priorities, restart timing or explicit critical/black-start flags.");
+      else if (backup.sourceId !== undefined && (!text(backup.sourceId) || !Array.isArray(candidate.sources) || !candidate.sources.some((source) => record(source) && source.id === backup.sourceId))) errors.push("Backup references a missing entered supply.");
+    }
   }
   if (candidate.baselineId !== undefined && (!text(candidate.baselineId) || !candidate.baselineId)) errors.push("Invalid baseline ID.");
   if (Array.isArray(candidate.loads)) for (const load of candidate.loads) if (record(load) && load.schedule !== undefined) errors.push(...validateSchedule(load.schedule).map((message) => `Load ${String(load.name)}: ${message}`));
   if (Array.isArray(candidate.boards)) for (const board of candidate.boards) if (record(board)) {
     if (board.feeder !== undefined) validateCable(board.feeder, `Board ${String(board.name)} feeder`, errors);
     if (board.notes !== undefined && !text(board.notes)) errors.push(`Board ${String(board.name)}: invalid notes.`);
+    if (board.zoneId !== undefined && (!text(board.zoneId) || !Array.isArray(candidate.zones) || !candidate.zones.some((zone) => record(zone) && zone.id === board.zoneId))) errors.push(`Board ${String(board.name)}: missing building/zone reference.`);
   }
   if (Array.isArray(candidate.circuits)) for (const circuit of candidate.circuits) if (record(circuit) && circuit.cable !== undefined) validateCable(circuit.cable, `Circuit ${String(circuit.name)}`, errors);
   const loadIds = new Set(Array.isArray(candidate.loads) ? candidate.loads.filter(record).map((load) => load.id) : []);
@@ -738,7 +793,7 @@ export function validateProjectImport(input: unknown): {
     if (!Array.isArray(candidate.equipmentLibrary) || candidate.equipmentLibrary.length > 10000) errors.push("Equipment library must be an array of at most 10,000 detached templates.");
     else {
       if (candidate.equipmentLibrary.some((row) => record(row) && (row.boardId !== undefined || row.circuitId !== undefined))) errors.push("Equipment templates must be detached from boards and circuits.");
-      const checked = validateProjectImport({ ...candidate, loads: candidate.equipmentLibrary, equipmentLibrary: undefined, scenarioBaseline: undefined, startEvents: undefined, flexibleLoads: undefined });
+      const checked = validateProjectImport({ ...candidate, loads: candidate.equipmentLibrary, equipmentLibrary: undefined, scenarioBaseline: undefined, startEvents: undefined, flexibleLoads: undefined, energy: record(candidate.energy) ? { ...candidate.energy, backup: undefined } : candidate.energy });
       if (!checked.valid) errors.push(...checked.errors.map((message) => `Equipment library: ${message}`));
     }
   }

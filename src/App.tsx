@@ -115,6 +115,13 @@ import {
 } from "./features/ProjectComparison";
 import { WorkspaceRecovery } from "./features/WorkspaceRecovery";
 import { LoadOperations } from "./features/LoadOperations";
+import { TopologyEditor } from "./features/TopologyEditor";
+import { AdvancedPlanning } from "./features/AdvancedPlanning";
+import { FeederAssessment } from "./features/FeederAssessment";
+import { ReportWorkspace } from "./features/ReportWorkspace";
+import type { ReportContext } from "./import-export/reportSnapshot";
+import type { CalendarResult, RangeOptions } from "./engine/simulation";
+import { previewProjectCommand, applyProjectCommand } from "./commands/projectCommands";
 import { tools } from "./tools";
 import { resetBotWindowState } from "./bot/windowState";
 const Billing = lazy(() =>
@@ -272,7 +279,10 @@ export default function App() {
   const [reportTab, setReportTab] = useState<"engineering" | "billing">(
     "engineering",
   );
-  const [reportBusy, setReportBusy] = useState(false);
+  const [, setReportBusy] = useState(false);
+  const [reportContext, setReportContext] = useState<ReportContext>({});
+  useEffect(() => setReportContext({}), [project.id, project.revision]);
+  const rememberCalendar = (calculated: CalendarResult, inputs: Record<string, unknown> | RangeOptions) => setReportContext(context => ({...context, calendar: {projectId: project.id, revision: project.revision, calculatedAt: new Date().toISOString(), result: calculated, inputs: inputs as RangeOptions, source: "Completed calendar simulation"}}));
   const [toolId, setToolId] = useState("");
   const [revisions, setRevisions] = useState<Project[]>([]);
   const [update, setUpdate] = useState<ServiceWorkerRegistration>();
@@ -1316,7 +1326,7 @@ export default function App() {
                         }
                         onDelete={(id) => {
                           change((p) => {
-                            p.loads = p.loads.filter((l) => l.id !== id);
+                            Object.assign(p, applyProjectCommand(p, previewProjectCommand(p, { kind: "loads.delete", ids: [id] })));
                           });
                           if (selected === id) setSelected(undefined);
                         }}
@@ -1335,15 +1345,18 @@ export default function App() {
                     />
                   )}
                   {route === "diagram" && (
-                    <Diagram
+                    <TopologyEditor
                       project={project}
                       result={result}
                       onSelect={setSelected}
+                      selectedId={selected}
+                      change={change}
                     />
                   )}
                   {route === "simulation" && (
                     <>
-                      <Simulation project={project} result={result} />
+                      <Simulation project={project} result={result} onComplete={rememberCalendar} />
+                      <AdvancedPlanning project={project} onChange={change} onCalendarComplete={rememberCalendar} />
                       <Suspense
                         fallback={
                           <div className="loading">
@@ -1355,8 +1368,12 @@ export default function App() {
                       </Suspense>
                     </>
                   )}
+                  {route === "cables" && <FeederAssessment project={project} onChange={change} />}
                   {["cables", "motors", "quality", "tools"].includes(route) && (
                     <Toolbox
+                      project={project}
+                      change={change}
+                      selectedId={selected}
                       key={route + toolId}
                       initialTool={toolId}
                       category={
@@ -1444,105 +1461,10 @@ export default function App() {
                           />
                         </Suspense>
                       ) : (
-                        <section className="panel panel-pad report-preview">
-                          <div className="report-cover">
-                            <span className="eyebrow">BY HB ELEKTRONIKER</span>
-                            <h2>AdigunPowerLab</h2>
-                            <h3>{project.name}</h3>
-                            <p>
-                              {t("Engineering report")} · {t("Revision")}{" "}
-                              {project.revision}
-                            </p>
-                          </div>
-                          <div className="metric-strip">
-                            <div>
-                              <span>{t("Installed load")}</span>
-                              <strong>
-                                {numberFormat(result.installedKW, 3, locale)} kW
-                              </strong>
-                            </div>
-                            <div>
-                              <span>{t("Design demand")}</span>
-                              <strong>
-                                {numberFormat(result.designKW, 3, locale)} kW
-                              </strong>
-                            </div>
-                            <div>
-                              <span>{t("Daily energy")}</span>
-                              <strong>
-                                {numberFormat(result.dailyKWh, 3, locale)} kWh
-                              </strong>
-                            </div>
-                          </div>
-                          <p>{project.notes}</p>
-                          <Notice>
-                            {t(
-                              "Engineering estimate, not installation approval.",
-                            )}
-                          </Notice>
-                          <div className="button-row">
-                            <button
-                              className="button primary"
-                              disabled={reportBusy}
-                              onClick={() => void pdf()}
-                            >
-                              {reportBusy ? (
-                                <LoaderCircle size={16} className="spin" />
-                              ) : (
-                                <Download size={16} />
-                              )}{" "}
-                              PDF
-                            </button>
-                            <button
-                              className="button"
-                              onClick={() => window.print()}
-                            >
-                              {t("Print report")}
-                            </button>
-                            <button
-                              className="button"
-                              onClick={() => exportLoads(project)}
-                            >
-                              {t("Export loads")}
-                            </button>
-                            <button
-                              className="button"
-                              onClick={() => setShowTrace(true)}
-                            >
-                              {t("Calculation trace")}
-                            </button>
-                          </div>
-                          <details>
-                            <summary>{t("Show details")}</summary>
-                            <div className="table-wrap">
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>{t("Name")}</th>
-                                    <th>kW</th>
-                                    <th>A</th>
-                                    <th>kWh/day</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {project.loads.map((l) => {
-                                    const n = result.loads.find(
-                                      (n) => n.id === l.id,
-                                    );
-                                    return (
-                                      <tr key={l.id}>
-                                        <td>{l.name}</td>
-                                        <td>{n?.operatingKW.toFixed(3)}</td>
-                                        <td>{n?.currentA.toFixed(3)}</td>
-                                        <td>{n?.energyKWh.toFixed(3)}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </details>
-                        </section>
+                        <ReportWorkspace project={project} result={result} locale={locale}
+                          context={{...reportContext, scenarios: records.filter(r => !r.deleted && r.id !== project.id && (r.project.scenarioOf === project.id || r.id === project.scenarioOf || (project.scenarioOf && r.project.scenarioOf === project.scenarioOf))).map(r => ({project: r.project, result: calculateProject(r.project), label: r.project.name}))}}
+                          onDetailsChange={details => change(p => {p.reportDetails = details})}
+                          onOpenBilling={() => setReportTab("billing")} />
                       )}
                     </>
                   )}

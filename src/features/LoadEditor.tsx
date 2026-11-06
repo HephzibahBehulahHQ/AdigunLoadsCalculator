@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { Plus, Save } from "lucide-react";
 import type { Load, Project } from "../domain/types";
 import { createLoad } from "../domain/project";
 import { normalizeLoad } from "../engine/electrical";
 import { Modal, Field, Notice } from "./ui";
-import { useT } from "../i18n";
+import { useT, LanguageContext } from "../i18n";
+import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
+import { parseLocaleNumber, formatEditableNumber } from "../i18n/numbers";
 export function LoadEditor({
   load,
   project,
@@ -19,12 +21,15 @@ export function LoadEditor({
   purpose?: "load" | "template";
 }) {
   const t = useT();
+  const locale = useContext(LanguageContext);
   const [draft, setDraft] = useState(() =>
     load
       ? structuredClone(load)
       : createLoad({ name: "", rating: 0, voltage: project.supply.voltageLN }),
   );
-  const [rating, setRating] = useState(load ? String(load.rating) : "");
+  const [rating, setRating] = useState(
+    load ? formatEditableNumber(load.rating, locale) : "",
+  );
   const [error, setError] = useState("");
   const set = <K extends keyof Load>(key: K, value: Load[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -37,20 +42,24 @@ export function LoadEditor({
     step = "any",
   ) => (
     <Field label={t(label)} unit={unit}>
-      <input
-        type="number"
+      <LocaleNumberInput
         min={min}
         max={max}
         step={step}
         value={draft[key] as number}
-        onChange={(e) => set(key, Number(e.target.value) as never)}
+        onValueChange={(value) => set(key, value as never)}
         required
       />
     </Field>
   );
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const l = { ...draft, rating: Number(rating) };
+    const parsedRating = parseLocaleNumber(rating, locale, { min: 0 });
+    if (!parsedRating.ok) {
+      setError(t(parsedRating.message));
+      return;
+    }
+    const l = { ...draft, rating: parsedRating.value };
     if (!rating.trim() || !draft.name.trim()) {
       setError("Enter a name and rating.");
       return;
@@ -148,9 +157,8 @@ export function LoadEditor({
               }
             >
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={rating}
                 onChange={(e) => setRating(e.target.value)}
                 required

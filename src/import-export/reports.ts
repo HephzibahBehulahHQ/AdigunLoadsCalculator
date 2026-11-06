@@ -633,8 +633,35 @@ export function parseBillJson(text: string): BillDocument {
     if (!line || typeof line !== "object" || Array.isArray(line))
       throw new Error("Invalid billing line.");
     for (const key of ["id", "description", "quantity", "unitPrice"])
-      if (typeof line[key] !== "string" || line[key].length > 240)
+      if (
+        typeof line[key] !== "string" ||
+        line[key].length > (key === "description" ? 1000 : 240)
+      )
         throw new Error(`Invalid line ${key}.`);
+    if (line.source !== undefined) {
+      const source = line.source;
+      if (
+        !source ||
+        typeof source !== "object" ||
+        Array.isArray(source) ||
+        typeof source.projectId !== "string" ||
+        !source.projectId ||
+        !Number.isSafeInteger(source.revision) ||
+        source.revision < 1 ||
+        !Array.isArray(source.entityIds) ||
+        source.entityIds.length > 1000 ||
+        source.entityIds.some(
+          (id: unknown) => typeof id !== "string" || id.length > 240,
+        ) ||
+        typeof source.kind !== "string" ||
+        !Number.isFinite(source.quantity) ||
+        source.quantity < 0 ||
+        !["piece", "m"].includes(source.unit) ||
+        typeof source.wastePercent !== "string" ||
+        source.wastePercent.length > 32
+      )
+        throw new Error("Invalid bill-of-materials source annotation.");
+    }
     if (
       !line.id ||
       ids.has(line.id) ||
@@ -649,7 +676,22 @@ export function parseBillJson(text: string): BillDocument {
 }
 
 export type EngineeringReportSection =
-  "summary" | "loads" | "circuits" | "issues" | "trace";
+  | "summary"
+  | "loads"
+  | "circuits"
+  | "issues"
+  | "trace"
+  | "boards"
+  | "assessments"
+  | "motors"
+  | "energy"
+  | "storage"
+  | "ev"
+  | "scenarios"
+  | "bom"
+  | "diagram"
+  | "measurements"
+  | "series";
 const engineeringLabels: Record<ReportLocale, Record<string, string>> = {
   en: {
     title: "Electrical engineering report",
@@ -884,6 +926,7 @@ export async function createEngineeringPdf(
     locale?: ReportLocale;
     sections?: EngineeringReportSection[];
     fontBase64?: string;
+    snapshot?: import("./reportSnapshot").ReportSnapshot;
   } = {},
 ): Promise<Blob> {
   const project = structuredClone(projectInput);
@@ -901,6 +944,39 @@ export async function createEngineeringPdf(
     "issues",
     "trace",
   ];
+  if (
+    !sections.length ||
+    sections.some(
+      (section) =>
+        ![
+          "summary",
+          "loads",
+          "circuits",
+          "issues",
+          "trace",
+          "boards",
+          "assessments",
+          "motors",
+          "energy",
+          "storage",
+          "ev",
+          "scenarios",
+          "bom",
+          "diagram",
+          "measurements",
+          "series",
+        ].includes(section),
+    )
+  )
+    throw new Error("Select at least one supported report section.");
+  const { freezeReportSnapshot } = await import("./reportSnapshot");
+  const snapshot = options.snapshot
+    ? freezeReportSnapshot(project, result, {
+        locale,
+        context: options.snapshot.context,
+        generatedAt: options.snapshot.generatedAt,
+      })
+    : freezeReportSnapshot(project, result, { locale });
   const [{ jsPDF }, font] = await Promise.all([
     import("jspdf"),
     options.fontBase64 ? Promise.resolve(options.fontBase64) : embeddedFont(),
@@ -982,12 +1058,27 @@ export async function createEngineeringPdf(
     need(rowHeight(headers) + 12);
     draw(headers, true);
     for (const cells of rows) {
-      const height = rowHeight(cells);
-      if (y + height > 277) {
-        page();
-        draw(headers, true);
+      const lines = cells.map((cell, i) => split(cell, widths[i] - 4, 8));
+      const total = Math.max(1, ...lines.map((cell) => cell.length));
+      let offset = 0;
+      while (offset < total) {
+        let available = Math.floor((277 - y - 5) / 4.2);
+        if (available < 1) {
+          page();
+          draw(headers, true);
+          available = Math.floor((277 - y - 5) / 4.2);
+        }
+        const count = Math.min(total - offset, available);
+        draw(
+          lines.map((cell) => cell.slice(offset, offset + count).join("\n")),
+          false,
+        );
+        offset += count;
+        if (offset < total) {
+          page();
+          draw(headers, true);
+        }
       }
-      draw(cells, false);
     }
     y += 6;
   };
@@ -1008,6 +1099,18 @@ export async function createEngineeringPdf(
     8,
   );
   paragraph(`${l.jurisdiction}: ${project.jurisdiction}`, 8);
+  if (project.reportDetails?.reference)
+    paragraph(
+      `${l.reference ?? "Reference"}: ${project.reportDetails.reference}`,
+      8,
+    );
+  if (project.reportDetails?.preparedBy)
+    paragraph(project.reportDetails.preparedBy, 8);
+  if (project.reportDetails?.customer)
+    paragraph(project.reportDetails.customer, 8);
+  paragraph(`${snapshot.generatedAt} · ${project.id}`, 7);
+  if (project.reportDetails?.scopeNotes)
+    paragraph(project.reportDetails.scopeNotes, 8);
   y += 4;
   paragraph(l.boundary, 8);
   if (sections.includes("summary")) {
@@ -1160,6 +1263,36 @@ export async function createEngineeringPdf(
       heading(l.notes);
       paragraph(project.notes, 8);
     }
+  }
+  const { reportBlocks } = await import("./reportSections");
+  for (const section of sections.filter(
+    (section) =>
+      !["summary", "loads", "circuits", "issues", "trace", "diagram"].includes(
+        section,
+      ),
+  )) {
+    for (const block of reportBlocks(snapshot, section)) {
+      if (block.kind === "heading") heading(block.text);
+      else if (block.kind === "paragraph") paragraph(block.text);
+      else if (block.rows.length)
+        table(
+          block.headers,
+          block.widths ?? block.headers.map(() => width / block.headers.length),
+          block.rows,
+        );
+    }
+  }
+  if (sections.includes("diagram")) {
+    const [{ appendDiagramPages }, { buildDiagramSnapshot }] =
+      await Promise.all([
+        import("./diagramPdf"),
+        import("../commands/diagram"),
+      ]);
+    appendDiagramPages(
+      doc,
+      snapshot.context.diagram ?? buildDiagramSnapshot(project, result),
+      { locale },
+    );
   }
   const count = doc.getNumberOfPages();
   for (let p = 1; p <= count; p++) {

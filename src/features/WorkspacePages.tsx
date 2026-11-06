@@ -33,7 +33,7 @@ import type {
 import { createBoard, createCircuit } from "../domain/project";
 import { previewPhaseBalance, applyPhaseBalance } from "../engine/planning";
 import { assessCircuit } from "../engine/assessments";
-import type { CalendarResult } from "../engine/simulation";
+import type { CalendarResult, RangeOptions } from "../engine/simulation";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
 import { Field, Notice, Modal, Empty, LineChart } from "./ui";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
@@ -1494,9 +1494,11 @@ function midnight(date: string, timezone: string) {
 export function Simulation({
   project,
   result,
+  onComplete,
 }: {
   project: Project;
   result: CalculationResult;
+  onComplete?: (result: CalendarResult, inputs: RangeOptions) => void;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -1562,8 +1564,10 @@ export function Simulation({
       }
       setBusy(false);
       if (e.data.error) setError(e.data.error);
-      else if (e.data.result.revision === context.revision)
+      else if (e.data.result.revision === context.revision) {
         setCalendar(e.data.result);
+        onComplete?.(e.data.result, {start: midnight(start, project.timezone), end: midnight(end, project.timezone), intervalMinutes: interval});
+      }
       worker.current = null;
       w.terminate();
     };

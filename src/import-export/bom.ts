@@ -131,6 +131,7 @@ export function bomCsv(bom: BOMSnapshot): string {
 export function procurementQuantity(
   quantity: number,
   wastePercent: string,
+  unit: "piece" | "m" = "m",
 ): string {
   if (!Number.isFinite(quantity) || quantity < 0 || quantity > 1_000_000_000)
     throw new Error("BOM quantity is outside the supported range.");
@@ -144,6 +145,7 @@ export function procurementQuantity(
   if (waste < 0n || waste > 10000n)
     throw new Error("Waste allowance must be between 0 and 100 percent.");
   const scaled = (base * (10000n + waste) + 9999n) / 10000n;
+  if (unit === "piece") return String((scaled + 999n) / 1000n);
   return `${scaled / 1000n}.${String(scaled % 1000n).padStart(3, "0")}`;
 }
 export function pricedBOMLines(
@@ -157,6 +159,7 @@ export function pricedBOMLines(
     const quantity = procurementQuantity(
       row.quantity,
       price.wastePercent || "0",
+      row.unit,
     );
     lines.push({
       id: `bom:${bom.projectId}:${row.id}`,

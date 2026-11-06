@@ -1,0 +1,13 @@
+.advanced-planning { margin-block: 1.25rem; min-width: 0; }
+.advanced-tabs { margin-block: 1rem; }
+.advanced-section { border-top: 1px solid var(--border, #334253); margin-top: 1.25rem; padding-top: 1.25rem; }
+.advanced-window { min-width: 0; border: 1px solid var(--border, #334253); border-radius: 12px; padding: 1rem; margin-block: 1rem; }
+.advanced-window legend { padding-inline: .4rem; font-weight: 650; }
+.advanced-window-list, .advanced-planning .form-grid { min-width: 0; }
+.advanced-planning input, .advanced-planning select, .advanced-planning textarea { max-width: 100%; }
+.advanced-planning .table-scroll { overflow-x: auto; max-width: 100%; margin-block: 1rem; }
+.advanced-planning .kpi-card strong { display: block; font-size: 1.2rem; margin-top: .5rem; }
+.advanced-planning .check-label { display: flex; gap: .6rem; align-items: center; margin-block: 1rem; }
+.advanced-planning [type="checkbox"] { flex: 0 0 auto; width: auto; }
+.advanced-planning .button-row { flex-wrap: wrap; gap: .6rem; margin-block: .8rem; }
+@media(max-width: 650px) { .advanced-planning .form-grid { grid-template-columns: minmax(0, 1fr); } .advanced-window { padding: .7rem; } .advanced-tabs .button { flex: 1 1 44%; } }

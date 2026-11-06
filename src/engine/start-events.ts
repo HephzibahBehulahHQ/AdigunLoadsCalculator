@@ -77,7 +77,7 @@ export function simulateStartEvents(project: Project, range?: { start: string; e
   const start = range ? Date.parse(range.start) : Math.min(...events.map((event) => Date.parse(event.start)));
   const end = range ? Date.parse(range.end) : Math.max(...events.map((event) => Date.parse(event.start) + event.durationSeconds * 1000));
   if (range && (!explicitInstant(range.start) || !explicitInstant(range.end) || end <= start)) throw new Error("Start analysis requires an increasing explicit-offset range.");
-  if (range && end - start > 7 * 86400000) throw new Error("Start sequence detail is limited to seven elapsed days; calendar energy supports longer ranges.");
+  if (Number.isFinite(end - start) && end - start > 7 * 86400000) throw new Error("Start sequence detail is limited to seven elapsed days; calendar energy supports longer ranges.");
   const issues: Issue[] = [{ id: "start-model", severity: "info", assessment: "warning", message: "Entered constant-current/PF start segments replace the running load for their duration. Other scheduled loads use conservative on-state current; energy-average duty is not a guaranteed instantaneous reduction. No transient voltage/frequency dip is predicted." }];
   if (!events.length && !range) return { revision: project.revision, engineVersion: ENGINE_VERSION, points: [], peakKW: 0, peakKVA: 0, peakPhaseA: { L1: 0, L2: 0, L3: 0 }, energyKWh: 0, issues };
   const boundaries = new Set<number>([start, end]);

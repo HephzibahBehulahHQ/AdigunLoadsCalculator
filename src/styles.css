@@ -3087,3 +3087,20 @@ details p {
 :root[data-theme="light"] .project-menu button:hover {
   background: #e7eef7;
 }
+
+@media print {
+  body.engineering-report-print-mode #root { display: block; }
+  body.engineering-report-print-mode header,
+  body.engineering-report-print-mode .sidebar,
+  body.engineering-report-print-mode .page-head,
+  body.engineering-report-print-mode .tab-bar,
+  body.engineering-report-print-mode .inspector,
+  body.engineering-report-print-mode .report-controls { display: none !important; }
+  body.engineering-report-print-mode .app-shell,
+  body.engineering-report-print-mode .main-area,
+  body.engineering-report-print-mode .workspace,
+  body.engineering-report-print-mode .content-scroll { display: block !important; width: auto !important; height: auto !important; overflow: visible !important; margin: 0 !important; }
+  body.engineering-report-print-mode #engineering-report-preview { display: block !important; position: static; background: white; color: black; width: 100%; }
+  body.engineering-report-print-mode #engineering-report-preview table { break-inside: auto; }
+  body.engineering-report-print-mode #engineering-report-preview tr { break-inside: avoid; }
+}

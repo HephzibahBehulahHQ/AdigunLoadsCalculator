@@ -98,16 +98,23 @@ export function appendDiagramPages(
         if (edge.label && snapshot.showLabels) {
           doc.setFontSize(6.5);
           doc.setTextColor(65, 85, 105);
-          doc.text(
-            doc
-              .splitTextToSize(
-                edge.label,
-                Math.max(25, Math.min(60, Math.abs(b.x - a.x) || 40)),
-              )
-              .slice(0, 3),
-            Math.min(a.x, b.x) + 2,
-            middle - 2,
+          const labelWidth = Math.max(
+            25,
+            Math.min(60, Math.abs(b.x - a.x) || 40),
           );
+          const labelX = Math.min(a.x, b.x) + 2,
+            labelY = middle - 2;
+          if (
+            labelX >= margin &&
+            labelX + labelWidth <= pageW - margin &&
+            labelY >= top + 3 &&
+            labelY + 8 <= pageH - bottom
+          )
+            doc.text(
+              doc.splitTextToSize(edge.label, labelWidth).slice(0, 3),
+              labelX,
+              labelY,
+            );
         }
       }
       for (const node of snapshot.nodes) {
@@ -127,6 +134,13 @@ export function appendDiagramPages(
         doc.roundedRect(xx, yy, w, h, 1, 1, "FD");
         doc.setTextColor(20, 40, 60);
         doc.setFontSize(8);
+        if (
+          xx < margin ||
+          xx + w > pageW - margin ||
+          yy < top ||
+          yy + h > pageH - bottom
+        )
+          continue;
         const title = snapshot.showLabels ? node.name : node.id;
         doc.text(
           doc
@@ -147,7 +161,13 @@ export function appendDiagramPages(
       for (const [index, note] of snapshot.notes.entries()) {
         doc.setFontSize(8);
         doc.setTextColor(110, 70, 20);
-        doc.text(`${t("Note")} ${index + 1}`, x(note.x), y(note.y));
+        if (
+          x(note.x) >= margin &&
+          x(note.x) + 25 <= pageW - margin &&
+          y(note.y) >= top + 4 &&
+          y(note.y) <= pageH - bottom
+        )
+          doc.text(`${t("Note")} ${index + 1}`, x(note.x), y(note.y));
       }
       doc.restoreGraphicsState();
       doc.setDrawColor(170, 185, 195);
