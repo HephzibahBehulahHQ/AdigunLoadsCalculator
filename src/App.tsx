@@ -1851,11 +1851,17 @@ export default function App() {
                                   label: r.project.name,
                                 })),
                             }}
-                            onDetailsChange={(details) =>
-                              change((p) => {
-                                p.reportDetails = details;
-                              })
-                            }
+                            onDetailsChange={async (details) => {
+                              if (
+                                !change((p) => {
+                                  p.reportDetails = details;
+                                })
+                              )
+                                throw new Error(
+                                  "Report details could not be applied.",
+                                );
+                              await persist(latest.current);
+                            }}
                             onOpenBilling={() => setReportTab("billing")}
                           />
                         </Suspense>
