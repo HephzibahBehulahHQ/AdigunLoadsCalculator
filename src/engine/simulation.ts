@@ -2,16 +2,25 @@ import {
   ENGINE_VERSION,
   type BatterySettings,
   type Issue,
+  type Load,
   type Phase,
   type Project,
-  type Tariff,
 } from "../domain/types";
 import { dailyProfile, normalizeLoad } from "./electrical";
+import { makeCalendarClock, resolveSchedule, scheduleDuty, unionSpans } from "./calendar";
+import { normalizedPhasePower, startEventLoad } from "./start-events";
+import { validateProjectExtensions } from "../domain/project";
+import { energyCharge, roundCurrency } from "./money";
+import { calculateIntervalBill, tariffRate, validateTariff, type BillingInterval, type IntervalBill } from "./tariffs";
+export { tariffRate, validateTariff, tariffPrices, calculateIntervalBill } from "./tariffs";
+export { energyCharge, roundCurrency } from "./money";
 
 export interface RangeOptions {
   start: string;
   end: string;
   intervalMinutes: 15 | 60;
+  /** Detailed standing/demand/tax bill is opt-in; energy cost is always calculated. */
+  includeBilling?: boolean;
 }
 export interface CalendarPoint {
   timestamp: string;
@@ -21,6 +30,8 @@ export interface CalendarPoint {
   kWh: number;
   phaseKW: Record<Phase, number>;
   importRate: number;
+  cumulativeKWh: number;
+  startEventIds: string[];
 }
 export interface CalendarResult {
   revision: number;
@@ -30,6 +41,7 @@ export interface CalendarResult {
   peakKW: number;
   elapsedHours: number;
   energyCost: number;
+  bill?: IntervalBill;
   issues: Issue[];
 }
 const fail = (message: string): never => {
@@ -44,155 +56,6 @@ const finite = (
   if (!Number.isFinite(value) || value < min || value > max)
     fail(`${name} must be finite and between ${min} and ${max}.`);
 };
-
-export function tariffRate(
-  tariff: Tariff,
-  hour: number,
-  weekday?: number,
-): number {
-  const bands = tariff.bands.filter(
-    (band) =>
-      (!band.weekdays ||
-        weekday === undefined ||
-        band.weekdays.includes(weekday)) &&
-      (band.startHour < band.endHour
-        ? hour >= band.startHour && hour < band.endHour
-        : hour >= band.startHour || hour < band.endHour),
-  );
-  if (bands.length > 1)
-    fail("Time-of-use tariff bands overlap at the selected interval.");
-  return bands[0]?.importRate ?? tariff.importRate;
-}
-
-export function validateTariff(tariff: Tariff): Issue[] {
-  const issues: Issue[] = [];
-  const error = (message: string, id: string) =>
-    issues.push({
-      id,
-      severity: "error",
-      assessment: "incomplete",
-      message,
-    } as Issue);
-  for (const key of [
-    "importRate",
-    "exportRate",
-    "standingPerDay",
-    "demandPerKW",
-    "taxPercent",
-  ] as const)
-    if (!Number.isFinite(tariff[key]))
-      error(`Enter a finite tariff ${key}.`, `tariff-${key}`);
-  if (
-    tariff.standingPerDay < 0 ||
-    tariff.demandPerKW < 0 ||
-    tariff.taxPercent < 0
-  )
-    error(
-      "Standing, demand and tax amounts must be nonnegative.",
-      "tariff-fixed",
-    );
-  for (const band of tariff.bands) {
-    if (
-      !Number.isFinite(band.importRate) ||
-      !Number.isFinite(band.startHour) ||
-      !Number.isFinite(band.endHour) ||
-      band.startHour < 0 ||
-      band.startHour >= 24 ||
-      band.endHour < 0 ||
-      band.endHour > 24 ||
-      band.startHour === band.endHour
-    )
-      error(
-        `Tariff band ${band.name} has invalid boundaries or rate.`,
-        `${band.id}-bounds`,
-      );
-  }
-  for (let i = 0; i < tariff.bands.length; i++)
-    for (let j = i + 1; j < tariff.bands.length; j++) {
-      const a = tariff.bands[i];
-      const b = tariff.bands[j];
-      const sameDay = [0, 1, 2, 3, 4, 5, 6].some(
-        (day) =>
-          (!a.weekdays || a.weekdays.includes(day)) &&
-          (!b.weekdays || b.weekdays.includes(day)),
-      );
-      const segments = (start: number, end: number) =>
-        start < end
-          ? [[start, end]]
-          : [
-              [start, 24],
-              [0, end],
-            ];
-      if (
-        sameDay &&
-        segments(a.startHour, a.endHour).some(([start, end]) =>
-          segments(b.startHour, b.endHour).some(
-            ([otherStart, otherEnd]) =>
-              Math.min(end, otherEnd) > Math.max(start, otherStart),
-          ),
-        )
-      )
-        error(
-          `Tariff bands ${a.name} and ${b.name} overlap.`,
-          `tariff-overlap-${a.id}-${b.id}`,
-        );
-    }
-  return issues;
-}
-
-/** Converts a finite decimal to integer micro-units using decimal notation, not binary multiplication. */
-function scaled(value: number, precision = 6): bigint {
-  finite(value, "Decimal amount");
-  const decimal = value.toFixed(precision);
-  return BigInt(decimal.replace(".", ""));
-}
-const roundedDivision = (numerator: bigint, denominator: bigint): bigint => {
-  const sign = numerator < 0n ? -1n : 1n;
-  const absolute = numerator < 0n ? -numerator : numerator;
-  return sign * ((absolute + denominator / 2n) / denominator);
-};
-/** Round half away from zero to currency minor units. Internal energy/price products use 1e-12 currency units. */
-export function roundCurrency(value: number, minorDigits = 2): number {
-  const micro = scaled(value);
-  const divisor = 10n ** BigInt(6 - minorDigits);
-  return Number(roundedDivision(micro, divisor)) / 10 ** minorDigits;
-}
-export function energyCharge(entries: { kWh: number; rate: number }[]): number {
-  // Accumulate physical energy per rate at full floating precision, then apply decimal billing once.
-  const byRate = new Map<number, number>();
-  for (const entry of entries) {
-    finite(entry.kWh, "Billable energy");
-    finite(entry.rate, "Energy rate");
-    byRate.set(entry.rate, (byRate.get(entry.rate) ?? 0) + entry.kWh);
-  }
-  const decimal = (value: number): { numerator: bigint; places: number } => {
-    const [mantissa, exponent = "0"] = value
-      .toString()
-      .toLowerCase()
-      .split("e");
-    const fraction = mantissa.split(".")[1]?.length ?? 0;
-    let numerator = BigInt(mantissa.replace(".", ""));
-    let places = fraction - Number(exponent);
-    if (places < 0) {
-      numerator *= 10n ** BigInt(-places);
-      places = 0;
-    }
-    return { numerator, places };
-  };
-  let total = 0n;
-  let places = 2;
-  for (const [rate, energy] of byRate) {
-    const a = decimal(energy);
-    const b = decimal(rate);
-    const productPlaces = a.places + b.places;
-    if (productPlaces > places) {
-      total *= 10n ** BigInt(productPlaces - places);
-      places = productPlaces;
-    }
-    total += a.numerator * b.numerator * 10n ** BigInt(places - productPlaces);
-  }
-  return Number(roundedDivision(total, 10n ** BigInt(places - 2))) / 100;
-}
 
 /** Actual elapsed instants; Intl applies the specified IANA timezone including DST folds/gaps. */
 export function simulateRange(
@@ -218,32 +81,32 @@ export function simulateRange(
     fail("Correct invalid load inputs before running a calendar simulation.");
   const tariffIssues = validateTariff(project.tariff);
   if (tariffIssues.length) fail(tariffIssues[0].message);
-  const minuteFormatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: project.timezone,
-    weekday: "short",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "shortOffset",
-    hourCycle: "h23",
-  });
-  const weekdayIndex: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  };
+  const extensionErrors = validateProjectExtensions(project as unknown as Record<string, unknown>);
+  if (extensionErrors.length) fail(extensionErrors[0]);
+  const clock = makeCalendarClock(project.timezone);
+  const normalizedInputs = new Map(project.loads.map((load) => [load.id, normalizeLoad(load)]));
+  const calendarDependent = project.loads.some((load) => load.schedule?.exceptions?.length || load.schedule?.windows.some((window) => window.months || window.effectiveFrom || window.effectiveTo));
   // Minute tables preserve fractional operating windows and arbitrary timezone offsets while bounding work.
   const days = Array.from({ length: 7 }, (_, weekday) =>
-    dailyProfile(project.loads, 1, weekday),
+    dailyProfile(project.loads, 1, weekday, undefined, normalizedInputs),
   );
+  let cachedDate = "";
+  let datedProfile = days[0];
+  const absolute = project.loads.flatMap((load) => unionSpans((load.schedule?.absoluteWindows ?? []).map((window) => [Date.parse(window.start), Date.parse(window.end)])).map(([a, b]) => ({ a, b, load, normalized: normalizedInputs.get(load.id)! })) ).sort((a, b) => a.a - b.a);
+  const starts = (project.startEvents ?? []).map((event) => {
+    const load = project.loads.find((item) => item.id === event.loadId)!;
+    const n = normalizedInputs.get(load.id)!;
+    const starting = startEventLoad(load, event, n);
+    return { a: Date.parse(event.start), b: Date.parse(event.start) + event.durationSeconds * 1000, load, normalized: n, event, starting: normalizeLoad(starting), phase: normalizedPhasePower(starting, normalizeLoad(starting)) };
+  }).sort((a, b) => a.a - b.a);
+  let absoluteIndex = 0, startIndex = 0;
+  let activeAbsolute: typeof absolute = [], activeStarts: typeof starts = [];
+  const phasePowers = new Map(project.loads.map((load) => [load.id, normalizedPhasePower(load, normalizedInputs.get(load.id)!)]));
+  const standbyPhase = (load: Load): Record<Phase, number> => normalizedPhasePower({ ...load, entryMode: "kw", pf: 1, pfKind: "displacement", reactive: "lagging", rating: load.standbyW / 1000, utilization: 1 }, normalizeLoad({ ...load, entryMode: "kw", pf: 1, pfKind: "displacement", reactive: "lagging", rating: load.standbyW / 1000, utilization: 1 }));
+  const standbyPhases = new Map([...new Set([...absolute.map((row) => row.load), ...starts.map((row) => row.load)])].map((load) => [load.id, standbyPhase(load)]));
   const points: CalendarPoint[] = [];
   const charges: { kWh: number; rate: number }[] = [];
+  const billing: BillingInterval[] = [];
   const step = options.intervalMinutes * 60_000;
   let totalKWh = 0;
   let peakKW = 0;
@@ -254,26 +117,45 @@ export function simulateRange(
     const phaseEnergy: Record<Phase, number> = { L1: 0, L2: 0, L3: 0 };
     let localTime = "";
     let firstRate = project.tariff.importRate;
+    const eventIds = new Set<string>();
     // Quarter-hour/hour averages are built from actual elapsed minute slices across DST transitions.
     for (let minute = timestamp; minute < finish; minute += 60_000) {
       const dt = (Math.min(minute + 60_000, finish) - minute) / 3600_000;
-      const parts = Object.fromEntries(
-        minuteFormatter
-          .formatToParts(minute)
-          .map((part) => [part.type, part.value]),
-      );
-      const weekday = weekdayIndex[parts.weekday];
-      const hour = Number(parts.hour);
-      const minuteOfDay = hour * 60 + Number(parts.minute);
-      const sample = days[weekday][minuteOfDay];
-      const rate = tariffRate(project.tariff, minuteOfDay / 60, weekday);
-      const intervalEnergy = sample.kw * dt;
+      const fields = clock(minute);
+      const { weekday, date } = fields;
+      const minuteOfDay = Math.floor(fields.hour * 60 + 1e-7);
+      if (calendarDependent && cachedDate !== date) { datedProfile = dailyProfile(project.loads, 1, weekday, date, normalizedInputs); cachedDate = date; }
+      const sample = (calendarDependent ? datedProfile : days[weekday])[minuteOfDay];
+      const rate = !project.tariff.bands.length && project.tariff.coverage !== "complete-bands" ? project.tariff.importRate : tariffRate(project.tariff, fields.hour, weekday, date);
+      let intervalEnergy = sample.kw * dt;
+      const localPhaseEnergy = { L1: sample.phaseKW.L1 * dt, L2: sample.phaseKW.L2 * dt, L3: sample.phaseKW.L3 * dt };
+      const minuteEnd = Math.min(minute + 60000, finish);
+      while (absoluteIndex < absolute.length && absolute[absoluteIndex].a < minuteEnd) activeAbsolute.push(absolute[absoluteIndex++]);
+      activeAbsolute = activeAbsolute.filter((row) => row.b > minute);
+      for (const row of activeAbsolute) {
+        const duration = Math.max(0, Math.min(minuteEnd, row.b) - Math.max(minute, row.a)) / 3600000 * scheduleDuty(row.load);
+        intervalEnergy += (row.normalized.operatingKW - row.load.standbyW * row.load.quantity / 1000) * duration;
+        for (const phase of ["L1", "L2", "L3"] as Phase[]) localPhaseEnergy[phase] += (phasePowers.get(row.load.id)![phase] - standbyPhases.get(row.load.id)![phase]) * duration;
+      }
+      while (startIndex < starts.length && starts[startIndex].a < minuteEnd) activeStarts.push(starts[startIndex++]);
+      activeStarts = activeStarts.filter((row) => row.b > minute);
+      for (const row of activeStarts) {
+        const a = Math.max(minute, row.a), b = Math.min(minuteEnd, row.b), duration = Math.max(0, b - a) / 3600000;
+        if (!duration) continue;
+        eventIds.add(row.event.id);
+        const intervals = row.load.schedule?.absoluteWindows !== undefined ? unionSpans(row.load.schedule.absoluteWindows.map((window) => [Date.parse(window.start), Date.parse(window.end)])) : resolveSchedule(row.load, date, weekday).map(([left, right]): [number, number] => [minute + (left - fields.hour) * 3600000, minute + (right - fields.hour) * 3600000]);
+        const onHours = intervals.reduce((sum, [left, right]) => sum + Math.max(0, Math.min(b, right) - Math.max(a, left)) / 3600000, 0) * scheduleDuty(row.load);
+        const standbyKW = row.load.standbyW * row.load.quantity / 1000;
+        intervalEnergy += row.starting.operatingKW * duration - standbyKW * duration - (row.normalized.operatingKW - standbyKW) * onHours;
+        for (const phase of ["L1", "L2", "L3"] as Phase[]) localPhaseEnergy[phase] += row.phase[phase] * duration - standbyPhases.get(row.load.id)![phase] * duration - (phasePowers.get(row.load.id)![phase] - standbyPhases.get(row.load.id)![phase]) * onHours;
+      }
       kWh += intervalEnergy;
       for (const phase of ["L1", "L2", "L3"] as Phase[])
-        phaseEnergy[phase] += sample.phaseKW[phase] * dt;
+        phaseEnergy[phase] += localPhaseEnergy[phase];
       charges.push({ kWh: intervalEnergy, rate });
+      if (options.includeBilling) billing.push({ timestamp: new Date(minute).toISOString(), durationMinutes: dt * 60, importKWh: Math.max(0, intervalEnergy), exportKWh: 0 });
       if (minute === timestamp) {
-        localTime = `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} ${parts.timeZoneName}`;
+        localTime = fields.localTime;
         firstRate = rate;
       }
     }
@@ -292,6 +174,8 @@ export function simulateRange(
         L3: phaseEnergy.L3 / elapsedHours,
       },
       importRate: firstRate,
+      cumulativeKWh: totalKWh,
+      startEventIds: [...eventIds],
     });
   }
   return {
@@ -302,7 +186,8 @@ export function simulateRange(
     peakKW,
     elapsedHours: (end - start) / 3600_000,
     energyCost: energyCharge(charges),
-    issues: [],
+    bill: options.includeBilling ? calculateIntervalBill(project.tariff, billing, { timezone: project.timezone }) : undefined,
+    issues: [{ id: "calendar-meter-boundary", severity: "info", assessment: "warning", message: "This calendar models scheduled consumption at a grid-supplied load boundary. Renewable/storage import/export flows use the separate chronological dispatch model. Calendar peaks are interval averages; use start analysis for event peaks." }],
   };
 }
 

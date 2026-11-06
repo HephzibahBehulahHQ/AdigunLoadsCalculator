@@ -108,6 +108,13 @@ import {
   Scenarios,
 } from "./features/EnergyPages";
 import { Toolbox } from "./features/Toolbox";
+import { EquipmentLibrary } from "./features/EquipmentLibrary";
+import {
+  ScenarioWorkspace,
+  RevisionComparison,
+} from "./features/ProjectComparison";
+import { WorkspaceRecovery } from "./features/WorkspaceRecovery";
+import { LoadOperations } from "./features/LoadOperations";
 import { tools } from "./tools";
 import { resetBotWindowState } from "./bot/windowState";
 const Billing = lazy(() =>
@@ -255,7 +262,7 @@ export default function App() {
   const [showTrace, setShowTrace] = useState(false);
   const [editor, setEditor] = useState<{ load?: Load } | null>(null);
   const [dialog, setDialog] = useState<
-    "projects" | "import" | "commands" | "references" | null
+    "projects" | "import" | "commands" | "references" | "rename" | null
   >(null);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
@@ -530,6 +537,25 @@ export default function App() {
       setError((e as Error).message);
     }
   }
+  async function closeProject(trash: boolean) {
+    const source = latest.current;
+    const next = createProject("Untitled project");
+    await createAndOpen(next);
+    if (latest.current.id !== next.id) return;
+    try {
+      if (trash) await setTrashed(source.id, true);
+      await refreshRecords();
+      setMessage(
+        t(
+          trash
+            ? "Project moved to trash"
+            : "Project closed; saved work remains available in Open project.",
+        ),
+      );
+    } catch (error) {
+      setError((error as Error).message);
+    }
+  }
   function saveLoad(load: Load) {
     change((p) => {
       const i = p.loads.findIndex((l) => l.id === load.id);
@@ -624,6 +650,12 @@ export default function App() {
   function libraryPage() {
     return (
       <>
+        <EquipmentLibrary
+          key={project.id}
+          project={project}
+          change={change}
+          onAdd={(load) => setEditor({ load })}
+        />
         <Notice>
           {t("Typical estimate")}. Generic analytical starting values, clearly
           identified as assumptions. Review each rating and source before adding
@@ -692,6 +724,11 @@ export default function App() {
   function historyPage() {
     return (
       <>
+        <RevisionComparison
+          key={project.id}
+          project={project}
+          revisions={revisions}
+        />
         <section className="panel panel-pad">
           <div className="panel-title">
             <h3>{t("Issues")}</h3>
@@ -764,6 +801,8 @@ export default function App() {
                     )
                       change((d) => {
                         const id = d.id;
+                        for (const key of Object.keys(d))
+                          delete (d as unknown as Record<string, unknown>)[key];
                         Object.assign(d, structuredClone(p), { id });
                       });
                   }}
@@ -1027,6 +1066,81 @@ export default function App() {
               <strong>{t(current?.label || "Overview")}</strong>
             </div>
             <span className="spacer" />
+            <details className="project-actions">
+              <summary className="button small-button">{t("Project")}</summary>
+              <div
+                className="project-menu"
+                role="group"
+                aria-label={t("Project actions")}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest("button"))
+                    (
+                      event.currentTarget.parentElement as HTMLDetailsElement
+                    ).open = false;
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setName("");
+                    setDialog("projects");
+                    void refreshRecords();
+                  }}
+                >
+                  {t("New project")}
+                </button>
+                <button
+                  onClick={() => {
+                    setDialog("projects");
+                    void refreshRecords();
+                  }}
+                >
+                  {t("Open project")}
+                </button>
+                <button
+                  onClick={() => {
+                    setName(project.name);
+                    setDialog("rename");
+                  }}
+                >
+                  {t("Rename project")}
+                </button>
+                <button
+                  onClick={() => void createAndOpen(duplicateProject(project))}
+                >
+                  {t("Duplicate project")}
+                </button>
+                <button onClick={() => void persist()}>{t("Save")}</button>
+                <button onClick={() => exportProject(project)}>
+                  {t("Export project")}
+                </button>
+                <button onClick={() => fileInput.current?.click()}>
+                  {t("Import project")}
+                </button>
+                <button onClick={() => go("history")}>
+                  {t("Revision history")}
+                </button>
+                <button
+                  onClick={() => {
+                    setDialog("projects");
+                    void refreshRecords();
+                  }}
+                >
+                  {t("Restore from trash")}
+                </button>
+                <button onClick={() => void closeProject(false)}>
+                  {t("Close project")}
+                </button>
+                <button
+                  className="danger"
+                  onClick={() => {
+                    if (confirm(t("Move to trash") + " " + project.name + "?"))
+                      void closeProject(true);
+                  }}
+                >
+                  {t("Move to trash")}
+                </button>
+              </div>
+            </details>
             <div className="history-buttons">
               <button
                 className="icon-button"
@@ -1176,35 +1290,41 @@ export default function App() {
                     />
                   )}
                   {route === "loads" && (
-                    <Loads
-                      project={project}
-                      result={result}
-                      selected={selected}
-                      onAdd={() => setEditor({})}
-                      onEdit={(load) => setEditor({ load })}
-                      onSelect={(id) => {
-                        setSelected(id);
-                        setShowTrace(false);
-                      }}
-                      onDuplicate={(load) =>
-                        change((p) =>
-                          p.loads.push({
-                            ...structuredClone(load),
-                            id: crypto.randomUUID(),
-                            name: load.name + " · copy",
-                          }),
-                        )
-                      }
-                      onDelete={(id) => {
-                        change((p) => {
-                          p.loads = p.loads.filter((l) => l.id !== id);
-                        });
-                        if (selected === id) setSelected(undefined);
-                      }}
-                      onImport={() => fileInput.current?.click()}
-                      onExport={() => exportLoads(project)}
-                      onLibrary={() => go("library")}
-                    />
+                    <>
+                      <LoadOperations project={project} change={change} />
+                      <button className="button" onClick={() => go("library")}>
+                        {t("Add from library")}
+                      </button>
+                      <Loads
+                        project={project}
+                        result={result}
+                        selected={selected}
+                        onAdd={() => setEditor({})}
+                        onEdit={(load) => setEditor({ load })}
+                        onSelect={(id) => {
+                          setSelected(id);
+                          setShowTrace(false);
+                        }}
+                        onDuplicate={(load) =>
+                          change((p) =>
+                            p.loads.push({
+                              ...structuredClone(load),
+                              id: crypto.randomUUID(),
+                              name: load.name + " · copy",
+                            }),
+                          )
+                        }
+                        onDelete={(id) => {
+                          change((p) => {
+                            p.loads = p.loads.filter((l) => l.id !== id);
+                          });
+                          if (selected === id) setSelected(undefined);
+                        }}
+                        onImport={() => fileInput.current?.click()}
+                        onExport={() => exportLoads(project)}
+                        onLibrary={() => go("library")}
+                      />
+                    </>
                   )}
                   {route === "boards" && (
                     <Boards
@@ -1273,7 +1393,14 @@ export default function App() {
                     />
                   )}
                   {route === "scenarios" && (
-                    <Scenarios
+                    <ScenarioWorkspace
+                      key={project.id}
+                      change={change}
+                      onTrash={(id) =>
+                        void setTrashed(id, true)
+                          .then(refreshRecords)
+                          .catch((e) => setError(e.message))
+                      }
                       project={project}
                       records={records}
                       onCreate={(p) => void createAndOpen(p)}
@@ -1502,6 +1629,18 @@ export default function App() {
                           </button>
                         </div>
                       </section>
+                      <WorkspaceRecovery
+                        activeProject={project}
+                        onRestored={async ({ activeIds }) => {
+                          await refreshRecords();
+                          const saved = await listProjects();
+                          const restored = saved.find(
+                            (record) =>
+                              activeIds.includes(record.id) && !record.deleted,
+                          );
+                          if (restored) await openProject(restored.project);
+                        }}
+                      />
                       <section className="panel panel-pad">
                         <h3>Adigun BOT</h3>
                         <p>
@@ -1741,6 +1880,44 @@ export default function App() {
                 ))}
               </div>
             </div>
+          </Modal>
+        )}
+        {dialog === "rename" && (
+          <Modal title={t("Rename project")} onClose={() => setDialog(null)}>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (
+                  change((draft) => {
+                    if (!name.trim()) throw new Error("Enter a project name.");
+                    draft.name = name.trim();
+                  })
+                )
+                  setDialog(null);
+              }}
+            >
+              <div className="modal-body">
+                <Field label={t("Project name")}>
+                  <input
+                    autoFocus
+                    required
+                    maxLength={160}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="button"
+                  type="button"
+                  onClick={() => setDialog(null)}
+                >
+                  {t("Cancel")}
+                </button>
+                <button className="button primary">{t("Save")}</button>
+              </div>
+            </form>
           </Modal>
         )}
         {dialog === "projects" && (

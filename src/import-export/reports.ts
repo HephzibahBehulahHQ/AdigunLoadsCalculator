@@ -8,6 +8,15 @@ export type BillLine = {
   category: "material" | "labour" | "other";
   quantity: string;
   unitPrice: string;
+  source?: {
+    projectId: string;
+    revision: number;
+    entityIds: string[];
+    kind: string;
+    quantity: number;
+    unit: "piece" | "m";
+    wastePercent: string;
+  };
 };
 export type BillDocument = {
   schemaVersion: 1;
@@ -383,7 +392,7 @@ export const reportFilename = (
   }.${extension}`;
 
 let fontPromise: Promise<string> | undefined;
-async function embeddedFont(): Promise<string> {
+export async function embeddedFont(): Promise<string> {
   if (!fontPromise)
     fontPromise = (async () => {
       const response = await fetch(

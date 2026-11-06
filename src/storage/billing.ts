@@ -81,10 +81,11 @@ export async function saveBillingDocument(
   document: BillDocument,
 ): Promise<void> {
   const stored = await loadDraft(projectId);
+  const live = liveDrafts.get(projectId);
   const revision = await saveDraft(
     projectId,
     document,
-    stored?.revision ?? null,
+    live ? live.revision : (stored?.revision ?? null),
   );
   acceptRestoredBilling(projectId, document, revision);
 }

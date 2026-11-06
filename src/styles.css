@@ -3019,3 +3019,71 @@ details p {
     margin: 17mm;
   }
 }
+
+/* Expanded project actions and comparison surfaces */
+.project-actions {
+  position: relative;
+}
+.project-actions summary {
+  cursor: pointer;
+  list-style: none;
+}
+.project-actions summary::-webkit-details-marker {
+  display: none;
+}
+.project-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 105;
+  display: grid;
+  width: 235px;
+  max-height: 70vh;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface, #111c2e);
+  box-shadow: var(--shadow);
+}
+.project-menu button {
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.project-menu button:hover,
+.project-menu button:focus-visible {
+  background: var(--surface-raised, #24364d);
+}
+.project-menu button.danger {
+  color: var(--red, #fb7185);
+}
+.comparison-value {
+  max-width: 30rem;
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.scenario-workspace > .panel,
+.equipment-workspace {
+  margin-bottom: 18px;
+}
+.equipment-workspace .table-wrap {
+  margin-top: 20px;
+}
+.equipment-workspace .button-row,
+.scenario-workspace .button-row {
+  flex-wrap: wrap;
+}
+:root[data-theme="light"] .project-menu {
+  background: #fff;
+}
+:root[data-theme="light"] .project-menu button:hover {
+  background: #e7eef7;
+}

@@ -22,19 +22,29 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const t = useT();
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     const old = document.activeElement as HTMLElement | null;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    ref.current?.focus();
+    const firstInput = ref.current?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])',
+    );
+    (firstInput || ref.current)?.focus();
     function key(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        close.current();
       }
       if (e.key === "Tab") {
-        const els = ref.current?.querySelectorAll<HTMLElement>(
-          'button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]',
+        const els = Array.from(
+          ref.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]',
+          ) || [],
+        ).filter(
+          (element) =>
+            element.getClientRects().length > 0 && !element.closest("[inert]"),
         );
         if (!els?.length) return;
         const a = els[0],
@@ -58,7 +68,7 @@ export function Modal({
       document.body.style.overflow = previous;
       old?.focus();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div
       className="modal-backdrop"

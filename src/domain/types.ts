@@ -117,6 +117,7 @@ export interface Board {
   ways: number;
   /** Source/parent-to-board radial segment, using per-conductor impedance and one-way length. */
   feeder?: Cable;
+  notes?: string;
 }
 export interface Circuit {
   id: string;
@@ -289,6 +290,7 @@ export interface Project {
   diagram?: DiagramSettings;
   startEvents?: StartEvent[];
   flexibleLoads?: FlexibleLoad[];
+  reportDetails?: { reference: string; preparedBy: string; customer: string; scopeNotes: string };
 }
 export interface Issue {
   id: string;

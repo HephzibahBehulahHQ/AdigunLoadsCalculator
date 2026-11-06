@@ -164,9 +164,17 @@ function validateCable(value: unknown, label: string, errors: string[]) {
 /** Reusable trust-boundary checks for optional planning data, without mutating the project. */
 export function validateProjectExtensions(candidate: Record<string, unknown>): string[] {
   const errors: string[] = [];
+  if (candidate.reportDetails !== undefined) {
+    if (!record(candidate.reportDetails)) errors.push("Invalid report details.");
+    else for (const [key, limit] of [["reference", 120], ["preparedBy", 1000], ["customer", 1000], ["scopeNotes", 4000]] as const)
+      if (typeof candidate.reportDetails[key] !== "string" || candidate.reportDetails[key].length > limit) errors.push(`Report ${key} must be text of at most ${limit} characters.`);
+  }
   if (candidate.baselineId !== undefined && (!text(candidate.baselineId) || !candidate.baselineId)) errors.push("Invalid baseline ID.");
   if (Array.isArray(candidate.loads)) for (const load of candidate.loads) if (record(load) && load.schedule !== undefined) errors.push(...validateSchedule(load.schedule).map((message) => `Load ${String(load.name)}: ${message}`));
-  if (Array.isArray(candidate.boards)) for (const board of candidate.boards) if (record(board) && board.feeder !== undefined) validateCable(board.feeder, `Board ${String(board.name)} feeder`, errors);
+  if (Array.isArray(candidate.boards)) for (const board of candidate.boards) if (record(board)) {
+    if (board.feeder !== undefined) validateCable(board.feeder, `Board ${String(board.name)} feeder`, errors);
+    if (board.notes !== undefined && !text(board.notes)) errors.push(`Board ${String(board.name)}: invalid notes.`);
+  }
   if (Array.isArray(candidate.circuits)) for (const circuit of candidate.circuits) if (record(circuit) && circuit.cable !== undefined) validateCable(circuit.cable, `Circuit ${String(circuit.name)}`, errors);
   const loadIds = new Set(Array.isArray(candidate.loads) ? candidate.loads.filter(record).map((load) => load.id) : []);
   for (const key of ["startEvents", "flexibleLoads"]) if (candidate[key] !== undefined) {

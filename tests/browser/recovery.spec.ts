@@ -133,7 +133,7 @@ test("invalid persisted records are skipped with a warning and retained intact f
       savedAt: "2026-11-05T10:00:00.000Z",
     };
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("AdigunPowerLab", 1);
+      const request = indexedDB.open("AdigunPowerLab", 2);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });

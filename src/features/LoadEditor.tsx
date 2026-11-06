@@ -10,11 +10,13 @@ export function LoadEditor({
   project,
   onSave,
   onClose,
+  purpose = "load",
 }: {
   load?: Load;
   project: Project;
   onSave: (load: Load) => void;
   onClose: () => void;
+  purpose?: "load" | "template";
 }) {
   const t = useT();
   const [draft, setDraft] = useState(() =>
@@ -61,7 +63,17 @@ export function LoadEditor({
     onSave(l);
   }
   return (
-    <Modal title={t(load ? "Edit load" : "Add load")} onClose={onClose} wide>
+    <Modal
+      title={t(
+        purpose === "template"
+          ? "Equipment template"
+          : load
+            ? "Edit load"
+            : "Add load",
+      )}
+      onClose={onClose}
+      wide
+    >
       <form onSubmit={submit}>
         <div className="modal-body">
           <div className="form-grid">
@@ -322,7 +334,13 @@ export function LoadEditor({
           </button>
           <button className="button primary" type="submit">
             {load ? <Save size={16} /> : <Plus size={16} />}{" "}
-            {t(load ? "Save" : "Add load")}
+            {t(
+              purpose === "template"
+                ? "Save template"
+                : load
+                  ? "Save"
+                  : "Add load",
+            )}
           </button>
         </div>
       </form>
