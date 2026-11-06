@@ -16,13 +16,11 @@ async function route(page: Page, name: string, locale: Locale = "en") {
     .click();
 }
 async function importProject(page: Page, project: Project, mode = "new") {
-  await page
-    .locator('input[type="file"][accept=".json,.csv"]')
-    .setInputFiles({
-      name: "planning.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(project)),
-    });
+  await page.locator('input[type="file"][accept=".json,.csv"]').setInputFiles({
+    name: "planning.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(project)),
+  });
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Import destination").selectOption(mode);
   await dialog
