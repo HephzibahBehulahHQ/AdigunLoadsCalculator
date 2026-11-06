@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import type { Project } from "../../src/domain/types";
@@ -116,8 +116,9 @@ test("library favorites, linked replacement review, version history and undo", a
     2.3,
   );
   await page.getByRole("button", { name: "Redo", exact: true }).click();
-  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await expect(page.locator(".equipment-workspace")).toBeVisible();
   p = await exported(page);
   expect(p.equipmentVersions).toHaveLength(1);
@@ -200,7 +201,9 @@ test("responsive layouts, persisted split widths, reduced motion and keyboard co
     .getByLabel("Detail level", { exact: true });
   await detailLevel.selectOption("simple");
   await expect(page.locator("html")).toHaveAttribute("data-motion", "paused");
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await expect(detailLevel).toHaveValue("simple");
   expect(
     await page.evaluate(() =>

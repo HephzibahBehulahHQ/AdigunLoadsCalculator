@@ -130,6 +130,7 @@ export function ReportWorkspace({
   useUpdateGuard(
     dirtyDetails || pricingDirty || busy,
     t("Report details and sections"),
+    dirtyDetails || pricingDirty,
   );
   useEffect(() => {
     priceLocales.current = {};

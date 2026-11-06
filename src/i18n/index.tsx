@@ -3,6 +3,7 @@ import { workspaceMessages } from "./workspaceMessages";
 import { detailMessages } from "./detailMessages";
 import { createContext, useContext } from "react";
 import { uiMessages } from "./uiMessages";
+import { sessionMessages } from "./sessionMessages";
 import { reportMessages } from "./reportMessages";
 import {
   engineeringMessages,
@@ -1636,6 +1637,7 @@ Object.assign(
   words,
   engineeringMessages,
   uiMessages,
+  sessionMessages,
   reportMessages,
   workspaceMessages,
   planningMessages,

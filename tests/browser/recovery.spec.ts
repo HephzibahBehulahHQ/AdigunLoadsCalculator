@@ -1,11 +1,11 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 
 async function ready(page: Page) {
   await page.goto("/");
   await expect(page.locator(".overview-banner")).toBeVisible();
-  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await expect(page.locator(".save-badge")).toContainText("Not saved");
 }
 
 test("IndexedDB rejects conflicting same-revision writes even when timestamps match", async ({
@@ -183,6 +183,7 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
   await dialog.getByLabel("Name", { exact: true }).fill("Recovery heater");
   await dialog.getByLabel(/^Rating/).fill("2.3");
   await dialog.getByRole("button", { name: "Add load", exact: true }).click();
+  await saveProject(page);
   await expect
     .poll(() =>
       page.evaluate(async () => {
@@ -234,7 +235,7 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
     .getByRole("dialog")
     .getByRole("button", { name: "Save", exact: true })
     .click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(page.locator(".save-badge")).toContainText("Save failed");
   await expect(page.locator(".load-table")).toContainText("Recovery heater");
   const downloaded = page.waitForEvent("download");
@@ -281,6 +282,8 @@ test("UI exports conflicting edits and recovers a new copy without overwriting t
   expect(recovered.current.loads[0].rating).toBe(3);
   expect(recovered.original).toEqual(winner);
   await page.reload();
+  await resumeProject(page, recovered.current.name);
+  await page.locator(".sidebar").getByRole("button", { name: /^Load Schedule/ }).click();
   await expect(page.locator(".load-table")).toContainText("Recovery heater");
   await expect(page.locator(".load-table")).toContainText("24 kWh");
 });
@@ -328,6 +331,7 @@ test("changing the calendar range terminates the old real worker and retains onl
     store.writePreference("currentProject", project.id);
   });
   await page.reload();
+  await resumeProject(page, "Analytical worker race fixture");
   await expect(page.locator(".overview-banner")).toBeVisible();
   await page
     .locator(".sidebar")

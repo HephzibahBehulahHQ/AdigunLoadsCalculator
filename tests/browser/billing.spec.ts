@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 
 test("customer bill computes exact money, persists, downloads, prints and works on mobile", async ({
   page,
@@ -80,7 +80,9 @@ test("customer bill computes exact money, persists, downloads, prints and works 
   await expect(page.locator("body")).not.toHaveClass(/billing-print-mode/);
   await expect(page.locator(".billing-editor")).toBeVisible();
 
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await page
     .getByRole("button", { name: "Customer bill", exact: true })
     .click();
@@ -161,7 +163,9 @@ test("German bill decimals preserve invalid drafts across reload without exporti
   await expect(
     page.getByText("Entwurf lokal gespeichert", { exact: true }),
   ).toBeVisible();
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await page
     .getByRole("button", { name: "Kundenrechnung", exact: true })
     .click();

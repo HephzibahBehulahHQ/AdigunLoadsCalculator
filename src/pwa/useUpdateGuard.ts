@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
-import { registerUpdateGuard, updateBlockers } from "./updates";
+import { registerUpdateGuard, unsavedBlockers } from "./updates";
 
-export function useUpdateGuard(blocked: boolean, label: string) {
-  const current = useRef({ blocked, label });
-  current.current = { blocked, label };
+export function useUpdateGuard(blocked: boolean, label: string, unsaved = blocked) {
+  const current = useRef({ blocked, label, unsaved });
+  current.current = { blocked, label, unsaved };
   useEffect(
     () =>
       registerUpdateGuard(() =>
         current.current.blocked ? current.current.label : undefined,
+        () => current.current.unsaved ? current.current.label : undefined,
       ),
     [],
   );
@@ -18,7 +19,7 @@ export function useReloadProtection(projectNeedsSave?: () => boolean) {
   pendingProject.current = projectNeedsSave;
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (pendingProject.current?.() || updateBlockers().length) {
+      if (pendingProject.current?.() || unsavedBlockers().length) {
         event.preventDefault();
         event.returnValue = "";
       }

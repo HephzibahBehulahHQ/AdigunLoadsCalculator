@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Locator, Page } from "@playwright/test";
 import type { Project } from "../../src/domain/types";
@@ -122,8 +122,9 @@ test("detail switching preserves invalid drafts, advanced assumptions, exact mod
   await switchMode(workspaceMode(page), "simple");
   await expect(page.locator(".inspector .detail-equations")).toHaveCount(0);
   expect(await exported(page)).toEqual(before);
-  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await expect(workspaceMode(page)).toHaveValue("simple");
   expect(await exported(page)).toEqual(before);
   expect(errors).toEqual([]);

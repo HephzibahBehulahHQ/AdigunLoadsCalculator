@@ -1,18 +1,23 @@
 export type UpdateGuard = () => string | undefined;
-const guards = new Set<UpdateGuard>();
+const guards = new Map<UpdateGuard, UpdateGuard>();
 
 export function updateBlockers(): string[] {
   return [
     ...new Set(
-      [...guards]
+      [...guards.keys()]
         .map((guard) => guard())
         .filter((value): value is string => !!value),
     ),
   ];
 }
 
-export function registerUpdateGuard(guard: UpdateGuard): () => void {
-  guards.add(guard);
+/** Only edited data should trigger the browser's leave warning. */
+export function unsavedBlockers(): string[] {
+  return [...new Set([...guards.values()].map((guard) => guard()).filter((value): value is string => !!value))];
+}
+
+export function registerUpdateGuard(guard: UpdateGuard, unsaved: UpdateGuard = guard): () => void {
+  guards.set(guard, unsaved);
   return () => {
     guards.delete(guard);
   };

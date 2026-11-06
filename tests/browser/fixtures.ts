@@ -1,4 +1,31 @@
-import { test as base, chromium } from "@playwright/test";
+import { test as base, chromium, expect, type Page } from "@playwright/test";
+import { translate, type Locale } from "../../src/i18n";
+
+/** Exercise an explicit user checkpoint; waiting for an autosave is not saving. */
+export async function saveProject(page: Page) {
+  const locale = (await page.locator(".language-select").inputValue()) as Locale;
+  await page.keyboard.press("Control+s");
+  await expect(page.locator(".save-badge")).toContainText(
+    translate("Saved locally", locale),
+  );
+}
+
+/** A new page is always fresh. Previously saved work is opened deliberately. */
+export async function resumeProject(page: Page, name?: string) {
+  const locale = (await page.locator(".language-select").inputValue()) as Locale;
+  await page
+    .locator(".workspace-toolbar")
+    .getByRole("button", { name: translate("Resume project", locale), exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: translate("Open project", locale),
+    exact: true,
+  });
+  const rows = dialog.locator(".project-list > div > button:first-child");
+  await (name ? rows.filter({ hasText: name }) : rows).first().click();
+  await expect(dialog).not.toBeVisible();
+}
+
 export const test = base.extend({
   page: async ({ baseURL }, use) => {
     const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;

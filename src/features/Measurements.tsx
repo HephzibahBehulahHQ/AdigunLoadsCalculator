@@ -52,7 +52,7 @@ export function Measurements({ projectId }: { projectId: string }) {
     [dirty, setDirty] = useState(false),
     [page, setPage] = useState(0),
     [selected, setSelected] = useState<number | undefined>();
-  useUpdateGuard(dirty || busy, t("Measurements"));
+  useUpdateGuard(dirty || busy, t("Measurements"), dirty);
   const loadPayload = (
     payload: MeasurementPayload,
     parsed: MeasurementImport | null,

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 
 test("measured CSV review, durable save, backup/clean exports and failed replacement preserve readings", async ({
@@ -71,7 +71,9 @@ test("measured CSV review, durable save, backup/clean exports and failed replace
   expect(csv).toContain("average_power_kW");
   expect(csv).toContain("2026-10-25T02:00:00+01:00");
   expect(csv).toContain(",-0.5,-0.5");
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await expect(
     panel.getByText("Saved measurements reopened and validated."),
   ).toBeVisible();

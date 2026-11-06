@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 
@@ -90,6 +90,7 @@ async function fixture(page: Page, kind: "calendar" | "feeder" | "dispatch") {
     storage.writePreference("currentProject", project.id);
   }, kind);
   await page.reload();
+  await resumeProject(page, `Browser ${kind} fixture`);
   await expect(page.locator(".overview-banner")).toBeVisible();
 }
 async function route(page: Page, label: string) {

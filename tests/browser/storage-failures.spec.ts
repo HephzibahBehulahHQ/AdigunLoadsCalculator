@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 
@@ -17,7 +17,7 @@ async function blank(page: Page) {
   await page.unroute("**/src/main.tsx");
 }
 
-test("opening a saved project remembers the selection before its autosave", async ({
+test("fresh startup ignores the old active selection until a saved project is resumed", async ({
   page,
 }) => {
   await blank(page);
@@ -36,44 +36,25 @@ test("opening a saved project remembers the selection before its autosave", asyn
     return [first, second];
   });
   await page.reload();
+  await expect(page.locator(".save-badge")).toContainText("Not saved");
+  await expect(page.locator(".project-switch")).toContainText("Untitled project");
+  await resumeProject(page, first.name);
+  await expect(page.locator(".project-switch")).toContainText(first.name);
   await expect(page.locator(".save-badge")).toContainText("Saved locally");
-  // Hold only the autosave timer so selection persistence cannot pass accidentally
-  // because a later save happened before the assertion.
-  await page.evaluate(() => {
-    const timeout = window.setTimeout.bind(window);
-    window.setTimeout = ((
-      handler: TimerHandler,
-      delay?: number,
-      ...args: unknown[]
-    ) =>
-      timeout(
-        handler,
-        delay === 450 ? 60000 : delay,
-        ...args,
-      )) as typeof setTimeout;
-  });
-  await page.locator(".project-actions > summary").click();
-  await page.getByRole("button", { name: "Open project", exact: true }).click();
-  const dialog = page.getByRole("dialog", {
-    name: "Open project",
-    exact: true,
-  });
-  await dialog
-    .locator(".project-list > div > button:first-child")
-    .filter({ hasText: first.name })
-    .click();
-  await expect(dialog).not.toBeVisible();
-  expect(
-    await page.evaluate(async () => {
-      const storage = await import(
-        /* @vite-ignore */ "/src/storage/projects.ts" as string
-      );
-      return storage.readPreference("currentProject", "");
-    }),
-  ).toBe(first.id);
   expect(first.id).not.toBe(second.id);
   await page.reload();
-  await expect(page.locator(".project-switch")).toContainText(first.name);
+  await expect(page.locator(".project-switch")).toContainText("Untitled project");
+  await expect(page.locator(".save-badge")).toContainText("Not saved");
+  await resumeProject(page, second.name);
+  await expect(page.locator(".project-switch")).toContainText(second.name);
+  const records = await page.evaluate(async () => {
+    const storage = await import(
+      /* @vite-ignore */ "/src/storage/projects.ts" as string
+    );
+    return (await storage.listProjects()).map((row: { project: unknown }) => row.project);
+  });
+  expect(records).toHaveLength(2);
+  expect(records).toEqual(expect.arrayContaining([first, second]));
 });
 
 test("real quota rejection preserves the saved project and exports the current working draft", async ({
@@ -81,7 +62,8 @@ test("real quota rejection preserves the saved project and exports the current w
 }) => {
   test.setTimeout(60000);
   await page.goto(url());
-  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await expect(page.locator(".overview-banner")).toBeVisible();
+  await saveProject(page);
   const before = await page.evaluate(async () => {
     const store = await import(
       /* @vite-ignore */ "/src/storage/projects.ts" as string
@@ -128,6 +110,7 @@ test("real quota rejection preserves the saved project and exports the current w
     .fill("Quota recovery heater");
   await dialog.getByLabel(/^Rating/).fill("2.3");
   await dialog.getByRole("button", { name: "Add load", exact: true }).click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(page.locator(".save-badge")).toContainText("Save failed");
   expect(
     await page.evaluate(() => {
@@ -178,7 +161,7 @@ test("real quota rejection preserves the saved project and exports the current w
   await cdp.send("Storage.overrideQuotaForOrigin", {
     origin: new URL(page.url()).origin,
   });
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(page.locator(".save-badge")).toContainText("Saved locally");
   expect(
     await page.evaluate(() => {
@@ -188,6 +171,7 @@ test("real quota rejection preserves the saved project and exports the current w
     }),
   ).toBe(false);
   await page.reload();
+  await resumeProject(page);
   await expect(page.locator(".load-table")).toContainText(
     "Quota recovery heater",
   );
@@ -327,6 +311,7 @@ test("blocked storage shows the failure and exports a working draft while the or
     .fill("Blocked working heater");
   await dialog.getByLabel(/^Rating/).fill("2.3");
   await dialog.getByRole("button", { name: "Add load", exact: true }).click();
+  await app.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(app.locator(".save-badge")).toContainText("Save failed");
   const download = app.waitForEvent("download");
   await app
@@ -359,7 +344,10 @@ test("blocked storage shows the failure and exports a working draft while the or
     return project;
   }, original.id);
   expect(preserved).toEqual(original);
+  app.once("dialog", (dialog) => dialog.accept());
   await app.reload();
+  await resumeProject(app, original.name);
+  await app.locator(".sidebar").getByRole("button", { name: /^Load Schedule/ }).click();
   await expect(app.locator(".load-table")).toContainText(
     "Preserved original heater",
   );

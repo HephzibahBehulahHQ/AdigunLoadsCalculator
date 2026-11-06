@@ -1,5 +1,5 @@
 import { preview } from "vite";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 const basePath = process.env.POWERLAB_BASE_PATH || "/";
 const appURL = "http://127.0.0.1:4178" + basePath;
@@ -45,6 +45,7 @@ try {
     .fill("Offline analytical heater");
   await dialog.getByLabel(/^Rating/).fill("2.3");
   await dialog.getByRole("button", { name: "Add load", exact: true }).click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await page.waitForFunction(() =>
     document
       .querySelector(".save-badge")
@@ -60,6 +61,12 @@ try {
   );
   await context.setOffline(true);
   await page.reload();
+  await expect(page.locator(".save-badge")).toContainText("Not saved");
+  await expect(page.locator(".overview-banner")).not.toContainText("Offline analytical heater");
+  await page.getByRole("button", { name: "Resume project", exact: true }).click();
+  await page.getByRole("dialog", { name: "Open project", exact: true })
+    .locator(".project-list > div > button:first-child").first().click();
+  await page.locator(".sidebar").getByRole("button", { name: /^Load Schedule/ }).click();
   try {
     await page.locator(".load-table").waitFor({ timeout: 12000 });
   } catch (error) {
@@ -91,6 +98,10 @@ try {
     )
   )
     throw new Error("Offline saved project was not recovered.");
+  await page.getByRole("button", { name: "Help & Support", exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Help & Support", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".load-table")).toContainText("Offline analytical heater");
   await page
     .locator(".sidebar")
     .getByRole("button", { name: /^Engineering Toolbox/ })
@@ -138,7 +149,9 @@ try {
   const evidence = {
     basePath,
     offlineReload: true,
+    freshStartupOffline: true,
     savedProjectRecovered: true,
+    helpAvailableOffline: true,
     toolCalculationOffline: true,
     lazyBillingOffline: true,
     pdfExportOffline: true,

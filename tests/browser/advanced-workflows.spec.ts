@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import type { Project } from "../../src/domain/types";
@@ -243,8 +243,9 @@ test("editable graph creates a board/circuit, rejects cycles, connects/disconnec
   await inspector
     .getByRole("button", { name: "Save position", exact: true })
     .click();
-  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await expect(
     page.getByRole("group", {
       name: "Editable single-line diagram",

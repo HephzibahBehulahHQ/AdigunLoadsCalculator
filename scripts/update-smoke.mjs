@@ -141,10 +141,18 @@ try {
     .fill("Analytical update recovery load");
   await editor.getByLabel(/^Rating/).fill("2.3");
   await editor.getByRole("button", { name: "Add load", exact: true }).click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  async function resumeSaved(targetPage) {
+    await expect(targetPage.locator(".save-badge")).toContainText("Not saved");
+    await targetPage.getByRole("button", { name: "Resume project", exact: true }).click();
+    await targetPage.getByRole("dialog", { name: "Open project", exact: true })
+      .locator(".project-list > div > button:first-child").first().click();
+  }
   const olderTab = await context.newPage();
   olderTab.on("pageerror", (error) => errors.push(error.message));
   await olderTab.goto(target.href);
+  await resumeSaved(olderTab);
   await expect(olderTab.locator(".save-badge")).toContainText("Saved locally");
   await olderTab.waitForFunction(() => !!navigator.serviceWorker.controller);
   await olderTab.evaluate(() => {
@@ -215,6 +223,7 @@ try {
   );
   await context.setOffline(true);
   await page.reload();
+  await resumeSaved(page);
   await expect(
     page.getByRole("button", {
       name: "Edit Analytical update recovery load",
@@ -231,6 +240,7 @@ try {
     "Update available",
   );
   await page.reload();
+  await resumeSaved(page);
   await expect(page.locator(".update-banner")).toContainText(
     "Update available",
   );
@@ -262,6 +272,7 @@ try {
     page.waitForEvent("load"),
     page.getByRole("button", { name: "Save and reload", exact: true }).click(),
   ]);
+  await resumeSaved(page);
   await expect(page.locator(".save-badge")).toContainText("Saved locally");
   await expect(page.locator(".update-banner")).toHaveCount(0);
   await page
@@ -313,6 +324,7 @@ try {
     "Old tab must resolve its lazy module through the previous cache",
   );
   await olderTab.goto(new URL("index.html", target).href);
+  await resumeSaved(olderTab);
   await expect(
     olderTab.locator('meta[name="analytical-build"]'),
   ).toHaveAttribute("content", "recovered");

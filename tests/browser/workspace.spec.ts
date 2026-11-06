@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import { tools } from "../../src/tools";
 async function ready(page: import("@playwright/test").Page) {
@@ -55,7 +55,7 @@ test("empty project → load → correct current/energy → duty → undo → ex
   await expect(row).toContainText("9.2 kWh");
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(row).toContainText("18.4 kWh");
-  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await saveProject(page);
   const download = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Export project", exact: true })
@@ -64,7 +64,9 @@ test("empty project → load → correct current/energy → duty → undo → ex
   const data = JSON.parse(await readFile((await file.path())!, "utf8"));
   expect(data.loads[0].rating).toBe(2.3);
   expect(data.loads[0].duty).toBe(1);
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await expect(page.locator(".load-table")).toBeVisible();
   await expect(page.locator(".load-table")).toContainText("Analytical heater");
   await route(page, "Overview");

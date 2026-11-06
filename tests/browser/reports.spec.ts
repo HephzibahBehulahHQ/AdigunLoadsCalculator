@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 
 test("reviewed report sections and model BOM create real exports and a persistent priced estimate", async ({
   page,
@@ -112,7 +112,9 @@ test("reviewed report sections and model BOM create real exports and a persisten
   await expect(page.locator(".billing-grand-total strong")).toHaveText(
     "€43.99",
   );
+  await saveProject(page);
   await page.reload();
+  await resumeProject(page);
   await page
     .getByRole("button", { name: "Customer bill", exact: true })
     .click();

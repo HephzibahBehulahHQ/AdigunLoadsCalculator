@@ -17,7 +17,11 @@ import {
   type Proposal,
 } from "./adapter";
 import "./bot.css";
-import { createBotSessionStore } from "./sessionState";
+import {
+  botSessions as sessions,
+  nextBotMessageId,
+  type BotMessage as Message,
+} from "./sessionState";
 import {
   clampBotGeometry,
   readBotWindowState,
@@ -34,17 +38,7 @@ export interface LocalBotProps {
   onClose: () => void;
   onReport: () => void;
 }
-interface Message {
-  id: number;
-  role: "user" | "assistant";
-  text?: string;
-  response?: LocalResponse;
-  applied?: boolean;
-  dismissed?: boolean;
-}
 type Geometry = BotGeometry;
-const sessions = createBotSessionStore<Message>();
-let nextMessageId = 1;
 
 const text: Record<string, [string, string, string]> = {
   "Deterministic tools. No external AI connection.": [
@@ -52,10 +46,10 @@ const text: Record<string, [string, string, string]> = {
     "Irinṣẹ́ ìṣírò pàtó. Kò sí ìsopọ̀ AI òde.",
     "Na fixed calculation tools. No external AI connection.",
   ],
-  "Session history only": [
-    "Verlauf nur für diese Sitzung",
-    "Ìtàn fún ìgbà yìí nìkan",
-    "History na for this session only",
+  "Save project keeps this conversation and unfinished command.": [
+    "Projekt speichern bewahrt diesen Verlauf und den unfertigen Befehl.",
+    "Fi iṣẹ́ pamọ́ yóò pa ìjíròrò àti àṣẹ tí kò parí mọ́.",
+    "Save project go keep this chat and command wey never finish.",
   ],
   "Local assistant controls": [
     "Lokale Assistentensteuerung",
@@ -297,6 +291,22 @@ export default function LocalBot({
     }
   }, [project.id, project.revision]);
   useEffect(() => {
+    const restored = (event: Event) => {
+      if (
+        (event as CustomEvent<{ projectId: string }>).detail.projectId !==
+        project.id
+      )
+        return;
+      commandId.current++;
+      if (timer.current) clearTimeout(timer.current);
+      setBusy(false);
+      setError("");
+    };
+    window.addEventListener("powerlab-bot-session-restored", restored);
+    return () =>
+      window.removeEventListener("powerlab-bot-session-restored", restored);
+  }, [project.id]);
+  useEffect(() => {
     writeBotWindowState({ geometry, minimized, maximized });
   }, [geometry, minimized, maximized]);
   useEffect(() => {
@@ -365,7 +375,7 @@ export default function LocalBot({
       setMessages((previous) => [
         ...previous,
         {
-          id: nextMessageId++,
+          id: nextBotMessageId(project.id),
           role: "assistant",
           response: runLocalCommand(latest.current.project, "issues"),
         },
@@ -382,7 +392,7 @@ export default function LocalBot({
     setBusy(true);
     const id = ++commandId.current;
     const captured = { project: structuredClone(project), selectedId };
-    const userId = nextMessageId++;
+    const userId = nextBotMessageId(project.id);
     setMessages((previous) => [
       ...previous,
       { id: userId, role: "user", text: command.trim() },
@@ -399,7 +409,7 @@ export default function LocalBot({
           command,
           captured.selectedId,
         );
-        const responseId = nextMessageId++;
+        const responseId = nextBotMessageId(captured.project.id);
         if (id === commandId.current)
           setMessages((previous) => [
             ...previous,
@@ -484,6 +494,7 @@ export default function LocalBot({
     const response = message.response!;
     const proposal = response.proposal;
     const stale =
+      message.restored ||
       response.projectId !== project.id ||
       response.revision !== project.revision;
     return (
@@ -857,7 +868,9 @@ export default function LocalBot({
                   "I can explain this project, list missing inputs, preview phase balancing, or open the real report exporter.",
                 )}
               </p>
-              <small>{l("Session history only")}</small>
+              <small>
+                {l("Save project keeps this conversation and unfinished command.")}
+              </small>
             </div>
             {messages.map((message) => (
               <article

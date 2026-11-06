@@ -112,6 +112,18 @@ import {
 } from "./features/DetailViews";
 import { UpdateBanner } from "./features/UpdateBanner";
 import { useUpdateGuard } from "./pwa/useUpdateGuard";
+import { unsavedBlockers } from "./pwa/updates";
+import { liveDrafts } from "./storage/billing";
+import { botSessions } from "./bot/sessionState";
+import {
+  captureProjectSession,
+  restoreProjectSession,
+  projectContentFingerprint,
+  projectSessionFingerprint,
+  type ProjectSession,
+} from "./storage/projectSession";
+import { ProjectInterview, type InterviewProgress } from "./features/ProjectInterview";
+import { HelpSupport } from "./features/HelpSupport";
 import {
   Overview,
   Loads,
@@ -281,13 +293,14 @@ export default function App() {
   const [project, setProject] = useState<Project>(() =>
     createProject("Untitled project"),
   );
-  const [loaded, setLoaded] = useState(false);
+  // Opening local storage must never prevent a fresh workspace from rendering.
+  const [loaded] = useState(true);
   const [records, setRecords] = useState<ProjectRecord[]>([]);
-  const [route, setRoute] = useState(() => {
-    const r = location.hash.slice(2);
-    return routes.some((x) => x.id === r) ? r : "overview";
-  });
-  const [saveState, setSaveState] = useState("Saving");
+  const [route, setRoute] = useState("overview");
+  const [saveState, setSaveState] = useState("Not saved");
+  const [interview, setInterview] = useState<InterviewProgress>({ step: 1, completed: false });
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [sessionTick, setSessionTick] = useState(0);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(() => readPreference("theme", "dark"));
@@ -397,6 +410,16 @@ export default function App() {
   const latest = useRef(project);
   latest.current = project;
   const lastSaved = useRef(new Map<string, number>());
+  const checkpointIds = useRef(new Map<string, string>());
+  const baseline = useRef(new Map<string, string>());
+  const initialProject = useRef(project.id);
+  const saving = useRef(0);
+  const sessionMeta = useRef({ interview, route, selected, botOpen });
+  sessionMeta.current = { interview, route, selected, botOpen };
+  const fingerprint = (p: Project, session: ProjectSession) =>
+    projectContentFingerprint(p) + projectSessionFingerprint(session);
+  if (!baseline.current.has(initialProject.current) && project.id === initialProject.current)
+    baseline.current.set(project.id, fingerprint(project, captureProjectSession(project.id, sessionMeta.current)));
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const channel = useRef<BroadcastChannel | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -416,33 +439,35 @@ export default function App() {
     }
   }, []);
   useEffect(() => {
+    // Unsaved drafts live only in this page. Never hydrate a previous active draft.
+    // Existing durable records (including older versions) remain available to Resume.
+    history.replaceState(null, "", "#/overview");
     let alive = true;
     listProjects(true)
-      .then((all) => {
-        if (!alive) return;
-        setRecords(all);
-        const id = readPreference("currentProject", "");
-        const found =
-          all.find((r) => r.id === id && !r.deleted) ||
-          all.find((r) => !r.deleted);
-        if (found) {
-          lastSaved.current.set(found.id, found.project.revision);
-          setProject(found.project);
-          setSaveState("Saved locally");
-        }
-        setLoaded(true);
-      })
-      .catch((e) => {
-        if (alive) {
-          setError((e as Error).message);
-          setSaveState("Save failed");
-          setLoaded(true);
-        }
-      });
+      .then((all) => { if (alive) setRecords(all); })
+      .catch((cause) => { if (alive) setError((cause as Error).message); });
+    return () => { alive = false; };
+  }, []);
+  useEffect(() => botSessions.subscribe(project.id, () => setSessionTick((tick) => tick + 1)), [project.id]);
+  useEffect(() => {
+    const changed = () => setSessionTick((tick) => tick + 1);
+    window.addEventListener("powerlab-billing-changed", changed);
+    window.addEventListener("powerlab-billing-checkpoint", changed);
+    window.addEventListener("adigun-billing-restored", changed);
     return () => {
-      alive = false;
+      window.removeEventListener("powerlab-billing-changed", changed);
+      window.removeEventListener("powerlab-billing-checkpoint", changed);
+      window.removeEventListener("adigun-billing-restored", changed);
     };
   }, []);
+  function hasUnsavedProject() {
+    const current = latest.current;
+    return baseline.current.get(current.id) !== fingerprint(current, captureProjectSession(current.id, sessionMeta.current)) ||
+      Boolean(liveDrafts.get(current.id)?.dirty);
+  }
+  useEffect(() => {
+    if (!saving.current) setSaveState(hasUnsavedProject() ? "Unsaved changes" : lastSaved.current.has(project.id) ? "Saved locally" : "Not saved");
+  }, [project, interview, sessionTick]);
   useEffect(() => {
     const media = matchMedia("(max-width: 800px)");
     const closeSmall = () => {
@@ -467,41 +492,49 @@ export default function App() {
     document.documentElement.dataset.motion = motion;
     return () => mq.removeEventListener("change", apply);
   }, [locale, theme, motion, sidebar]);
-  function persist(p: Project = latest.current) {
-    setSaveState("Saving");
-    const work = saveQueue.current
-      .catch(() => {})
-      .then(async () => {
-        await saveProject(p, lastSaved.current.get(p.id));
-        lastSaved.current.set(p.id, p.revision);
-        if (
-          latest.current.id === p.id &&
-          latest.current.revision === p.revision
-        )
-          setSaveState("Saved locally");
-        if (latest.current.id === p.id) writePreference("currentProject", p.id);
-        channel.current?.postMessage({
-          id: p.id,
-          revision: p.revision,
-          updatedAt: p.updatedAt,
-        });
-        await refreshRecords();
-      });
-    saveQueue.current = work;
-    work.catch((e) => {
+  function persist(p: Project = latest.current): Promise<void> {
+    const pending = unsavedBlockers().filter((label) => label !== t("Customer bill"));
+    if (pending.length) {
+      const cause = new Error(t("Finish or apply the open entries before saving the project.") + " " + pending.join(", "));
+      setError(cause.message);
       setSaveState("Save failed");
-      setError((e as Error).message);
+      const rejected = Promise.reject(cause);
+      void rejected.catch(() => {});
+      return rejected;
+    }
+    const snapshot = structuredClone(p);
+    const session = captureProjectSession(snapshot.id, sessionMeta.current);
+    const savedFingerprint = fingerprint(snapshot, session);
+    saving.current++;
+    setSaveState("Saving");
+    setError("");
+    const work = saveQueue.current.catch(() => {}).then(async () => {
+      const record = await saveProject(snapshot, lastSaved.current.get(snapshot.id), {
+        session,
+        expectedCheckpointId: checkpointIds.current.get(snapshot.id) ?? null,
+        includeBilling: true,
+      });
+      lastSaved.current.set(snapshot.id, snapshot.revision);
+      checkpointIds.current.set(snapshot.id, record.checkpointId ?? record.savedAt);
+      baseline.current.set(snapshot.id, savedFingerprint);
+      channel.current?.postMessage({ id: snapshot.id, revision: snapshot.revision, updatedAt: snapshot.updatedAt, checkpointId: record.checkpointId });
+      await refreshRecords();
+    });
+    saveQueue.current = work;
+    void work.then(() => {
+      saving.current--;
+      if (latest.current.id === snapshot.id && !saving.current) {
+        const dirty = hasUnsavedProject();
+        setSaveState(dirty ? "Unsaved changes" : "Saved locally");
+        if (!dirty) setMessage(t("Saved locally"));
+      }
+    }, (cause) => {
+      saving.current--;
+      setSaveState("Save failed");
+      setError((cause as Error).message);
     });
     return work;
   }
-  useEffect(() => {
-    if (!loaded) return;
-    setSaveState("Unsaved changes");
-    const id = setTimeout(() => {
-      void persist(project);
-    }, 450);
-    return () => clearTimeout(id);
-  }, [project, loaded]);
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
     const c = new BroadcastChannel("AdigunPowerLab");
@@ -536,6 +569,7 @@ export default function App() {
       setError((e as Error).message);
       return false;
     }
+    if (projectContentFingerprint(draft) === projectContentFingerprint(previous)) return true;
     draft.revision = previous.revision + 1;
     draft.updatedAt = new Date().toISOString();
     undo.current.push(previous);
@@ -586,90 +620,97 @@ export default function App() {
         .then(setRevisions)
         .catch((e) => setError(e.message));
   }
+  function canLeaveProject() {
+    if (saving.current) {
+      setError(t("Wait for the current save to finish."));
+      return false;
+    }
+    if (hasUnsavedProject() || unsavedBlockers().length)
+      return confirm(t("Unsaved changes will be discarded. Continue? Save project first to keep them."));
+    return true;
+  }
+  function installProject(next: Project, saved?: ProjectRecord, fresh = false) {
+    const sourceId = latest.current.id;
+    // Discard the abandoned in-memory copy, never the durable saved record.
+    liveDrafts.delete(sourceId);
+    liveDrafts.delete(next.id);
+    undo.current = [];
+    redo.current = [];
+    setHistoryTick((tick) => tick + 1);
+    latest.current = structuredClone(next);
+    const session = saved?.session;
+    restoreProjectSession(next.id, session);
+    const progress: InterviewProgress = session?.interview ?? {
+      step: 1,
+      completed: Boolean(saved || next.loads.length || next.referenceCase || next.scenarioOf),
+    };
+    const nextRoute = session && routes.some((entry) => entry.id === session.route) ? session.route : "overview";
+    const activeRoute = progress.completed ? nextRoute : "overview";
+    const meta = { interview: progress, route: activeRoute, selected: session?.selected, botOpen: session?.botOpen ?? false };
+    sessionMeta.current = meta;
+    if (saved) {
+      lastSaved.current.set(next.id, next.revision);
+      checkpointIds.current.set(next.id, saved.checkpointId ?? saved.savedAt);
+      baseline.current.set(next.id, fingerprint(next, captureProjectSession(next.id, meta)));
+    } else if (fresh) {
+      baseline.current.set(next.id, fingerprint(next, captureProjectSession(next.id, meta)));
+    }
+    setProject(latest.current);
+    setInterview(progress);
+    setSelected(meta.selected);
+    setBotOpen(meta.botOpen);
+    setReportContext({});
+    setEditor(null);
+    setCommandReview(undefined);
+    setShowTrace(false);
+    setDialog(null);
+    setQuery("");
+    setRoute(activeRoute);
+    history.replaceState(null, "", "#/" + activeRoute);
+    setSaveState(saved ? "Saved locally" : fresh ? "Not saved" : "Unsaved changes");
+    setError("");
+  }
   async function openProject(next: Project) {
+    if (!canLeaveProject()) return;
     try {
-      const source = latest.current;
-      if (saveState === "Save failed" && next.id === source.id) {
-        if (
-          !confirm("Reload the saved project? Export your unsaved work first.")
-        )
-          return;
-        setError("");
-      } else {
-        await persist(source);
-        if (
-          latest.current.id !== source.id ||
-          latest.current.revision !== source.revision
-        ) {
-          setError(
-            "Project changed during saving. Your edits are preserved; open the other project again.",
-          );
-          return;
-        }
-      }
-      undo.current = [];
-      redo.current = [];
-      setHistoryTick((n) => n + 1);
-      lastSaved.current.set(
-        next.id,
-        records.find((r) => r.id === next.id)?.project.revision ??
-          next.revision,
-      );
-      latest.current = structuredClone(next);
-      writePreference("currentProject", next.id);
-      setProject(latest.current);
-      setSelected(undefined);
-      setDialog(null);
-      go("overview");
-    } catch {
-      /* Preserve current project when persistence fails. */
+      const all = await listProjects(true);
+      const saved = all.find((row) => row.id === next.id && !row.deleted);
+      if (!saved) throw new Error("The saved project is unavailable. Refresh the project list or restore it from trash.");
+      setRecords(all);
+      installProject(saved.project, saved);
+    } catch (cause) {
+      setError((cause as Error).message);
     }
   }
   async function createAndOpen(next: Project) {
-    try {
-      const source = latest.current;
-      await persist(source);
-      if (
-        latest.current.id !== source.id ||
-        latest.current.revision !== source.revision
-      ) {
-        setError(
-          "Project changed during saving. Your edits are preserved; create the project again.",
-        );
-        return;
-      }
-      await saveProject(next);
-      lastSaved.current.set(next.id, next.revision);
-      await refreshRecords();
-      undo.current = [];
-      redo.current = [];
-      latest.current = next;
-      writePreference("currentProject", next.id);
-      setProject(next);
-      setSelected(undefined);
-      setDialog(null);
-      go("overview");
-    } catch (e) {
-      setError((e as Error).message);
-    }
+    if (!canLeaveProject()) return;
+    installProject(next);
   }
   async function closeProject(trash: boolean) {
+    if (!canLeaveProject()) return;
     const source = latest.current;
-    const next = createProject("Untitled project");
-    await createAndOpen(next);
-    if (latest.current.id !== next.id) return;
     try {
-      if (trash) await setTrashed(source.id, true);
+      if (trash && lastSaved.current.has(source.id)) await setTrashed(source.id, true);
+      installProject(createProject("Untitled project"), undefined, true);
       await refreshRecords();
-      setMessage(
-        t(
-          trash
-            ? "Project moved to trash"
-            : "Project closed; saved work remains available in Open project.",
-        ),
-      );
-    } catch (error) {
-      setError((error as Error).message);
+      setMessage(t(trash ? "Project moved to trash" : "Project closed. Saved checkpoints remain available in Resume project."));
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  }
+  async function saveCopy() {
+    const source = latest.current;
+    const copy = duplicateProject(source, source.name + " · recovered copy");
+    const session = captureProjectSession(source.id, sessionMeta.current);
+    const bill = liveDrafts.get(source.id);
+    if (bill) liveDrafts.set(copy.id, { bill: structuredClone(bill.bill), revision: null, dirty: true });
+    try {
+      const saved = await saveProject(copy, undefined, { session, expectedCheckpointId: null, includeBilling: true });
+      installProject(copy, saved);
+      await refreshRecords();
+    } catch (cause) {
+      liveDrafts.delete(copy.id);
+      setError((cause as Error).message);
     }
   }
   function saveLoad(load: Load) {
@@ -734,6 +775,11 @@ export default function App() {
   }
   useEffect(() => {
     function key(e: KeyboardEvent) {
+      if (e.key === "F1") {
+        e.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
       const input = (e.target as HTMLElement)?.closest(
         'input,textarea,select,[contenteditable="true"]',
       );
@@ -1213,6 +1259,9 @@ export default function App() {
             <span>{t(saveState)}</span>
           </span>
           <span className="spacer" />
+          <button className="button help-support-button" onClick={() => setHelpOpen(true)}>
+            <HelpCircle size={17} /> <span>{t("Help & Support")}</span>
+          </button>
           <button
             className="command-button"
             onClick={() => setDialog("commands")}
@@ -1381,7 +1430,7 @@ export default function App() {
                 >
                   {t("Duplicate project")}
                 </button>
-                <button onClick={() => void persist()}>{t("Save")}</button>
+                <button disabled={saveState === "Saving"} onClick={() => void persist()}>{t("Save project")}</button>
                 <button onClick={() => exportProject(project)}>
                   {t("Export project")}
                 </button>
@@ -1413,6 +1462,9 @@ export default function App() {
                 </button>
               </div>
             </details>
+            <button className="button small-button resume-project-button" aria-label={t("Resume project")} onClick={() => { setDialog("projects"); void refreshRecords(); }}>
+              <FolderOpen size={15} /><span>{t("Resume project")}</span>
+            </button>
             <div className="history-buttons">
               <button
                 className="icon-button"
@@ -1436,9 +1488,12 @@ export default function App() {
             <button
               className="button small-button"
               onClick={() => void persist()}
+              disabled={saveState === "Saving"}
+              aria-label={t("Save project")}
+              title={t("Save project") + " · Ctrl / ⌘ S"}
             >
               <Save size={15} />
-              <span>{t("Save")}</span>
+              <span>{t("Save project")}</span>
             </button>
             <button
               className="button small-button"
@@ -1470,27 +1525,7 @@ export default function App() {
               </button>
               <button
                 className="button small-button"
-                onClick={async () => {
-                  try {
-                    const copy = duplicateProject(
-                      latest.current,
-                      latest.current.name + " · recovered copy",
-                    );
-                    await saveProject(copy);
-                    lastSaved.current.set(copy.id, copy.revision);
-                    undo.current = [];
-                    redo.current = [];
-                    setHistoryTick((n) => n + 1);
-                    latest.current = copy;
-                    setProject(copy);
-                    setSelected(undefined);
-                    setShowTrace(false);
-                    setError("");
-                    await refreshRecords();
-                  } catch (e) {
-                    setError((e as Error).message);
-                  }
-                }}
+                onClick={() => void saveCopy()}
               >
                 {t("Save a copy")}
               </button>
@@ -1506,11 +1541,7 @@ export default function App() {
           <UpdateBanner
             save={() => persist()}
             version={`${project.id}:${project.revision}`}
-            projectNeedsSave={() =>
-              loaded &&
-              lastSaved.current.get(latest.current.id) !==
-                latest.current.revision
-            }
+            projectNeedsSave={hasUnsavedProject}
           />
           <div
             className={
@@ -1553,6 +1584,9 @@ export default function App() {
               ) : (
                 <>
                   {route === "overview" && (
+                    <>
+                    <ProjectInterview key={project.id} project={project} progress={interview}
+                      onProgress={setInterview} change={change} onHelp={() => setHelpOpen(true)} />
                     <Overview
                       project={project}
                       result={result}
@@ -1561,6 +1595,7 @@ export default function App() {
                       onReference={() => setDialog("references")}
                       onRoute={go}
                     />
+                    </>
                   )}
                   {route === "loads" && (
                     <>
@@ -2358,6 +2393,8 @@ export default function App() {
         {dialog === "projects" && (
           <Modal title={t("Open project")} onClose={() => setDialog(null)} wide>
             <div className="modal-body">
+              <p>{t("Saved projects stay on this browser. Choose one to resume; new visits start a fresh interview.")}</p>
+              {!records.some((record) => !record.deleted) && <Notice>{t("No saved projects yet. Use Save project to keep your work.")}</Notice>}
               <form
                 className="inline-form"
                 onSubmit={(e) => {
@@ -2803,6 +2840,7 @@ export default function App() {
             </div>
           </Modal>
         )}
+        {helpOpen && <HelpSupport onClose={() => setHelpOpen(false)} />}
       </div>
     </LanguageContext.Provider>
   );

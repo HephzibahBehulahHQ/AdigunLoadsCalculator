@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import type { Project } from "../../src/domain/types";
@@ -112,6 +112,7 @@ test("home circuits, locked phase balancing, and independent scenario copy", asy
   ).toMatchObject({ locked: true, phase: "L1" });
   expect(baseline.loads.some((load) => load.phase !== "L1")).toBe(true);
 
+  await saveProject(page);
   await route(page, "Scenarios & Optimization");
   await page
     .getByLabel("Create scenario", { exact: true })
@@ -141,7 +142,7 @@ test("home circuits, locked phase balancing, and independent scenario copy", asy
     scenario.loads.find((load) => load.name === "Lighting (analytical)")
       ?.rating,
   ).toBe(0.24);
-  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await saveProject(page);
   await route(page, "Scenarios & Optimization");
   await page
     .locator(".scenario-grid section")

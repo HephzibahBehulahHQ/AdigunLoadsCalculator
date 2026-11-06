@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect } from "./fixtures";
+import { test, expect, saveProject, resumeProject } from "./fixtures";
 
 async function ready(page: Page) {
   await page.goto("/");
@@ -61,7 +61,7 @@ test("quick actions and window lifecycle preserve the unfinished draft and conve
   ).toBeVisible();
 });
 
-test("project switches preserve distinct drafts and transcripts without leaking messages", async ({
+test("project switches resume explicitly saved drafts and transcripts without leaking messages", async ({
   page,
 }) => {
   await ready(page);
@@ -72,6 +72,7 @@ test("project switches preserve distinct drafts and transcripts without leaking 
   await bot.getByRole("button", { name: "Send", exact: true }).click();
   await expect(bot.locator(".bot-message.assistant")).toHaveCount(1);
   await composer.fill("Unfinished Alpha command");
+  await saveProject(page);
   await createProject(page, "BOT Beta");
   await expect(bot.locator(".bot-message")).toHaveCount(0);
   await expect(composer).toHaveValue("");
@@ -79,6 +80,7 @@ test("project switches preserve distinct drafts and transcripts without leaking 
   await bot.getByRole("button", { name: "Send", exact: true }).click();
   await expect(bot.locator(".bot-message.assistant")).toHaveCount(1);
   await composer.fill("Unfinished Beta command");
+  await saveProject(page);
   for (const name of ["Alpha", "Beta", "Alpha"]) {
     const dialog = await projects(page);
     await dialog

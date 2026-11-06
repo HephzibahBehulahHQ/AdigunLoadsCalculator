@@ -3,6 +3,7 @@ import { parseMeasurementCSV } from "../import-export/measurements";
 
 export const DATABASE_NAME = "AdigunPowerLab";
 export const DATABASE_VERSION = 2;
+export const STORAGE_OPEN_TIMEOUT_MS = 8000;
 export const ARCHIVE_STORES = [
   "projects",
   "history",
@@ -13,32 +14,56 @@ export const ARCHIVE_STORES = [
 let connection: Promise<IDBDatabase> | undefined;
 let opened: IDBDatabase | undefined;
 let blockedOpenError: Error | undefined;
+let generation = 0;
 
-function legacyRows(name: string, store: string): Promise<unknown[]> {
+const timeoutError = () => new Error(
+  "Local storage did not respond. Your saved records have not been deleted. Close older PowerLab tabs and retry, or export your current work.",
+);
+
+function legacyRows(name: string, store: string, signal: AbortSignal): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
+    if (signal.aborted) { reject(timeoutError()); return; }
     const request = indexedDB.open(name, 1);
     let absent = false;
+    let finished = false;
+    let database: IDBDatabase | undefined;
+    let transaction: IDBTransaction | undefined;
+    const finish = (rows: unknown[], error?: unknown) => {
+      if (finished) return;
+      finished = true;
+      signal.removeEventListener("abort", interrupted);
+      database?.close();
+      if (error) reject(error);
+      else resolve(rows);
+    };
+    const interrupted = () => {
+      try { transaction?.abort(); } catch { /* Already finished. */ }
+      finish([], timeoutError());
+    };
+    signal.addEventListener("abort", interrupted, { once: true });
     request.onupgradeneeded = () => {
       absent = true;
       request.transaction?.abort();
     };
-    request.onerror = () => (absent ? resolve([]) : reject(request.error));
+    request.onerror = () => finish([], absent ? undefined : request.error);
     request.onblocked = () =>
-      reject(
+      finish([], 
         new Error("Close the older PowerLab tab to migrate local storage."),
       );
     request.onsuccess = () => {
       const db = request.result;
+      if (finished || signal.aborted) { db.close(); return; }
+      database = db;
       if (!db.objectStoreNames.contains(store)) {
-        db.close();
-        resolve([]);
+        finish([]);
         return;
       }
-      const tx = db.transaction(store),
+      const tx = transaction = db.transaction(store),
         read = tx.objectStore(store).getAll();
-      read.onsuccess = () => resolve(read.result);
-      read.onerror = () => reject(read.error);
-      tx.oncomplete = tx.onabort = () => db.close();
+      let rows: unknown[] = [];
+      read.onsuccess = () => { rows = read.result; };
+      tx.oncomplete = () => finish(rows);
+      tx.onerror = tx.onabort = () => finish([], tx.error ?? new Error("Legacy storage read was interrupted."));
     };
   });
 }
@@ -94,23 +119,41 @@ function validLegacyMeasurements(value: unknown): boolean {
   );
 }
 
-async function migrateLegacyStores(db: IDBDatabase): Promise<void> {
+async function migrateLegacyStores(db: IDBDatabase, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) throw timeoutError();
   const key = "legacy-billing-measurements-v1";
   const done = await new Promise<boolean>((resolve, reject) => {
-    const read = db.transaction("metadata").objectStore("metadata").get(key);
-    read.onsuccess = () => resolve(Boolean(read.result));
-    read.onerror = () => reject(read.error);
+    const tx = db.transaction("metadata"), read = tx.objectStore("metadata").get(key);
+    let value = false;
+    const interrupted = () => {
+      try { tx.abort(); } catch { /* Already finished. */ }
+      reject(timeoutError());
+    };
+    signal.addEventListener("abort", interrupted, { once: true });
+    read.onsuccess = () => { value = Boolean(read.result); };
+    tx.oncomplete = () => { signal.removeEventListener("abort", interrupted); resolve(value); };
+    tx.onerror = tx.onabort = () => {
+      signal.removeEventListener("abort", interrupted);
+      reject(tx.error ?? new Error("Storage migration could not be checked."));
+    };
   });
+  if (signal.aborted) throw timeoutError();
   if (done) return;
   const [bills, measurements] = await Promise.all([
-    legacyRows("AdigunPowerLab-billing", "drafts"),
-    legacyRows("AdigunPowerLabMeasurements", "datasets"),
+    legacyRows("AdigunPowerLab-billing", "drafts", signal),
+    legacyRows("AdigunPowerLabMeasurements", "datasets", signal),
   ]);
+  if (signal.aborted) throw timeoutError();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(
       ["metadata", "bills", "measurements", "recoveryRecords"],
       "readwrite",
     );
+    const interrupted = () => {
+      try { tx.abort(); } catch { /* Already finished. */ }
+      reject(timeoutError());
+    };
+    signal.addEventListener("abort", interrupted, { once: true });
     const marker = tx.objectStore("metadata").get(key);
     marker.onsuccess = () => {
       if (marker.result) return;
@@ -160,14 +203,19 @@ async function migrateLegacyStores(db: IDBDatabase): Promise<void> {
         originalDatabasesRetained: true,
       });
     };
-    tx.oncomplete = () => resolve();
-    tx.onerror = tx.onabort = () =>
+    tx.oncomplete = () => {
+      signal.removeEventListener("abort", interrupted);
+      resolve();
+    };
+    tx.onerror = tx.onabort = () => {
+      signal.removeEventListener("abort", interrupted);
       reject(
         tx.error ??
           new Error(
             "Storage migration was interrupted. Original records remain recoverable.",
           ),
       );
+    };
   });
 }
 
@@ -176,7 +224,16 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
   // Reject retries promptly instead of queuing them behind that pending request.
   if (blockedOpenError) return Promise.reject(blockedOpenError);
   if (connection) return connection;
-  connection = new Promise<IDBDatabase>((resolve, reject) => {
+  const attempt = ++generation;
+  const aborter = new AbortController();
+  let attemptDatabase: IDBDatabase | undefined;
+  let timeout: ReturnType<typeof setTimeout>;
+  const pending = new Promise<IDBDatabase>((resolve, reject) => {
+    timeout = setTimeout(() => {
+      aborter.abort();
+      attemptDatabase?.close();
+      reject(timeoutError());
+    }, STORAGE_OPEN_TIMEOUT_MS);
     if (!globalThis.indexedDB) {
       reject(
         new Error(
@@ -192,7 +249,7 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
       if (blockedOpenError === blockedFailure) blockedOpenError = undefined;
     };
     request.onupgradeneeded = () => {
-      if (rejected) {
+      if (rejected || aborter.signal.aborted || attempt !== generation) {
         request.transaction?.abort();
         return;
       }
@@ -210,6 +267,7 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
       }
     };
     request.onblocked = () => {
+      if (aborter.signal.aborted || attempt !== generation) return;
       rejected = true;
       blockedFailure = new Error(
         "Close the older PowerLab tab to update local storage. Existing records remain unchanged.",
@@ -224,33 +282,37 @@ export function openPowerLabDatabase(): Promise<IDBDatabase> {
     request.onsuccess = () => {
       releaseBlockedOpen();
       const db = request.result;
-      if (rejected) {
+      if (rejected || aborter.signal.aborted || attempt !== generation) {
         db.close();
         return;
       }
+      attemptDatabase = db;
       opened = db;
       db.onversionchange = () => {
         db.close();
-        opened = undefined;
-        connection = undefined;
+        if (opened === db) opened = undefined;
+        if (attempt === generation) connection = undefined;
       };
-      resolve(db);
+      // Keep the same deadline for metadata and legacy migration, too.
+      migrateLegacyStores(db, aborter.signal).then(() => {
+        if (!aborter.signal.aborted && attempt === generation) resolve(db);
+        else { db.close(); reject(timeoutError()); }
+      }, reject);
     };
   })
-    .then(async (db) => {
-      await migrateLegacyStores(db);
-      return db;
-    })
     .catch((error) => {
-      opened?.close();
-      opened = undefined;
-      connection = undefined;
+      aborter.abort();
+      attemptDatabase?.close();
+      if (opened === attemptDatabase) opened = undefined;
+      if (attempt === generation) connection = undefined;
       throw error;
-    });
+    }).finally(() => clearTimeout(timeout));
+  connection = pending;
   return connection;
 }
 
 export function closePowerLabDatabase(): void {
+  generation++;
   opened?.close();
   opened = undefined;
   connection = undefined;
