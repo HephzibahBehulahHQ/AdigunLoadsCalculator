@@ -1550,6 +1550,8 @@ export default function App() {
                       project={project}
                       result={result}
                       detailMode={detailMode}
+                      change={change}
+                      onLocale={setLocale}
                       onAdd={() => setEditor({})}
                       onReference={() => setDialog("references")}
                       onRoute={go}
