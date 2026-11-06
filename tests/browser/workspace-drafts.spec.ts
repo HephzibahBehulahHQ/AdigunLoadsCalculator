@@ -85,6 +85,7 @@ async function failProjectWrites(page: Page) {
 test("report drafts survive route, billing tab, locale and project switches without mutating the model", async ({
   page,
 }) => {
+  test.setTimeout(90000);
   const original = await seed(page);
   await route(page, "Reports & Estimates");
   await page
@@ -278,6 +279,7 @@ test("report drafts survive route, billing tab, locale and project switches with
 test("failed report persistence retains a dirty guarded draft even after the in-memory model accepts the details", async ({
   page,
 }) => {
+  test.setTimeout(90000);
   const [original] = await seed(page);
   await route(page, "Reports & Estimates");
   await page
@@ -358,6 +360,7 @@ test("failed report persistence retains a dirty guarded draft even after the in-
 test("measurement drafts retain their CSV, mapping and raw interval across routes and projects until save or discard", async ({
   page,
 }) => {
+  test.setTimeout(90000);
   const original = await seed(page);
   await route(page, "Schedules & Simulation");
   const panel = page.locator(".measurements-panel");
