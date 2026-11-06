@@ -1,11 +1,17 @@
 import { test, expect } from "./fixtures";
 import { readFile } from "node:fs/promises";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import type { Project } from "../../src/domain/types";
 import { translate, type Locale } from "../../src/i18n";
 
 const workspaceMode = (page: Page) =>
   page.locator(".page-heading .detail-mode-control select");
+async function switchMode(control: Locator, value: string) {
+  // selectOption alone does not move focus: commit the field being edited,
+  // as keyboard or pointer interaction with the mode selector does.
+  await control.focus();
+  await control.selectOption(value);
+}
 async function exported(page: Page): Promise<Project> {
   const pending = page.waitForEvent("download");
   await page
@@ -32,6 +38,8 @@ async function newLoad(page: Page, name = "Mode heater") {
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await dialog.getByLabel(/^Rating/).fill("2.3");
   await dialog.getByLabel(/^Operating hours/).fill("8");
+  await expect(dialog.getByLabel(/^Operating hours/)).toBeFocused();
+  await expect(dialog.locator(".detail-calculation")).toContainText("18.4 kWh");
   return dialog;
 }
 
@@ -47,9 +55,12 @@ test("detail switching preserves invalid drafts, advanced assumptions, exact mod
   await dialog.getByLabel(/^Energy duty/).fill("0.5");
   await dialog.getByLabel(/^Utilization/).fill("0.5");
   await dialog.getByLabel(/^Standby power/).fill("20");
-  await dialog
-    .getByLabel("Detail level", { exact: true })
-    .selectOption("simple");
+  await expect(dialog.getByLabel(/^Standby power/)).toBeFocused();
+  await expect(dialog.locator(".detail-calculation")).toContainText("10 kWh");
+  await switchMode(
+    dialog.getByLabel("Detail level", { exact: true }),
+    "simple",
+  );
   await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue(
     "Mode heater",
   );
@@ -60,13 +71,15 @@ test("detail switching preserves invalid drafts, advanced assumptions, exact mod
   await expect(dialog.locator(".detail-calculation")).toContainText("10 A");
   await expect(dialog.locator(".detail-calculation")).toContainText("10 kWh");
 
-  await dialog
-    .getByLabel("Detail level", { exact: true })
-    .selectOption("engineering");
+  await switchMode(
+    dialog.getByLabel("Detail level", { exact: true }),
+    "engineering",
+  );
   await dialog.getByLabel(/^Utilization/).fill("0,5.0");
-  await dialog
-    .getByLabel("Detail level", { exact: true })
-    .selectOption("simple");
+  await switchMode(
+    dialog.getByLabel("Detail level", { exact: true }),
+    "simple",
+  );
   await expect(dialog.getByLabel(/^Utilization/)).toHaveValue("0,5.0");
   await expect(dialog.getByLabel(/^Utilization/)).toBeVisible();
   await expect(dialog.getByLabel(/^Utilization/)).toHaveAttribute(
@@ -95,7 +108,7 @@ test("detail switching preserves invalid drafts, advanced assumptions, exact mod
     duty: 0.5,
     hoursPerDay: 8,
   });
-  await workspaceMode(page).selectOption("engineering");
+  await switchMode(workspaceMode(page), "engineering");
   await expect(row.locator("td")).toHaveCount(9);
   await expect(row).toContainText("10 A");
   await expect(row).toContainText("10 kWh");
@@ -106,7 +119,7 @@ test("detail switching preserves invalid drafts, advanced assumptions, exact mod
   await expect(page.locator(".inspector .detail-equations")).toContainText(
     "E = 2.3 × 4 + 0.04 × (24 − 4) ≈ 10 kWh",
   );
-  await workspaceMode(page).selectOption("simple");
+  await switchMode(workspaceMode(page), "simple");
   await expect(page.locator(".inspector .detail-equations")).toHaveCount(0);
   expect(await exported(page)).toEqual(before);
   await expect(page.locator(".save-badge")).toContainText("Saved locally");
@@ -123,6 +136,7 @@ test("failed, incomplete and unsupported checks remain visible in both views", a
   await expect(page.locator(".overview-banner")).toBeVisible();
   let dialog = await newLoad(page);
   await dialog.getByRole("button", { name: "Add load", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   await route(page, "Settings");
   const settings = page.locator("form").filter({
     has: page.getByRole("heading", { name: "Project settings", exact: true }),
@@ -131,7 +145,7 @@ test("failed, incomplete and unsupported checks remain visible in both views", a
   await settings.getByRole("button", { name: "Save", exact: true }).click();
   await route(page, "Overview");
   for (const mode of ["simple", "engineering"]) {
-    await workspaceMode(page).selectOption(mode);
+    await switchMode(workspaceMode(page), mode);
     await expect(
       page.locator(".overview-bottom .issue-row").filter({
         hasText: "L1 design current exceeds the entered 5 A supply limit.",
@@ -149,7 +163,7 @@ test("failed, incomplete and unsupported checks remain visible in both views", a
   dialog = page.getByRole("dialog");
   await dialog.getByLabel(/^Voltage/).fill("0");
   for (const mode of ["simple", "engineering"]) {
-    await dialog.getByLabel("Detail level", { exact: true }).selectOption(mode);
+    await switchMode(dialog.getByLabel("Detail level", { exact: true }), mode);
     await expect(dialog.getByLabel(/^Voltage/)).toHaveValue("0");
     await expect(dialog.getByRole("alert")).toBeVisible();
     await expect(dialog.locator(".detail-calculation")).toContainText(
@@ -161,7 +175,7 @@ test("failed, incomplete and unsupported checks remain visible in both views", a
     .getByLabel("Power factor basis", { exact: true })
     .selectOption("true");
   for (const mode of ["simple", "engineering"]) {
-    await dialog.getByLabel("Detail level", { exact: true }).selectOption(mode);
+    await switchMode(dialog.getByLabel("Detail level", { exact: true }), mode);
     await expect(dialog.locator(".detail-checks")).toContainText("unsupported");
     await expect(dialog.locator(".detail-checks")).toContainText(
       "True PF supports power/current magnitudes only.",
@@ -169,7 +183,7 @@ test("failed, incomplete and unsupported checks remain visible in both views", a
   }
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   for (const mode of ["simple", "engineering"]) {
-    await workspaceMode(page).selectOption(mode);
+    await switchMode(workspaceMode(page), mode);
     await expect(page.locator(".load-check-status")).toContainText(
       "unsupported",
     );
@@ -183,11 +197,12 @@ test("mode controls and essential explanations work in all four languages withou
   await expect(page.locator(".overview-banner")).toBeVisible();
   const add = await newLoad(page);
   await add.getByRole("button", { name: "Add load", exact: true }).click();
+  await expect(add).toHaveCount(0);
   const before = await exported(page);
   for (const locale of ["en", "de", "yo", "pcm"] as Locale[]) {
     const t = (key: string) => translate(key, locale);
     await page.locator(".language-select").selectOption(locale);
-    await workspaceMode(page).selectOption("simple");
+    await switchMode(workspaceMode(page), "simple");
     await expect(
       page.locator(".page-heading .detail-mode-control"),
     ).toContainText(t("Detail level"));
@@ -215,9 +230,10 @@ test("mode controls and essential explanations work in all four languages withou
         { exact: true },
       ),
     ).toBeVisible();
-    await dialog
-      .getByLabel(t("Detail level"), { exact: true })
-      .selectOption("engineering");
+    await switchMode(
+      dialog.getByLabel(t("Detail level"), { exact: true }),
+      "engineering",
+    );
     await expect(
       dialog.getByText(t("Current calculation"), { exact: true }),
     ).toBeVisible();

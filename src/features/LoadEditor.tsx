@@ -44,7 +44,10 @@ export function LoadEditor({
   const initialDraft = useRef(JSON.stringify(draft));
   const ratingLocale = useRef(locale);
   const [invalidFields, setInvalidFields] = useState<string[]>([]);
-  const [editingNumber, setEditingNumber] = useState<string>();
+  const [editingNumber, setEditingNumber] = useState<{
+    key: keyof Load;
+    value?: number;
+  }>();
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
   const parsedRating = parseLocaleNumber(rating, ratingLocale.current, {
     min: 0,
@@ -53,6 +56,8 @@ export function LoadEditor({
     ...draft,
     rating: parsedRating.ok ? parsedRating.value : NaN,
   };
+  if (editingNumber?.value !== undefined)
+    previewLoad[editingNumber.key] = editingNumber.value as never;
   const previewResult = normalizeLoad(previewLoad);
   useUpdateGuard(
     JSON.stringify(draft) !== initialDraft.current ||
@@ -98,7 +103,16 @@ export function LoadEditor({
         step={step}
         value={draft[key] as number}
         onValueChange={(value) => set(key, value as never)}
-        onInput={() => setEditingNumber(key)}
+        onInput={(event) => {
+          const parsed = parseLocaleNumber(event.currentTarget.value, locale, {
+            min,
+            max,
+          });
+          setEditingNumber({
+            key,
+            value: parsed.ok ? parsed.value : undefined,
+          });
+        }}
         onBlur={() => setEditingNumber(undefined)}
         onValidityChange={(valid) => {
           setInvalidFields((fields) =>
@@ -490,7 +504,7 @@ export function LoadEditor({
             inputValid={
               parsedRating.ok &&
               invalidFields.length === 0 &&
-              editingNumber === undefined
+              (editingNumber === undefined || editingNumber.value !== undefined)
             }
           />
           {error && (
