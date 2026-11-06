@@ -9,6 +9,7 @@ import {
   type ProfilePoint,
   type Project,
 } from "../domain/types";
+import { resolveSchedule, scheduleDuty, validateSchedule } from "./calendar";
 
 export const PHASES: Phase[] = ["L1", "L2", "L3"];
 const angles: Record<Phase, number> = {
@@ -49,6 +50,8 @@ function issue(
 
 export function validateLoad(load: Load): Issue[] {
   const issues: Issue[] = [];
+  if (load.schedule !== undefined)
+    for (const message of validateSchedule(load.schedule)) issues.push(issue(load, "schedule", message));
   const check = (
     field: keyof Load,
     predicate: (n: number) => boolean,
@@ -255,9 +258,9 @@ export function normalizeLoad(load: Load): NormalizedLoad {
   } else if (load.connection !== "dc")
     phaseCurrents[load.phase] = polar(currentA, angles[load.phase] - angle);
   const standbyKW = (load.standbyW * load.quantity) / 1000;
-  const energyKWh =
-    operatingKW * load.hoursPerDay * load.duty +
-    standbyKW * (24 - load.hoursPerDay * load.duty);
+  const operatingHours = load.schedule ? resolveSchedule(load).reduce((sum, [a, b]) => sum + b - a, 0) : load.hoursPerDay;
+  const activeHours = operatingHours * scheduleDuty(load);
+  const energyKWh = operatingKW * activeHours + standbyKW * (24 - activeHours);
   if (
     ![installedKW, operatingKW, apparentKVA, currentA, energyKWh].every(
       Number.isFinite,
@@ -319,6 +322,8 @@ export function dailyProfile(
   loads: Load[],
   intervalMinutes = 60,
   weekday?: number,
+  date?: string,
+  normalizedInputs?: Map<string, NormalizedLoad>,
 ): ProfilePoint[] {
   if (
     !Number.isInteger(intervalMinutes) ||
@@ -357,7 +362,7 @@ export function dailyProfile(
     }
   };
   for (const load of loads) {
-    const normalized = normalizeLoad(load);
+    const normalized = normalizedInputs?.get(load.id) ?? normalizeLoad(load);
     if (!normalized.valid) continue;
     const weights = [0, 0, 0];
     if (load.connection === "three") weights.fill(1 / 3);
@@ -381,17 +386,9 @@ export function dailyProfile(
     }
     const operating = [normalized.operatingKW, ...phaseOperating];
     for (let c = 0; c < channels.length; c++) channels[c].base += standby[c];
-    for (const offset of [-24, 0, 24]) {
-      if (
-        weekday !== undefined &&
-        load.weekdays &&
-        !load.weekdays.includes((weekday + offset / 24 + 7) % 7)
-      )
-        continue;
-      const start = Math.max(0, load.startHour + offset);
-      const end = Math.min(24, load.startHour + load.hoursPerDay + offset);
+    for (const [start, end] of resolveSchedule(load, date, weekday)) {
       for (let c = 0; c < channels.length; c++)
-        range(channels[c], start, end, (operating[c] - standby[c]) * load.duty);
+        range(channels[c], start, end, (operating[c] - standby[c]) * scheduleDuty(load));
     }
   }
   const running = [0, 0, 0, 0];
@@ -607,6 +604,8 @@ export function calculateProject(project: Project): CalculationResult {
       message:
         "Overview costs are flat-rate 30-day estimates. Use chronological billing for time-of-use rates.",
     });
+  if (project.loads.some((load) => load.schedule) || project.startEvents?.length)
+    issues.push({ id: "calendar-required", severity: "info", assessment: "warning", message: "Overview is a representative recurring day. Dated/seasonal exceptions, absolute operating windows and start events require calendar simulation; absolute windows are excluded from the recurring-day estimate." });
   const complete = issues.every(
     (item) =>
       item.assessment !== "incomplete" && item.assessment !== "unsupported",

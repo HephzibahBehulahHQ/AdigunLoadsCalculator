@@ -1,6 +1,6 @@
 # AdigunPowerLab — current status
 
-Date: 5 November 2026. Owner: Hephzibah Behulah. Integration owner: primary implementation agent.
+Date: 6 November 2026. Owner: Hephzibah Behulah. Integration owner: primary implementation agent.
 
 ## Current state
 
@@ -25,8 +25,8 @@ Implemented: empty projects, deterministic electrical engine, all 51 tools, circ
 
 Full original-spec acceptance is **not complete**. The 33-section acceptance matrix records partial advanced topology/menu/calendar/optimization/report/accessibility and translation coverage, plus external datasets/services. Customer bills, measurements and engineering projects currently have separate backups. No connected AI, cloud identity/sync, hardware telemetry or licensed standards/manufacturer database is configured.
 
-No public deployment has run or been verified. The manual Pages workflow is prepared; publication needs applicable owner authorization. Repository implementation and checkpointing are authorized by the user's request.
+The owner explicitly authorized publication and continued completion. The verified `main` release is live at https://hephzibahbehulahhq.github.io/AdigunPowerLab/ through successful workflow 42140197134. Its public worksheet was exercised successfully. See `docs/DEPLOYMENT.md`.
 
 ## Next action
 
-The implementation and release evidence are delivered through PR #1. Publication is a separate owner-authorized step. Continue the outstanding original specification from the ordered acceptance matrix; see `docs/TEST_EVIDENCE.md` for observed results and `docs/ACCEPTANCE_MATRIX.md` for the complete remaining scope.
+The initial release is merged and public. Complete the remaining local workflows on `feat/complete-workflows`, verify them, then merge and publish the update under the owner's existing authorization; see `docs/TEST_EVIDENCE.md` for observed results and `docs/ACCEPTANCE_MATRIX.md` for the complete remaining scope.

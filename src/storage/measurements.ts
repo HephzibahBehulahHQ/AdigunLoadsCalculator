@@ -1,3 +1,4 @@
+import { openPowerLabDatabase as db } from "./database";
 import {
   parseMeasurementCSV,
   type MeasurementImport,
@@ -19,35 +20,6 @@ export interface MeasurementBackup extends MeasurementPayload {
   version: 1;
   sourceProjectId: string;
   exportedAt: string;
-}
-let connection: Promise<IDBDatabase> | undefined;
-function db(): Promise<IDBDatabase> {
-  return (connection ??= new Promise((resolve, reject) => {
-    const request = indexedDB.open("AdigunPowerLabMeasurements", 1);
-    request.onupgradeneeded = () =>
-      request.result.createObjectStore("datasets", { keyPath: "projectId" });
-    request.onsuccess = () => {
-      request.result.onversionchange = () => {
-        request.result.close();
-        connection = undefined;
-      };
-      resolve(request.result);
-    };
-    request.onerror = () => {
-      connection = undefined;
-      reject(
-        request.error ?? new Error("Measurement storage could not be opened."),
-      );
-    };
-    request.onblocked = () => {
-      connection = undefined;
-      reject(
-        new Error(
-          "Close the older PowerLab tab before opening measurement storage.",
-        ),
-      );
-    };
-  }));
 }
 const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -97,8 +69,8 @@ export async function readMeasurements(
   const database = await db();
   const raw = await new Promise<unknown>((resolve, reject) => {
     const request = database
-      .transaction("datasets")
-      .objectStore("datasets")
+      .transaction("measurements")
+      .objectStore("measurements")
       .get(projectId);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -136,8 +108,8 @@ export async function saveMeasurements(
   const { payload } = validateMeasurementPayload(input),
     database = await db();
   return new Promise((resolve, reject) => {
-    const tx = database.transaction("datasets", "readwrite"),
-      store = tx.objectStore("datasets"),
+    const tx = database.transaction("measurements", "readwrite"),
+      store = tx.objectStore("measurements"),
       get = store.get(projectId);
     let saved: SavedMeasurements | undefined,
       conflict = false;

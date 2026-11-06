@@ -5,6 +5,7 @@ import {
   type Load,
   type Project,
 } from "./types";
+import { explicitInstant, validCalendarDate, validateInstantWindows, validateSchedule } from "../engine/calendar";
 
 export function newId(prefix = "id"): string {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -151,6 +152,88 @@ const uniqueIds = (rows: unknown[], name: string, errors: string[]) => {
     seen.add(row.id);
   }
 };
+
+function validateCable(value: unknown, label: string, errors: string[]) {
+  if (!record(value) || !finite(value.lengthM) || value.lengthM < 0) { errors.push(`${label}: invalid cable length.`); return; }
+  for (const field of ["resistanceOhmPerKm", "reactanceOhmPerKm", "returnResistanceOhmPerKm", "returnReactanceOhmPerKm", "areaMm2", "baseAmpacityA", "voltageDropLimitPercent"])
+    if (value[field] !== undefined && (!finite(value[field]) || value[field] < 0)) errors.push(`${label}: invalid ${field}.`);
+  if (value.correctionFactors !== undefined && (!Array.isArray(value.correctionFactors) || value.correctionFactors.some((factor) => !finite(factor) || factor <= 0))) errors.push(`${label}: invalid correction factors.`);
+  if (value.source !== undefined && !text(value.source)) errors.push(`${label}: invalid evidence source.`);
+}
+
+/** Reusable trust-boundary checks for optional planning data, without mutating the project. */
+export function validateProjectExtensions(candidate: Record<string, unknown>): string[] {
+  const errors: string[] = [];
+  if (candidate.baselineId !== undefined && (!text(candidate.baselineId) || !candidate.baselineId)) errors.push("Invalid baseline ID.");
+  if (Array.isArray(candidate.loads)) for (const load of candidate.loads) if (record(load) && load.schedule !== undefined) errors.push(...validateSchedule(load.schedule).map((message) => `Load ${String(load.name)}: ${message}`));
+  if (Array.isArray(candidate.boards)) for (const board of candidate.boards) if (record(board) && board.feeder !== undefined) validateCable(board.feeder, `Board ${String(board.name)} feeder`, errors);
+  if (Array.isArray(candidate.circuits)) for (const circuit of candidate.circuits) if (record(circuit) && circuit.cable !== undefined) validateCable(circuit.cable, `Circuit ${String(circuit.name)}`, errors);
+  const loadIds = new Set(Array.isArray(candidate.loads) ? candidate.loads.filter(record).map((load) => load.id) : []);
+  for (const key of ["startEvents", "flexibleLoads"]) if (candidate[key] !== undefined) {
+    if (!Array.isArray(candidate[key]) || candidate[key].length > 10000) { errors.push(`${key} must be an array of at most 10,000 records.`); continue; }
+    uniqueIds(candidate[key], key, errors);
+    for (const item of candidate[key]) {
+      if (!record(item)) continue;
+      if (!loadIds.has(item.loadId)) errors.push(`${key}: missing referenced load.`);
+      if (!text(item.source)) errors.push(`${key}: source evidence must be text.`);
+      if (key === "startEvents") {
+        if (!explicitInstant(item.start) || !finite(item.durationSeconds) || item.durationSeconds <= 0 || item.durationSeconds > 86400) errors.push("Start events require explicit-offset timestamps and durations greater than 0 through 86,400 seconds.");
+        if (!finite(item.pf) || item.pf <= 0 || item.pf > 1) errors.push("Starting displacement PF must be explicitly supplied between 0 and 1.");
+        if ((item.currentA === undefined) === (item.multiplier === undefined)) errors.push("Each start event requires exactly one of total current or multiplier.");
+        for (const field of ["currentA", "multiplier"]) if (item[field] !== undefined && (!finite(item[field]) || item[field] <= 0)) errors.push(`Invalid starting ${field}.`);
+        if (!["dol", "star-delta", "soft-starter", "vfd", "user"].includes(String(item.method))) errors.push("Invalid entered starting method.");
+      } else {
+        if (!text(item.name) || !finite(item.requiredKWh) || item.requiredKWh <= 0 || !finite(item.minimumRunMinutes) || !Number.isInteger(item.minimumRunMinutes) || item.minimumRunMinutes < 1 || item.minimumRunMinutes > 10080 || !finite(item.priority) || !Number.isInteger(item.priority) || item.priority < 0 || item.priority > 1000 || typeof item.interruptible !== "boolean" || typeof item.locked !== "boolean") errors.push("Flexible loads require valid name, required energy, minimum run time, priority and explicit lock/interruption flags.");
+        errors.push(...validateInstantWindows(item.windows, "Flexible-load windows"));
+        if (Array.isArray(item.windows) && !item.windows.length) errors.push("Flexible loads require at least one allowed operating window.");
+      }
+    }
+  }
+  if (Array.isArray(candidate.startEvents)) {
+    const rows = candidate.startEvents.filter(record).filter((item) => explicitInstant(item.start) && finite(item.durationSeconds)).sort((a, b) => Date.parse(String(a.start)) - Date.parse(String(b.start)));
+    const ends = new Map<unknown, number>();
+    for (const row of rows) {
+      const begin = Date.parse(String(row.start));
+      if (begin < (ends.get(row.loadId) ?? -Infinity)) errors.push("Start events for the same load cannot overlap.");
+      ends.set(row.loadId, begin + Number(row.durationSeconds) * 1000);
+    }
+  }
+  if (Array.isArray(candidate.flexibleLoads)) {
+    const assigned = candidate.flexibleLoads.filter(record).map((item) => item.loadId);
+    if (new Set(assigned).size !== assigned.length) errors.push("A load can have only one flexible requirement in a plan.");
+  }
+  if (record(candidate.tariff)) {
+    const tariff = candidate.tariff;
+    for (const [field, options] of [["taxBasis", ["net", "imports-and-fixed"]], ["standingBasis", ["elapsed-24h", "local-calendar-days"]], ["coverage", ["base-rate", "complete-bands"]]] as const)
+      if (tariff[field] !== undefined && !options.includes(tariff[field] as never)) errors.push(`Invalid tariff ${field}.`);
+    if (Array.isArray(tariff.bands)) for (const band of tariff.bands) if (record(band)) {
+      for (const key of ["effectiveFrom", "effectiveTo"]) if (band[key] !== undefined && !validCalendarDate(band[key])) errors.push("Tariff effective dates must be actual YYYY-MM-DD dates.");
+      if (typeof band.effectiveFrom === "string" && typeof band.effectiveTo === "string" && band.effectiveFrom > band.effectiveTo) errors.push("Tariff effective-date range is reversed.");
+      if (band.exportRate !== undefined && !finite(band.exportRate)) errors.push("Tariff export price must be finite.");
+    }
+    if (tariff.demandRule !== undefined) {
+      const rule = tariff.demandRule;
+      if (!record(rule) || !["aligned", "rolling"].includes(String(rule.method)) || !["range", "calendar-month"].includes(String(rule.period)) || !finite(rule.windowMinutes) || !Number.isInteger(rule.windowMinutes) || rule.windowMinutes < 1 || rule.windowMinutes > 1440 || !finite(rule.stepMinutes) || !Number.isInteger(rule.stepMinutes) || rule.stepMinutes < 1 || rule.stepMinutes > rule.windowMinutes) errors.push("Invalid aligned/rolling demand-window rule.");
+      else {
+        if (rule.alignmentOrigin !== undefined && !explicitInstant(rule.alignmentOrigin)) errors.push("Demand alignment requires an explicit-offset timestamp.");
+        if ((rule.startHour === undefined) !== (rule.endHour === undefined) || (rule.startHour !== undefined && (!finite(rule.startHour) || rule.startHour < 0 || rule.startHour >= 24 || !finite(rule.endHour) || rule.endHour < 0 || rule.endHour > 24 || rule.startHour === rule.endHour))) errors.push("Invalid demand-charge operating window.");
+        if (rule.weekdays !== undefined && (!Array.isArray(rule.weekdays) || !rule.weekdays.length || rule.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6))) errors.push("Invalid demand-charge weekdays.");
+      }
+    }
+  }
+  if (Array.isArray(candidate.evSessions)) for (const session of candidate.evSessions) if (record(session) && session.minimumKW !== undefined && (!finite(session.minimumKW) || session.minimumKW < 0)) errors.push("EV minimum power must be finite and nonnegative.");
+  if (candidate.diagram !== undefined) {
+    const d = candidate.diagram;
+    if (!record(d) || d.version !== 1 || !["a4", "a3"].includes(String(d.pageSize)) || !["landscape", "portrait"].includes(String(d.orientation)) || typeof d.showLabels !== "boolean" || typeof d.showRatings !== "boolean" || !record(d.positions) || Object.keys(d.positions).length > 10000 || !Array.isArray(d.notes) || d.notes.length > 1000) errors.push("Invalid diagram layout settings.");
+    else {
+      const validPoint = (p: unknown) => record(p) && finite(p.x) && finite(p.y) && Math.abs(p.x) <= 100000 && Math.abs(p.y) <= 100000;
+      if (Object.entries(d.positions).some(([key, point]) => !/^(source|board|circuit|load):.{1,200}$/.test(key) || !validPoint(point))) errors.push("Invalid diagram position key or coordinates.");
+      uniqueIds(d.notes, "Diagram notes", errors);
+      for (const note of d.notes) if (!validPoint(note) || !record(note) || !text(note.text) || note.text.length > 2000) errors.push("Invalid diagram note text or coordinates.");
+    }
+  }
+  return errors;
+}
 
 /** Validate an entire candidate before the UI replaces any working state. No coercion. */
 export function validateProjectImport(input: unknown): {
@@ -633,6 +716,23 @@ export function validateProjectImport(input: unknown): {
       )
         errors.push(`Estimate line ${index + 1}: invalid item.`);
     });
+  }
+  errors.push(...validateProjectExtensions(candidate));
+  if (candidate.scenarioBaseline !== undefined) {
+    const baseline = candidate.scenarioBaseline;
+    if (!record(baseline) || !explicitInstant(baseline.capturedAt) || !record(baseline.project) || baseline.project.scenarioBaseline !== undefined || baseline.project.id !== baseline.projectId || baseline.project.revision !== baseline.revision) errors.push("Invalid or recursively nested frozen scenario baseline.");
+    else {
+      const checked = validateProjectImport(baseline.project);
+      if (!checked.valid) errors.push(...checked.errors.map((message) => `Scenario baseline: ${message}`));
+    }
+  }
+  if (candidate.equipmentLibrary !== undefined) {
+    if (!Array.isArray(candidate.equipmentLibrary) || candidate.equipmentLibrary.length > 10000) errors.push("Equipment library must be an array of at most 10,000 detached templates.");
+    else {
+      if (candidate.equipmentLibrary.some((row) => record(row) && (row.boardId !== undefined || row.circuitId !== undefined))) errors.push("Equipment templates must be detached from boards and circuits.");
+      const checked = validateProjectImport({ ...candidate, loads: candidate.equipmentLibrary, equipmentLibrary: undefined, scenarioBaseline: undefined, startEvents: undefined, flexibleLoads: undefined });
+      if (!checked.valid) errors.push(...checked.errors.map((message) => `Equipment library: ${message}`));
+    }
   }
   if (errors.length) return { valid: false, errors: errors.slice(0, 100) };
   const typed = candidate as unknown as Project;

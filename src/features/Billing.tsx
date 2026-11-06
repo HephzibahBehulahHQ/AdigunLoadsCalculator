@@ -1,3 +1,5 @@
+import { liveDrafts, loadDraft, saveDraft } from "../storage/billing";
+export { loadBillingDocument, saveBillingDocument } from "../storage/billing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   billCsv,
@@ -294,116 +296,6 @@ const blankBill = (
   taxPercent: "0",
   lines: [],
 });
-type StoredDraft = { key: string; revision: string; bill: BillDocument };
-const liveDrafts = new Map<
-  string,
-  { bill: BillDocument; revision: string | null; dirty: boolean }
->();
-let database: Promise<IDBDatabase> | undefined;
-function billingDb() {
-  if (!database)
-    database = new Promise<IDBDatabase>((resolve, reject) => {
-      if (!globalThis.indexedDB) {
-        reject(new Error("storage"));
-        return;
-      }
-      const request = indexedDB.open("AdigunPowerLab-billing", 1);
-      request.onupgradeneeded = () =>
-        request.result.createObjectStore("drafts", { keyPath: "key" });
-      request.onsuccess = () => {
-        request.result.onversionchange = () => {
-          request.result.close();
-          database = undefined;
-        };
-        resolve(request.result);
-      };
-      request.onerror = () => reject(new Error("storage"));
-      request.onblocked = () => reject(new Error("storage"));
-    }).catch((error) => {
-      database = undefined;
-      throw error;
-    });
-  return database;
-}
-async function loadDraft(key: string): Promise<StoredDraft | undefined> {
-  const db = await billingDb();
-  return new Promise((resolve, reject) => {
-    const request = db
-      .transaction("drafts", "readonly")
-      .objectStore("drafts")
-      .get(key);
-    request.onsuccess = () => {
-      try {
-        const record = request.result as StoredDraft | undefined;
-        if (record) record.bill = parseBillJson(JSON.stringify(record.bill));
-        resolve(record);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    request.onerror = () => reject(new Error("storage"));
-  });
-}
-async function saveDraft(
-  key: string,
-  bill: BillDocument,
-  expected: string | null,
-): Promise<string> {
-  const db = await billingDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("drafts", "readwrite");
-    const store = tx.objectStore("drafts");
-    const read = store.get(key);
-    let revision = "";
-    read.onsuccess = () => {
-      const existing = read.result as StoredDraft | undefined;
-      if ((existing?.revision ?? null) !== expected) {
-        reject(new Error("conflict"));
-        tx.abort();
-        return;
-      }
-      revision = crypto.randomUUID();
-      store.put({
-        key,
-        revision,
-        bill: structuredClone(bill),
-      } satisfies StoredDraft);
-    };
-    tx.oncomplete = () => resolve(revision);
-    tx.onerror = () => reject(new Error("storage"));
-    tx.onabort = () => reject(new Error("storage"));
-  });
-}
-
-/** Complete-project backup includes the active draft, even before its explicit Save action. */
-export async function loadBillingDocument(
-  projectId: string,
-): Promise<BillDocument | null> {
-  const live = liveDrafts.get(projectId);
-  if (live) return structuredClone(live.bill);
-  const stored = await loadDraft(projectId);
-  return stored ? structuredClone(stored.bill) : null;
-}
-
-/** Caller validates its entire import first and owns cross-database rollback, if needed. */
-export async function saveBillingDocument(
-  projectId: string,
-  document: BillDocument,
-): Promise<void> {
-  const bill = parseBillJson(JSON.stringify(document));
-  const stored = await loadDraft(projectId);
-  const revision = await saveDraft(projectId, bill, stored?.revision ?? null);
-  liveDrafts.set(projectId, {
-    bill: structuredClone(bill),
-    revision,
-    dirty: false,
-  });
-  if (typeof window !== "undefined")
-    window.dispatchEvent(
-      new CustomEvent("adigun-billing-restored", { detail: { projectId } }),
-    );
-}
-
 function localizedError(error: string, locale: ReportLocale): string {
   if (locale === "en") return error;
   const translations: Record<string, [string, string, string]> = {
