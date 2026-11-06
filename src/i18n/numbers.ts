@@ -97,3 +97,39 @@ export function formatEditableNumber(
   const text = String(value);
   return locale === "de" ? text.replace(".", ",") : text;
 }
+
+export function parseLocaleNumberList(
+  text: string,
+  locale: Locale,
+  options: Parameters<typeof parseLocaleNumber>[2] = {},
+):
+  | { ok: true; values: number[]; canonical: string[] }
+  | { ok: false; message: string; index: number } {
+  if (!text.trim())
+    return {
+      ok: false,
+      message: "Enter at least one numeric value.",
+      index: 0,
+    };
+  const parts = text.split(locale === "de" ? /;|\r?\n/ : /[,;]|\r?\n/);
+  if (parts.length > 4096)
+    return {
+      ok: false,
+      message: "A numeric list is limited to 4,096 values.",
+      index: 4096,
+    };
+  const values: number[] = [],
+    canonical: string[] = [];
+  for (const [index, part] of parts.entries()) {
+    const parsed = parseLocaleNumber(part, locale, options);
+    if (!parsed.ok)
+      return {
+        ok: false,
+        message: `Value ${index + 1}: ${parsed.message}`,
+        index,
+      };
+    values.push(parsed.value);
+    canonical.push(parsed.canonical);
+  }
+  return { ok: true, values, canonical };
+}

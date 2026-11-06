@@ -34,6 +34,8 @@ const settings = [
   "notes",
   "diagram",
   "equipmentLibrary",
+  "equipmentVersions",
+  "equipmentFavorites",
   "sources",
   "zones",
   "reportDetails",
@@ -187,6 +189,7 @@ export function equipmentTemplate(load: Load, name = load.name): Load {
   delete template.boardId;
   delete template.circuitId;
   template.locked = false;
+  template.libraryRef = { templateId: template.id, version: 1 };
   const errors = validateLoad(template).filter(
     (issue) => issue.severity === "error",
   );
@@ -199,6 +202,10 @@ export function instantiateEquipment(template: Load): Load {
   const load = createLoad({ ...structuredClone(template), id: newId("load") });
   delete load.boardId;
   delete load.circuitId;
+  load.libraryRef = {
+    templateId: template.id,
+    version: template.libraryRef?.version ?? 1,
+  };
   return load;
 }
 

@@ -1,11 +1,23 @@
 import { useRef, useState } from "react";
-import { Plus, Download, Upload, Edit3, Trash2, Copy } from "lucide-react";
+import {
+  Plus,
+  Download,
+  Upload,
+  Edit3,
+  Trash2,
+  Copy,
+  Star,
+} from "lucide-react";
 import type { Load, Project } from "../domain/types";
 import { createProject, newId, validateProjectImport } from "../domain/project";
 import { equipmentTemplate, instantiateEquipment } from "../domain/workspace";
 import { downloadFile, safeName } from "../import-export/files";
 import { LoadEditor } from "./LoadEditor";
 import { Field, Modal, Notice } from "./ui";
+import {
+  applyProjectCommand,
+  previewProjectCommand,
+} from "../commands/projectCommands";
 import { useT } from "../i18n";
 
 export function EquipmentLibrary({
@@ -22,6 +34,15 @@ export function EquipmentLibrary({
   const [query, setQuery] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [error, setError] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [category, setCategory] = useState("");
+  const [replacement, setReplacement] = useState<{
+    prior: Load;
+    template: Load;
+    projectId: string;
+    revision: number;
+  }>();
+  const [replaceIds, setReplaceIds] = useState<string[]>([]);
   const [editor, setEditor] = useState<{
     load?: Load;
     projectId: string;
@@ -33,11 +54,14 @@ export function EquipmentLibrary({
     revision: number;
   } | null>(null);
   const templates = project.equipmentLibrary || [];
-  const visible = templates.filter((item) =>
-    [item.name, item.category, item.source.reference, item.source.kind]
-      .join(" ")
-      .toLowerCase()
-      .includes(query.toLowerCase()),
+  const visible = templates.filter(
+    (item) =>
+      (!favoritesOnly || project.equipmentFavorites?.includes(item.id)) &&
+      (!category || category === item.category) &&
+      [item.name, item.category, item.source.reference, item.source.kind]
+        .join(" ")
+        .toLowerCase()
+        .includes(query.toLowerCase()),
   );
   async function readFile(input: File) {
     try {
@@ -74,25 +98,101 @@ export function EquipmentLibrary({
   }
   function saveTemplate(load: Load) {
     if (!editor) return;
-    try {
-      const template = equipmentTemplate(load);
-      const result = change((draft) => {
-        if (draft.id !== editor.projectId || draft.revision !== editor.revision)
-          throw new Error("Project changed. Reopen the template editor.");
-        draft.equipmentLibrary ??= [];
-        const index = editor.load
-          ? draft.equipmentLibrary.findIndex(
-              (item) => item.id === editor.load!.id,
-            )
-          : -1;
-        if (index >= 0)
-          draft.equipmentLibrary[index] = { ...template, id: editor.load!.id };
-        else draft.equipmentLibrary.push(template);
+    if (project.id !== editor.projectId || project.revision !== editor.revision)
+      throw new Error(t("Project changed. Reopen the template editor."));
+    const template = equipmentTemplate(load),
+      prior = templates.find((item) => item.id === editor.load?.id);
+    if (prior) {
+      template.id = prior.id;
+      template.libraryRef = {
+        templateId: prior.id,
+        version: (prior.libraryRef?.version ?? 1) + 1,
+      };
+      setReplacement({
+        prior: structuredClone(prior),
+        template,
+        projectId: project.id,
+        revision: project.revision,
       });
-      if (result !== false) setEditor(null);
-    } catch (e) {
-      setError((e as Error).message);
+      setReplaceIds([]);
+      setEditor(null);
+      return;
     }
+    if (
+      change((draft) => {
+        (draft.equipmentLibrary ??= []).push(template);
+      }) !== false
+    )
+      setEditor(null);
+  }
+  function applyReplacement() {
+    if (!replacement) return;
+    const accepted = change((draft) => {
+      if (
+        draft.id !== replacement.projectId ||
+        draft.revision !== replacement.revision
+      )
+        throw new Error(t("Project changed. Review the replacement again."));
+      let next = structuredClone(draft);
+      const template = replacement.template;
+      if (replaceIds.length) {
+        const patch: Partial<Load> = {};
+        for (const key of [
+          "entryMode",
+          "rating",
+          "voltage",
+          "connection",
+          "pf",
+          "pfKind",
+          "phasePair",
+          "reactive",
+          "reactiveKvar",
+          "efficiency",
+          "utilization",
+          "standbyW",
+          "source",
+          "libraryRef",
+        ] as const)
+          (patch as Record<string, unknown>)[key] = structuredClone(
+            template[key],
+          );
+        next = applyProjectCommand(
+          next,
+          previewProjectCommand(next, {
+            kind: "loads.patch",
+            ids: replaceIds,
+            patch,
+          }),
+        );
+      }
+      next.equipmentLibrary = next.equipmentLibrary?.map((item) =>
+        item.id === template.id ? template : item,
+      );
+      const version = replacement.prior.libraryRef?.version ?? 1;
+      if (
+        !next.equipmentVersions?.some(
+          (row) => row.templateId === template.id && row.version === version,
+        )
+      )
+        (next.equipmentVersions ??= []).push({
+          templateId: template.id,
+          version,
+          capturedAt: new Date().toISOString(),
+          record: replacement.prior,
+        });
+      const validation = validateProjectImport(next);
+      if (!validation.project) throw new Error(validation.errors.join(" "));
+      Object.assign(draft, validation.project);
+    });
+    if (accepted !== false) {
+      setReplacement(undefined);
+      setError("");
+    } else
+      setError(
+        t(
+          "Replacement was not applied. Review locks, phase assignments and validation errors before trying again.",
+        ),
+      );
   }
   return (
     <section className="panel panel-pad equipment-workspace">
@@ -153,6 +253,29 @@ export function EquipmentLibrary({
             if (selected) void readFile(selected);
           }}
         />
+      </div>
+      <div className="button-row">
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={favoritesOnly}
+            onChange={(e) => setFavoritesOnly(e.target.checked)}
+          />
+          {t("Favorites only")}
+        </label>
+        <Field label={t("Equipment category")}>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">{t("All categories")}</option>
+            {[...new Set(templates.map((item) => item.category))].map(
+              (value) => (
+                <option key={value}>{value}</option>
+              ),
+            )}
+          </select>
+        </Field>
       </div>
       <div className="form-grid">
         <Field label={t("Search equipment")}>
@@ -215,7 +338,13 @@ export function EquipmentLibrary({
           <tbody>
             {visible.map((item) => (
               <tr key={item.id}>
-                <td>{item.name}</td>
+                <td>
+                  {item.name}
+                  <small className="muted">
+                    {" "}
+                    · v{item.libraryRef?.version ?? 1}
+                  </small>
+                </td>
                 <td>{item.category}</td>
                 <td>
                   {item.rating} {item.entryMode}
@@ -226,6 +355,32 @@ export function EquipmentLibrary({
                 </td>
                 <td>
                   <div className="button-row">
+                    <button
+                      className="icon-button"
+                      aria-label={`${t("Favorite")} ${item.name}`}
+                      aria-pressed={
+                        project.equipmentFavorites?.includes(item.id) ?? false
+                      }
+                      onClick={() =>
+                        change((draft) => {
+                          draft.equipmentFavorites =
+                            draft.equipmentFavorites?.includes(item.id)
+                              ? draft.equipmentFavorites.filter(
+                                  (id) => id !== item.id,
+                                )
+                              : [...(draft.equipmentFavorites ?? []), item.id];
+                        })
+                      }
+                    >
+                      <Star
+                        size={16}
+                        fill={
+                          project.equipmentFavorites?.includes(item.id)
+                            ? "currentColor"
+                            : "none"
+                        }
+                      />
+                    </button>
                     <button
                       className="button small-button"
                       onClick={() => onAdd(instantiateEquipment(item))}
@@ -257,6 +412,10 @@ export function EquipmentLibrary({
                           )
                         )
                           change((draft) => {
+                            draft.equipmentFavorites =
+                              draft.equipmentFavorites?.filter(
+                                (id) => id !== item.id,
+                              );
                             draft.equipmentLibrary =
                               draft.equipmentLibrary?.filter(
                                 (template) => template.id !== item.id,
@@ -273,6 +432,160 @@ export function EquipmentLibrary({
           </tbody>
         </table>
       </div>
+      <details>
+        <summary>{t("Equipment version history")}</summary>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t("Name")}</th>
+                <th>{t("Version")}</th>
+                <th>{t("Saved")}</th>
+                <th>{t("Record")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...(project.equipmentVersions ?? [])]
+                .reverse()
+                .slice(0, 100)
+                .map((version) => (
+                  <tr key={version.templateId + ":" + version.version}>
+                    <td>{version.record.name}</td>
+                    <td>{version.version}</td>
+                    <td>{version.capturedAt}</td>
+                    <td>
+                      <details>
+                        <summary>{t("Show details")}</summary>
+                        <pre className="comparison-value">
+                          {JSON.stringify(version.record, null, 2)}
+                        </pre>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="small muted">
+          {t(
+            "The latest 100 historical versions are shown. Complete version history is preserved in workspace backups.",
+          )}
+        </p>
+      </details>
+      {replacement && (
+        <Modal
+          title={t("Review equipment replacement")}
+          onClose={() => setReplacement(undefined)}
+          wide
+        >
+          <div className="modal-body">
+            {error && <Notice tone="error">{error}</Notice>}
+            <p>
+              {replacement.prior.name} · v
+              {replacement.prior.libraryRef?.version ?? 1} → v
+              {replacement.template.libraryRef?.version}
+            </p>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("Field")}</th>
+                    <th>{t("Before")}</th>
+                    <th>{t("After")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(replacement.template)
+                    .filter(
+                      (key) =>
+                        JSON.stringify(
+                          (
+                            replacement.prior as unknown as Record<
+                              string,
+                              unknown
+                            >
+                          )[key],
+                        ) !==
+                        JSON.stringify(
+                          (
+                            replacement.template as unknown as Record<
+                              string,
+                              unknown
+                            >
+                          )[key],
+                        ),
+                    )
+                    .map((key) => (
+                      <tr key={key}>
+                        <td>{key}</td>
+                        <td>
+                          <pre className="comparison-value">
+                            {JSON.stringify(
+                              (
+                                replacement.prior as unknown as Record<
+                                  string,
+                                  unknown
+                                >
+                              )[key],
+                            )}
+                          </pre>
+                        </td>
+                        <td>
+                          <pre className="comparison-value">
+                            {JSON.stringify(
+                              (
+                                replacement.template as unknown as Record<
+                                  string,
+                                  unknown
+                                >
+                              )[key],
+                            )}
+                          </pre>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            <Notice>
+              {t(
+                "Choose connected loads to update their electrical nameplate fields and source. Names, quantities, schedules and assignments stay as entered. Other projects retain their saved copies.",
+              )}
+            </Notice>
+            {project.loads
+              .filter(
+                (load) => load.libraryRef?.templateId === replacement.prior.id,
+              )
+              .map((load) => (
+                <label className="check-row" key={load.id}>
+                  <input
+                    type="checkbox"
+                    checked={replaceIds.includes(load.id)}
+                    onChange={(e) =>
+                      setReplaceIds((ids) =>
+                        e.target.checked
+                          ? [...ids, load.id]
+                          : ids.filter((id) => id !== load.id),
+                      )
+                    }
+                  />
+                  {load.name} · v{load.libraryRef?.version}
+                </label>
+              ))}
+          </div>
+          <div className="modal-footer">
+            <button
+              className="button"
+              onClick={() => setReplacement(undefined)}
+            >
+              {t("Cancel")}
+            </button>
+            <button className="button primary" onClick={applyReplacement}>
+              {t("Apply reviewed replacement")} ({replaceIds.length})
+            </button>
+          </div>
+        </Modal>
+      )}
       {editor && (
         <LoadEditor
           project={project}
@@ -322,6 +635,7 @@ export function EquipmentLibrary({
                     ...preview.templates.map((template) => ({
                       ...structuredClone(template),
                       id: newId("equipment"),
+                      libraryRef: undefined,
                     })),
                   );
                 });

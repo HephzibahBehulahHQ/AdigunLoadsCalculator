@@ -13,8 +13,8 @@ import { previewImport } from "../src/import-export/files";
 describe("explicit project import destinations", () => {
   it("merges colliding object IDs into independent linked graphs without replacing site assumptions", () => {
     const p = createProject("Site"),
-      board = createBoard({name:"Original"}),
-      circuit = createCircuit(board.id, {name:"Branch"});
+      board = createBoard({ name: "Original" }),
+      circuit = createCircuit(board.id, { name: "Branch" });
     p.boards = [board];
     p.circuits = [circuit];
     p.loads = [

@@ -304,128 +304,10 @@ export function validateProjectExtensions(candidate: Record<string, unknown>): s
   return errors;
 }
 
-/** Validate an entire candidate before the UI replaces any working state. No coercion. */
-export function validateProjectImport(input: unknown): {
-  valid: boolean;
-  project?: Project;
-  errors: string[];
-} {
+function validateLoadRecord(load: unknown, prefix: string): string[] {
   const errors: string[] = [];
-  let candidate: unknown = input;
-  if (typeof input === "string") {
-    if (input.length > 10_000_000)
-      return {
-        valid: false,
-        errors: ["Project exceeds the 10 MB import limit."],
-      };
-    try {
-      candidate = JSON.parse(input);
-    } catch {
-      return {
-        valid: false,
-        errors: ["Invalid JSON. The working project has not been changed."],
-      };
-    }
-  }
-  if (!record(candidate))
-    return { valid: false, errors: ["Expected a project object."] };
-  const inspect = (value: unknown, depth: number): void => {
-    if (depth > 30) {
-      errors.push("Project nesting exceeds the supported limit.");
-      return;
-    }
-    if (typeof value === "number" && !Number.isFinite(value))
-      errors.push("Non-finite numbers are not allowed in project data.");
-    if (Array.isArray(value)) {
-      if (value.length > 10000)
-        errors.push("An imported array exceeds 10,000 items.");
-      else value.forEach((item) => inspect(item, depth + 1));
-    } else if (record(value))
-      for (const [key, item] of Object.entries(value)) {
-        if (["__proto__", "prototype", "constructor"].includes(key))
-          errors.push("Unsafe object keys are not accepted.");
-        else inspect(item, depth + 1);
-      }
-  };
-  inspect(candidate, 0);
-  if (candidate.schemaVersion !== SCHEMA_VERSION)
-    errors.push("Unsupported project schema version.");
-  for (const key of [
-    "id",
-    "name",
-    "createdAt",
-    "updatedAt",
-    "context",
-    "timezone",
-    "currency",
-    "jurisdiction",
-    "notes",
-  ])
-    if (!text(candidate[key])) errors.push(`Missing or invalid ${key}.`);
-  if (typeof candidate.name === "string" && candidate.name.length > 240)
-    errors.push("Project name is too long.");
-  if (
-    !finite(candidate.revision) ||
-    !Number.isInteger(candidate.revision) ||
-    candidate.revision < 1
-  )
-    errors.push("Invalid project revision.");
-  for (const key of ["createdAt", "updatedAt"])
-    if (
-      typeof candidate[key] === "string" &&
-      !Number.isFinite(Date.parse(candidate[key]))
-    )
-      errors.push(`Invalid ${key} timestamp.`);
-  if (typeof candidate.timezone === "string") {
-    try {
-      new Intl.DateTimeFormat("en", { timeZone: candidate.timezone });
-    } catch {
-      errors.push("Invalid IANA timezone.");
-    }
-  }
-  if (
-    typeof candidate.currency === "string" &&
-    !/^[A-Z]{3}$/.test(candidate.currency)
-  )
-    errors.push("Currency must be a three-letter code.");
-  if (
-    !finite(candidate.coincidence) ||
-    candidate.coincidence < 0 ||
-    candidate.coincidence > 1
-  )
-    errors.push("Coincidence must be between 0 and 1.");
-  if (
-    !finite(candidate.growthPercent) ||
-    candidate.growthPercent < 0 ||
-    candidate.growthPercent > 1000
-  )
-    errors.push("Growth allowance must be between 0 and 1000%.");
-  if (
-    candidate.scenarioOf !== undefined &&
-    (!text(candidate.scenarioOf) || !candidate.scenarioOf)
-  )
-    errors.push("Invalid scenario baseline reference.");
-  if (
-    candidate.baselineRevision !== undefined &&
-    (!finite(candidate.baselineRevision) ||
-      !Number.isInteger(candidate.baselineRevision) ||
-      candidate.baselineRevision < 1)
-  )
-    errors.push("Invalid scenario baseline revision.");
-  if (!record(candidate.supply)) errors.push("Missing supply settings.");
-  else
-    for (const key of ["voltageLN", "voltageLL", "frequency", "limitA"])
-      if (!finite(candidate.supply[key]) || candidate.supply[key] <= 0)
-        errors.push(`Supply ${key} must be positive.`);
-  for (const key of ["loads", "boards", "circuits", "evSessions"]) {
-    if (!Array.isArray(candidate[key]) || candidate[key].length > 10000)
-      errors.push(`${key} must be an array of at most 10,000 records.`);
-    else uniqueIds(candidate[key], key, errors);
-  }
-  if (Array.isArray(candidate.loads))
-    candidate.loads.forEach((load, index) => {
-      if (!record(load)) return;
-      const prefix = `Load ${index + 1}`;
+  uniqueIds([load], prefix, errors);
+  if (!record(load)) return [`${prefix}: expected a load object.`];
       if (!text(load.name) || !text(load.category) || !text(load.notes))
         errors.push(`${prefix}: invalid text fields.`);
       if (
@@ -553,7 +435,131 @@ export function validateProjectImport(input: unknown): {
           load.startingPF > 1)
       )
         errors.push(`${prefix}: invalid starting PF.`);
-    });
+
+  if (load.schedule !== undefined) errors.push(...validateSchedule(load.schedule));
+  if (load.libraryRef !== undefined && (!record(load.libraryRef) || !text(load.libraryRef.templateId) || !load.libraryRef.templateId || !finite(load.libraryRef.version) || !Number.isInteger(load.libraryRef.version) || load.libraryRef.version < 1)) errors.push(`${prefix}: invalid historical library reference.`);
+  return errors;
+}
+
+/** Validate an entire candidate before the UI replaces any working state. No coercion. */
+export function validateProjectImport(input: unknown): {
+  valid: boolean;
+  project?: Project;
+  errors: string[];
+} {
+  const errors: string[] = [];
+  let candidate: unknown = input;
+  if (typeof input === "string") {
+    if (input.length > 10_000_000)
+      return {
+        valid: false,
+        errors: ["Project exceeds the 10 MB import limit."],
+      };
+    try {
+      candidate = JSON.parse(input);
+    } catch {
+      return {
+        valid: false,
+        errors: ["Invalid JSON. The working project has not been changed."],
+      };
+    }
+  }
+  if (!record(candidate))
+    return { valid: false, errors: ["Expected a project object."] };
+  const inspect = (value: unknown, depth: number): void => {
+    if (depth > 30) {
+      errors.push("Project nesting exceeds the supported limit.");
+      return;
+    }
+    if (typeof value === "number" && !Number.isFinite(value))
+      errors.push("Non-finite numbers are not allowed in project data.");
+    if (Array.isArray(value)) {
+      if (value.length > 10000)
+        errors.push("An imported array exceeds 10,000 items.");
+      else value.forEach((item) => inspect(item, depth + 1));
+    } else if (record(value))
+      for (const [key, item] of Object.entries(value)) {
+        if (["__proto__", "prototype", "constructor"].includes(key))
+          errors.push("Unsafe object keys are not accepted.");
+        else inspect(item, depth + 1);
+      }
+  };
+  inspect(candidate, 0);
+  if (candidate.schemaVersion !== SCHEMA_VERSION)
+    errors.push("Unsupported project schema version.");
+  for (const key of [
+    "id",
+    "name",
+    "createdAt",
+    "updatedAt",
+    "context",
+    "timezone",
+    "currency",
+    "jurisdiction",
+    "notes",
+  ])
+    if (!text(candidate[key])) errors.push(`Missing or invalid ${key}.`);
+  if (typeof candidate.name === "string" && candidate.name.length > 240)
+    errors.push("Project name is too long.");
+  if (
+    !finite(candidate.revision) ||
+    !Number.isInteger(candidate.revision) ||
+    candidate.revision < 1
+  )
+    errors.push("Invalid project revision.");
+  for (const key of ["createdAt", "updatedAt"])
+    if (
+      typeof candidate[key] === "string" &&
+      !Number.isFinite(Date.parse(candidate[key]))
+    )
+      errors.push(`Invalid ${key} timestamp.`);
+  if (typeof candidate.timezone === "string") {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: candidate.timezone });
+    } catch {
+      errors.push("Invalid IANA timezone.");
+    }
+  }
+  if (
+    typeof candidate.currency === "string" &&
+    !/^[A-Z]{3}$/.test(candidate.currency)
+  )
+    errors.push("Currency must be a three-letter code.");
+  if (
+    !finite(candidate.coincidence) ||
+    candidate.coincidence < 0 ||
+    candidate.coincidence > 1
+  )
+    errors.push("Coincidence must be between 0 and 1.");
+  if (
+    !finite(candidate.growthPercent) ||
+    candidate.growthPercent < 0 ||
+    candidate.growthPercent > 1000
+  )
+    errors.push("Growth allowance must be between 0 and 1000%.");
+  if (
+    candidate.scenarioOf !== undefined &&
+    (!text(candidate.scenarioOf) || !candidate.scenarioOf)
+  )
+    errors.push("Invalid scenario baseline reference.");
+  if (
+    candidate.baselineRevision !== undefined &&
+    (!finite(candidate.baselineRevision) ||
+      !Number.isInteger(candidate.baselineRevision) ||
+      candidate.baselineRevision < 1)
+  )
+    errors.push("Invalid scenario baseline revision.");
+  if (!record(candidate.supply)) errors.push("Missing supply settings.");
+  else
+    for (const key of ["voltageLN", "voltageLL", "frequency", "limitA"])
+      if (!finite(candidate.supply[key]) || candidate.supply[key] <= 0)
+        errors.push(`Supply ${key} must be positive.`);
+  for (const key of ["loads", "boards", "circuits", "evSessions"]) {
+    if (!Array.isArray(candidate[key]) || candidate[key].length > 10000)
+      errors.push(`${key} must be an array of at most 10,000 records.`);
+    else uniqueIds(candidate[key], key, errors);
+  }
+  if (Array.isArray(candidate.loads)) candidate.loads.forEach((load, index) => errors.push(...validateLoadRecord(load, `Load ${index + 1}`)));
   if (Array.isArray(candidate.boards))
     candidate.boards.forEach((board, index) => {
       if (
@@ -798,9 +804,26 @@ export function validateProjectImport(input: unknown): {
   if (candidate.equipmentLibrary !== undefined) {
     if (!Array.isArray(candidate.equipmentLibrary) || candidate.equipmentLibrary.length > 10000) errors.push("Equipment library must be an array of at most 10,000 detached templates.");
     else {
-      if (candidate.equipmentLibrary.some((row) => record(row) && (row.boardId !== undefined || row.circuitId !== undefined))) errors.push("Equipment templates must be detached from boards and circuits.");
-      const checked = validateProjectImport({ ...candidate, loads: candidate.equipmentLibrary, equipmentLibrary: undefined, scenarioBaseline: undefined, startEvents: undefined, flexibleLoads: undefined, energy: record(candidate.energy) ? { ...candidate.energy, backup: undefined } : candidate.energy });
-      if (!checked.valid) errors.push(...checked.errors.map((message) => `Equipment library: ${message}`));
+      uniqueIds(candidate.equipmentLibrary, "Equipment library", errors);
+      for (const row of candidate.equipmentLibrary) {
+        if (record(row) && (row.boardId !== undefined || row.circuitId !== undefined)) errors.push("Equipment templates must be detached from boards and circuits.");
+        errors.push(...validateLoadRecord(row, "Equipment template"));
+      }
+    }
+  }
+  if (candidate.equipmentFavorites !== undefined && (!Array.isArray(candidate.equipmentFavorites) || candidate.equipmentFavorites.length > 10000 || candidate.equipmentFavorites.some((id) => !text(id) || !id || id.length > 200) || new Set(candidate.equipmentFavorites).size !== candidate.equipmentFavorites.length)) errors.push("Equipment favorites must be unique nonempty template IDs.");
+  if (candidate.equipmentVersions !== undefined) {
+    if (!Array.isArray(candidate.equipmentVersions) || candidate.equipmentVersions.length > 10000) errors.push("Equipment history is limited to 10,000 saved versions.");
+    else {
+      const seen = new Set<string>();
+      for (const version of candidate.equipmentVersions) {
+        if (!record(version) || !text(version.templateId) || !version.templateId || version.templateId.length > 200 || !finite(version.version) || !Number.isInteger(version.version) || version.version < 1 || !explicitInstant(version.capturedAt) || !record(version.record) || version.record.id !== version.templateId) { errors.push("Invalid equipment template version metadata."); continue; }
+        const key = `${version.templateId}:${version.version}`;
+        if (seen.has(key)) errors.push("Duplicate equipment template version.");
+        seen.add(key);
+        if (version.record.boardId !== undefined || version.record.circuitId !== undefined) errors.push("Equipment version records must be detached templates.");
+        errors.push(...validateLoadRecord(version.record, "Equipment version"));
+      }
     }
   }
   if (errors.length) return { valid: false, errors: errors.slice(0, 100) };

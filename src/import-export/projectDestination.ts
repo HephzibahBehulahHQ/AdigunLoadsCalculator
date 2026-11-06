@@ -23,12 +23,17 @@ export function mergeProjectObjects(
   for (const collection of collections)
     for (const record of copy[collection] ?? [])
       ids.set(record.id, newId(collection));
+  for (const record of copy.equipmentVersions ?? [])
+    if (!ids.has(record.templateId))
+      ids.set(record.templateId, newId("equipment"));
   const mapped = (id: string | undefined) =>
     id ? (ids.get(id) ?? id) : undefined;
   copy.loads.forEach((load) => {
     load.id = mapped(load.id)!;
     load.boardId = mapped(load.boardId);
     load.circuitId = mapped(load.circuitId);
+    if (load.libraryRef)
+      load.libraryRef.templateId = mapped(load.libraryRef.templateId)!;
   });
   copy.boards.forEach((board) => {
     board.id = mapped(board.id)!;
@@ -51,6 +56,8 @@ export function mergeProjectObjects(
     load.id = mapped(load.id)!;
     delete load.boardId;
     delete load.circuitId;
+    if (load.libraryRef)
+      load.libraryRef.templateId = mapped(load.libraryRef.templateId)!;
   });
   copy.startEvents?.forEach((event) => {
     event.id = mapped(event.id)!;
@@ -70,6 +77,29 @@ export function mergeProjectObjects(
         ...copy[collection]!,
       ];
   }
+  if (copy.equipmentFavorites?.length)
+    next.equipmentFavorites = [
+      ...(next.equipmentFavorites ?? []),
+      ...copy.equipmentFavorites.map((id) => mapped(id)!),
+    ];
+  if (copy.equipmentVersions?.length)
+    next.equipmentVersions = [
+      ...(next.equipmentVersions ?? []),
+      ...copy.equipmentVersions.map((version) => ({
+        ...version,
+        templateId: mapped(version.templateId)!,
+        record: {
+          ...version.record,
+          id: mapped(version.record.id)!,
+          libraryRef: version.record.libraryRef
+            ? {
+                ...version.record.libraryRef,
+                templateId: mapped(version.record.libraryRef.templateId)!,
+              }
+            : undefined,
+        },
+      })),
+    ];
   const validation = validateProjectImport(next);
   if (!validation.project) throw new Error(validation.errors.join(" "));
   return validation.project;

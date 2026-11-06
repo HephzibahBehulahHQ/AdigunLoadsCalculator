@@ -20,8 +20,8 @@ async function seed(page: Page) {
   await page.goto("/");
   await expect(page.locator(".overview-banner")).toBeVisible();
   const p = createProject("Workflow validation"),
-    board = createBoard({name:"Main distribution"}),
-    circuit = createCircuit(board.id, {name:"Lighting branch"});
+    board = createBoard({ name: "Main distribution" }),
+    circuit = createCircuit(board.id, { name: "Lighting branch" });
   p.boards = [board];
   p.circuits = [circuit];
   p.loads = [
@@ -33,13 +33,11 @@ async function seed(page: Page) {
       circuitId: circuit.id,
     }),
   ];
-  await page
-    .locator('input[type=file][accept=".json,.csv"]')
-    .setInputFiles({
-      name: "fixture.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(p)),
-    });
+  await page.locator('input[type=file][accept=".json,.csv"]').setInputFiles({
+    name: "fixture.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(p)),
+  });
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Apply import", exact: true })
@@ -98,9 +96,9 @@ test("source records, building organization, keyboard modal editing and graph in
   expect(p.sources?.[0].continuousKW).toBe(50);
   expect(p.sources?.[0].continuousKVA).toBe(63);
   await route(page, "Single-Line Studio");
-  await expect(page.locator(".topology-canvas")).toContainText(
-    "Entered grid source",
-  );
+  await expect(
+    page.locator('[aria-label="Editable single-line diagram"]'),
+  ).toContainText("Entered grid source");
   await page
     .getByRole("button", { name: "Planning source: Entered grid source" })
     .click();
@@ -113,13 +111,11 @@ test("CSV mapping with units, explicit merge and replacement, and undo preserve 
 }) => {
   await seed(page);
   const original = await exported(page);
-  await page
-    .locator('input[type=file][accept=".json,.csv"]')
-    .setInputFiles({
-      name: "custom.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from("Appliance,Power,Supply\nMapped lamp,230,230"),
-    });
+  await page.locator('input[type=file][accept=".json,.csv"]').setInputFiles({
+    name: "custom.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Appliance,Power,Supply\nMapped lamp,230,230"),
+  });
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("name", { exact: true }).selectOption("0");
   await dialog.getByLabel("rating", { exact: true }).selectOption("1");
@@ -143,13 +139,11 @@ test("CSV mapping with units, explicit merge and replacement, and undo preserve 
   expect(p.id).toBe(original.id);
   const replacement = createProject("Replacement data");
   replacement.loads = [createLoad({ name: "Replacement load", rating: 1 })];
-  await page
-    .locator('input[type=file][accept=".json,.csv"]')
-    .setInputFiles({
-      name: "replacement.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(replacement)),
-    });
+  await page.locator('input[type=file][accept=".json,.csv"]').setInputFiles({
+    name: "replacement.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(replacement)),
+  });
   await page
     .getByRole("dialog")
     .getByLabel("Import destination", { exact: true })

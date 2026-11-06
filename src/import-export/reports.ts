@@ -1,4 +1,5 @@
 import type { CalculationResult, Project } from "../domain/types";
+import { translate } from "../i18n";
 
 export type ReportLocale = "en" | "de" | "yo" | "pcm";
 export type BillKind = "estimate" | "invoice";
@@ -36,6 +37,7 @@ export type BillDocument = {
   discountPercent: string;
   taxPercent: string;
   lines: BillLine[];
+  numericDrafts?: Record<string, { text: string; locale: ReportLocale }>;
 };
 export type BillTotals = {
   digits: number;
@@ -222,8 +224,13 @@ export function calculateBill(
   bill: Pick<
     BillDocument,
     "currency" | "lines" | "discountPercent" | "taxPercent"
-  >,
+  > &
+    Pick<BillDocument, "numericDrafts">,
 ): BillTotals {
+  if (bill.numericDrafts && Object.keys(bill.numericDrafts).length)
+    throw new Error(
+      "Resolve invalid numeric draft fields before calculating the bill.",
+    );
   const digits = currencyDigits(bill.currency);
   const lineBig = bill.lines.map((line, i) => {
     const quantity = decimalInteger(line.quantity, 3, `Quantity ${i + 1}`);
@@ -628,6 +635,27 @@ export function parseBillJson(text: string): BillDocument {
   }
   if (!Array.isArray(b.lines) || b.lines.length > 1000)
     throw new Error("Invalid billing lines.");
+  if (b.numericDrafts !== undefined) {
+    if (
+      !b.numericDrafts ||
+      typeof b.numericDrafts !== "object" ||
+      Array.isArray(b.numericDrafts) ||
+      Object.keys(b.numericDrafts).length > 2002
+    )
+      throw new Error("Invalid numeric draft data.");
+    for (const [key, raw] of Object.entries(b.numericDrafts)) {
+      const draft = raw as { text?: unknown; locale?: unknown };
+      if (
+        key.length > 300 ||
+        !draft ||
+        typeof draft !== "object" ||
+        typeof draft.text !== "string" ||
+        draft.text.length > 64 ||
+        !["en", "de", "yo", "pcm"].includes(String(draft.locale))
+      )
+        throw new Error("Invalid numeric draft data.");
+    }
+  }
   const ids = new Set<string>();
   for (const line of b.lines) {
     if (!line || typeof line !== "object" || Array.isArray(line))
@@ -936,6 +964,7 @@ export async function createEngineeringPdf(
       "Recalculate the current project revision before exporting.",
     );
   const locale = options.locale ?? "en";
+  const t = (value: string) => translate(value, locale);
   const l = engineeringLabels[locale];
   const sections = options.sections ?? [
     "summary",
@@ -1230,22 +1259,22 @@ export async function createEngineeringPdf(
         [l.severity, l.message],
         [35, 147],
         result.issues.map((issue) => [
-          `${issue.severity}\n${issue.assessment}`,
-          `${issue.message}${issue.entityId ? `\nID: ${issue.entityId}` : ""}`,
+          `${t(issue.severity)}\n${t(issue.assessment)}`,
+          `${t(issue.message)}${issue.entityId ? `\nID: ${issue.entityId}` : ""}`,
         ]),
       );
   }
   if (sections.includes("trace")) {
     heading(l.trace);
-    paragraph(result.trace.method);
+    paragraph(t(result.trace.method));
     paragraph(result.trace.formula, 8);
     paragraph(
-      `${result.trace.origin} · ${result.trace.assessment} · ${l.revision} ${result.trace.revision}`,
+      `${t(result.trace.origin)} · ${t(result.trace.assessment)} · ${l.revision} ${result.trace.revision}`,
       8,
     );
     heading(l.assumptions);
     for (const assumption of result.trace.assumptions)
-      paragraph(`• ${assumption}`, 8);
+      paragraph(`• ${t(assumption)}`, 8);
     if (result.trace.sources.length) {
       heading(l.references);
       for (const source of result.trace.sources) paragraph(source, 8);

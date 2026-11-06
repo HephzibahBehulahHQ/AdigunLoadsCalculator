@@ -287,7 +287,7 @@ export function Toolbox({
                     </div>
                   ))}
                 </div>
-                <div className="formula">{result.formula}</div>
+                <div className="formula">{t(result.formula)}</div>
                 {result.warnings?.map((w, i) => (
                   <Notice key={i} tone="warning">
                     {t(w)}

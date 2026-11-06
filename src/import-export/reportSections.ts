@@ -2,6 +2,7 @@ import { translate, numberFormat } from "../i18n";
 import { assessCircuit } from "../engine/assessments";
 import { assessEndpointRoute } from "../engine/feeders";
 import { simulateStartEvents } from "../engine/start-events";
+import { assessSourceEquipment } from "../engine/sources";
 import { validateMeasurementPayload } from "../storage/measurements";
 import { deriveBOM } from "./bom";
 import type { ReportSnapshot } from "./reportSnapshot";
@@ -223,6 +224,21 @@ export function reportBlocks(
     paragraph(
       "Starting-event values use entered current multipliers and starting power factors. They do not predict electromagnetic transients or generator voltage/frequency dips.",
     );
+    for (const source of p.sources ?? []) {
+      const assessment = assessSourceEquipment(p, source.id);
+      heading(source.name);
+      paragraph(assessment.method);
+      table(
+        ["Check", "Assessment", "Value / limit", "Method and evidence"],
+        assessment.checks.map((check) => [
+          t(check.label),
+          t(check.assessment),
+          `${n(check.value)} / ${n(check.limit)} ${check.unit ?? ""}`,
+          t(check.detail),
+        ]),
+        [40, 25, 32, 85],
+      );
+    }
   } else if (section === "energy") {
     table(
       ["Quantity", "Entered value / estimate"],

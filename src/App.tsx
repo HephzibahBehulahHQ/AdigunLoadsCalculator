@@ -132,7 +132,11 @@ import { FeederAssessment } from "./features/FeederAssessment";
 import { SourceRegistry, ProjectOrganization } from "./features/SourceRegistry";
 import { ReportWorkspace } from "./features/ReportWorkspace";
 import type { ReportContext } from "./import-export/reportSnapshot";
-import type { CalendarResult, RangeOptions } from "./engine/simulation";
+import type {
+  CalendarResult,
+  RangeOptions,
+  EnergyOptions,
+} from "./engine/simulation";
 import {
   previewProjectCommand,
   applyProjectCommand,
@@ -142,6 +146,7 @@ import { resetBotWindowState } from "./bot/windowState";
 const Billing = lazy(() =>
   import("./features/Billing").then((m) => ({ default: m.Billing })),
 );
+const SpatialView = lazy(() => import("./features/SpatialView"));
 const Measurements = lazy(() => import("./features/Measurements"));
 const LocalBot = lazy(() =>
   import("./bot/LocalBot").then((m) => ({ default: m.LocalBot })),
@@ -308,6 +313,9 @@ export default function App() {
   }, [sidebarWidth, inspectorWidth, detailMode, collapsedGroups]);
   const [selected, setSelected] = useState<string>();
   const [showTrace, setShowTrace] = useState(false);
+  const [diagramView, setDiagramView] = useState<"single" | "spatial">(
+    "single",
+  );
   const [editor, setEditor] = useState<{ load?: Load } | null>(null);
   const [dialog, setDialog] = useState<
     "projects" | "import" | "commands" | "references" | "rename" | null
@@ -337,7 +345,21 @@ export default function App() {
   );
   const [, setReportBusy] = useState(false);
   const [reportContext, setReportContext] = useState<ReportContext>({});
-  useEffect(() => setReportContext({}), [project.id, project.revision]);
+  useEffect(
+    () =>
+      setReportContext((previous) => {
+        const next = { ...previous };
+        for (const key of ["calendar", "energy", "ev"] as const)
+          if (
+            next[key] &&
+            (next[key]!.projectId !== project.id ||
+              next[key]!.revision !== project.revision)
+          )
+            delete next[key];
+        return next;
+      }),
+    [project.id, project.revision],
+  );
   const rememberCalendar = (
     calculated: CalendarResult,
     inputs: Record<string, unknown> | RangeOptions,
@@ -955,7 +977,7 @@ export default function App() {
                   >
                     {issue.assessment}
                   </span>
-                  <p>{issue.message}</p>
+                  <p>{t(issue.message)}</p>
                   {issue.entityId && (
                     <button
                       className="text-button"
@@ -1579,13 +1601,45 @@ export default function App() {
                     </>
                   )}
                   {route === "diagram" && (
-                    <TopologyEditor
-                      project={project}
-                      result={result}
-                      onSelect={setSelected}
-                      selectedId={selected}
-                      change={change}
-                    />
+                    <>
+                      <div className="tab-bar">
+                        <button
+                          className={diagramView === "single" ? "active" : ""}
+                          onClick={() => setDiagramView("single")}
+                        >
+                          {t("Single-line diagram")}
+                        </button>
+                        <button
+                          className={diagramView === "spatial" ? "active" : ""}
+                          onClick={() => setDiagramView("spatial")}
+                        >
+                          {t("Analytical spatial view")}
+                        </button>
+                      </div>
+                      {diagramView === "single" ? (
+                        <TopologyEditor
+                          project={project}
+                          result={result}
+                          onSelect={setSelected}
+                          selectedId={selected}
+                          change={change}
+                        />
+                      ) : (
+                        <Suspense
+                          fallback={
+                            <div className="loading">
+                              <LoaderCircle className="spin" />
+                            </div>
+                          }
+                        >
+                          <SpatialView
+                            project={project}
+                            result={result}
+                            onSelect={setSelected}
+                          />
+                        </Suspense>
+                      )}
+                    </>
                   )}
                   {route === "simulation" && (
                     <>
@@ -1652,6 +1706,20 @@ export default function App() {
                       key={project.id}
                       project={project}
                       change={change}
+                      onComplete={(calculated, inputs) =>
+                        setReportContext((context) => ({
+                          ...context,
+                          energy: {
+                            projectId: latest.current.id,
+                            revision: calculated.revision,
+                            calculatedAt: new Date().toISOString(),
+                            result: calculated,
+                            inputs: inputs as EnergyOptions,
+                            source:
+                              "Completed renewable/storage dispatch with entered profiles",
+                          },
+                        }))
+                      }
                     />
                   )}
                   {route === "ev" && (
@@ -1659,6 +1727,32 @@ export default function App() {
                       project={project}
                       result={result}
                       change={change}
+                      onComplete={(sessionId, plan, inputs) =>
+                        setReportContext((context) => {
+                          const revision = latest.current.revision;
+                          const prior =
+                            context.ev?.revision === revision
+                              ? context.ev.result
+                              : [];
+                          return {
+                            ...context,
+                            ev: {
+                              projectId: latest.current.id,
+                              revision,
+                              calculatedAt: new Date().toISOString(),
+                              result: [
+                                ...prior.filter(
+                                  (row) => row.sessionId !== sessionId,
+                                ),
+                                { sessionId, plan },
+                              ],
+                              inputs,
+                              source:
+                                "Completed dated EV allocation with entered session constraints",
+                            },
+                          };
+                        })
+                      }
                     />
                   )}
                   {route === "costs" && (
@@ -1963,7 +2057,7 @@ export default function App() {
                         <dt>{t("Origin")}</dt>
                         <dd>{result.trace.origin}</dd>
                         <dt>{t("Method")}</dt>
-                        <dd>{result.trace.method}</dd>
+                        <dd>{t(result.trace.method)}</dd>
                       </dl>
                       <div className="formula">{result.trace.formula}</div>
                     </div>
@@ -1971,7 +2065,7 @@ export default function App() {
                       <h4>{t("Assumptions")}</h4>
                       {result.trace.assumptions.map((a, i) => (
                         <p className="small muted" key={i}>
-                          {a}
+                          {t(a)}
                         </p>
                       ))}
                     </div>
@@ -1979,7 +2073,7 @@ export default function App() {
                       <h4>{t("Issues")}</h4>
                       {result.issues.map((i) => (
                         <p className="small" key={i.id}>
-                          {i.message}
+                          {t(i.message)}
                         </p>
                       ))}
                     </div>

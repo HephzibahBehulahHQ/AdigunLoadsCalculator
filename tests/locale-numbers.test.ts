@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { formatEditableNumber, parseLocaleNumber } from "../src/i18n/numbers";
+import {
+  formatEditableNumber,
+  parseLocaleNumber,
+  parseLocaleNumberList,
+} from "../src/i18n/numbers";
 describe("localized input keeps machine values unambiguous", () => {
+  it("parses German semicolon lists without confusing decimal commas with delimiters", () => {
+    expect(parseLocaleNumberList("0,9;0,8\n1", "de")).toMatchObject({
+      ok: true,
+      values: [0.9, 0.8, 1],
+      canonical: ["0.9", "0.8", "1"],
+    });
+    expect(parseLocaleNumberList("1,2,3", "de").ok).toBe(false);
+    expect(parseLocaleNumberList("1,2,3", "en")).toMatchObject({
+      ok: true,
+      values: [1, 2, 3],
+    });
+    expect(parseLocaleNumberList("1;;2", "de").ok).toBe(false);
+  });
   it("accepts German decimal commas and dot decimals in the other three languages", () => {
     expect(parseLocaleNumber("1,25", "de")).toEqual({
       ok: true,

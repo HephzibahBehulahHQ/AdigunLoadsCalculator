@@ -330,7 +330,7 @@ export function Overview({
                 onClick={() => onRoute("history")}
               >
                 <AlertTriangle size={16} />
-                <span>{issue.message}</span>
+                <span>{t(issue.message)}</span>
                 <ArrowUpRight size={14} />
               </button>
             ))
@@ -1045,7 +1045,7 @@ export function Boards({
             {!balance.moves.length && <p>{t("No phase moves required")}</p>}
             {balance.issues.map((i) => (
               <Notice key={i.id} tone="warning">
-                {i.message}
+                {t(i.message)}
               </Notice>
             ))}
           </div>
@@ -1795,7 +1795,7 @@ export function Simulation({
           />
           {calendar.issues.map((i) => (
             <Notice key={i.id} tone="warning">
-              {i.message}
+              {t(i.message)}
             </Notice>
           ))}
         </section>

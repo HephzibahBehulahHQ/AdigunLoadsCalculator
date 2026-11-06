@@ -3,7 +3,9 @@ import { createBoard, createCircuit, createLoad, createProject, validateProjectI
 import type { Cable, Load, Project, StartEvent } from "../src/domain/types";
 import { resolveSchedule } from "../src/engine/calendar";
 import { calculateProject, dailyProfile, normalizeLoad } from "../src/engine/electrical";
-import { simulateRange } from "../src/engine/simulation";
+import { batteryStep, simulateEnergy, simulateRange } from "../src/engine/simulation";
+import { assessSourceEquipment } from "../src/engine/sources";
+import { scheduleEV } from "../src/engine/planning";
 import { simulateStartEvents } from "../src/engine/start-events";
 import { calculateIntervalBill, tariffRate, validateTariff } from "../src/engine/tariffs";
 import { assessEndpointRoute } from "../src/engine/feeders";
@@ -227,5 +229,63 @@ describe("optional metadata trust boundaries", () => {
     expect(validateProjectImport(project).valid).toBe(false);
     delete project.equipmentLibrary[0].boardId; project.scenarioBaseline.revision++;
     expect(validateProjectImport(project).valid).toBe(false);
+  });
+});
+
+describe("entered renewable dispatch and source evidence", () => {
+  it("accounts for independent supplied wind, PV clipping and separate exported energy", () => {
+    const project = createProject();
+    Object.assign(project.energy, { pvKW: 2, pvPerformanceRatio: 1, pvHourlyProfile: Array(24).fill(1), inverterACLimitKW: 1, windHourlyKW: Array(24).fill(1), windSource: "Entered AC profile" });
+    const result = simulateEnergy(project);
+    expect(result.generationKWh).toBeCloseTo(72); expect(result.exportKWh).toBeCloseTo(48); expect(result.curtailedKWh).toBeCloseTo(24);
+    expect(result.points.every((point) => Math.abs(point.balanceErrorKWh) < 1e-10)).toBe(true);
+  });
+  it("real calendar wind dispatch integrates 25 elapsed hours through the autumn fold", () => {
+    const project = createProject(); project.energy.windHourlyKW = Array(24).fill(1); project.energy.windSource = "Entered repeating local-hour AC profile";
+    const result = simulateEnergy(project, { range: { start: "2026-10-25T00:00:00+02:00", end: "2026-10-26T00:00:00+01:00" } });
+    expect(result.points).toHaveLength(100); expect(result.generationKWh).toBeCloseTo(25); expect(result.exportKWh).toBeCloseTo(25); expect(result.bill?.standingDays).toBeCloseTo(25 / 24);
+  });
+  it("grid charging respects its target after PV charging and preserves conservation", () => {
+    const battery = { capacityKWh: 10, initialSoc: 0.5, minSoc: 0, maxSoc: 1, chargeKW: 5, dischargeKW: 5, chargeEfficiency: 1, dischargeEfficiency: 1, islandCapable: true };
+    const result = batteryStep({ storedKWh: 5, generationKW: 1, loadKW: 0, hours: 1, battery, gridChargeKW: 1, gridChargeTargetKWh: 6 });
+    expect(result.storedKWh).toBe(6); expect(result.gridChargeKWh).toBe(0); expect(result.chargeKWh).toBe(1); expect(result.balanceErrorKWh).toBeCloseTo(0, 12);
+    const capped = batteryStep({ storedKWh: 5, generationKW: 0, loadKW: 1, hours: 1, battery, gridChargeKW: 2, importLimitKW: 2 });
+    expect(capped.importKWh).toBe(2); expect(capped.gridChargeKWh).toBe(1); expect(capped.dischargeKWh).toBe(0); expect(capped.balanceErrorKWh).toBeCloseTo(0, 12);
+  });
+  it("peak shaving never spends protected reserve or invents target compliance", () => {
+    const project = createProject(); project.loads = [createLoad({ rating: 3, hoursPerDay: 24, startHour: 0 })];
+    project.energy.battery = { capacityKWh: 10, initialSoc: 1, minSoc: 0, maxSoc: 1, chargeKW: 5, dischargeKW: 5, chargeEfficiency: 1, dischargeEfficiency: 1, islandCapable: true };
+    project.energy.dispatch = { strategy: "peak-shaving", reserveSoc: 0.5, peakLimitKW: 2, allowGridCharge: false, gridChargeWindows: [] };
+    const result = simulateEnergy(project);
+    expect(result.finalStoredKWh).toBeCloseTo(5); expect(result.importKWh).toBeCloseTo(67); expect(result.complete).toBe(false); expect(result.issues.some((row) => row.id === "peak-target")).toBe(true);
+  });
+  it("transfer evidence and priority shedding control actual backup availability", () => {
+    const project = createProject(); project.timezone = "UTC";
+    const critical = createLoad({ rating: 1, hoursPerDay: 24, startHour: 0, critical: true, boardId: project.boards[0].id });
+    const optional = createLoad({ rating: 2, hoursPerDay: 24, startHour: 0, boardId: project.boards[0].id }); project.loads = [critical, optional];
+    project.energy.battery = { capacityKWh: 10, initialSoc: 1, minSoc: 0, maxSoc: 1, chargeKW: 5, dischargeKW: 5, chargeEfficiency: 1, dischargeEfficiency: 1, islandCapable: true };
+    project.sources = [{ id: "source", name: "Entered backup", type: "inverter", connection: "single", phase: "L1", voltageV: 230, continuousKW: 2.3, continuousKVA: 2.3, derating: 1, islandCapable: true, gridForming: true, transferIsolationVerified: false, blackStart: true, restartSeconds: 0, source: { kind: "user", reference: "Entered test envelope" }, notes: "" }];
+    project.energy.backup = { sourceId: "source", criticalOnly: false, priorityLoadIds: [], restartDelayMinutes: 0, requireBlackStart: true };
+    const unavailable = simulateEnergy(project, { intervalMinutes: 60, outage: { startHour: 0, durationHours: 1 } });
+    expect(unavailable.points[0].unservedKWh).toBeCloseTo(3); expect(unavailable.points[0].criticalUnservedKWh).toBeCloseTo(1); expect(unavailable.points[0].storedKWh).toBe(10);
+    project.sources[0].transferIsolationVerified = true;
+    const supplied = simulateEnergy(project, { intervalMinutes: 60, outage: { startHour: 0, durationHours: 1 } });
+    expect(supplied.points[0].servedLoadIds).toEqual([critical.id]); expect(supplied.points[0].unservedKWh).toBeCloseTo(2); expect(supplied.points[0].criticalUnservedKWh).toBe(0); expect(supplied.points[0].storedKWh).toBe(9);
+    expect(supplied.points.every((point) => Math.abs(point.balanceErrorKWh) < 1e-10)).toBe(true);
+  });
+  it("supplied source overload duration rejects a 10-second start under a 5-second rating", () => {
+    const project = createProject(); project.timezone = "UTC"; const load = createLoad({ rating: 2.3, hoursPerDay: 24, startHour: 0 }); project.loads = [load];
+    project.startEvents = [startEvent(load, "e", undefined, { multiplier: 3, pf: 1, durationSeconds: 10 })];
+    project.sources = [{ id: "generator", name: "Entered generator", type: "generator", connection: "single", phase: "L1", voltageV: 230, continuousKW: 2.3, continuousKVA: 2.3, derating: 1, overload: { kw: 6.9, kva: 6.9, durationSeconds: 5, source: "Entered example envelope" }, islandCapable: true, gridForming: true, transferIsolationVerified: true, blackStart: true, restartSeconds: 0, source: { kind: "user", reference: "Entered source example" }, notes: "" }];
+    const result = assessSourceEquipment(project, "generator", { scenario: "starting" });
+    expect(result.maximumOverloadSeconds).toBeCloseTo(10); expect(result.checks.find((row) => row.id === "source-start-capacity")?.assessment).toBe("failed");
+    project.sources[0].overload!.durationSeconds = 10;
+    expect(assessSourceEquipment(project, "generator", { scenario: "starting" }).checks.find((row) => row.id === "source-start-capacity")?.assessment).toBe("passed");
+  });
+  it("minimum charging power shortens the final run instead of fabricating lower on-state power", () => {
+    const session = { id: "ev", name: "Entered EV", arrivalHour: 0, departureHour: 1, requiredKWh: 0.1, chargerKW: 2, vehicleKW: 2, efficiency: 1, siteLimitKW: 10, minimumKW: 1 };
+    const plan = scheduleEV(session);
+    expect(plan.feasible).toBe(true); expect(plan.points[0].acKW).toBe(1); expect(plan.points[0].durationHours).toBeCloseTo(0.1); expect(plan.deliveredKWh).toBeCloseTo(0.1);
+    expect(scheduleEV({ ...session, energyBasis: "soc", usableCapacityKWh: 50, initialSoc: 0.2, targetSoc: 0.8, departureHour: 24 }).deliveredKWh).toBeCloseTo(30);
   });
 });

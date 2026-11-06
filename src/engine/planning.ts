@@ -10,6 +10,7 @@ import {
   normalizeLoad,
   PHASES,
 } from "./electrical";
+import { makeCalendarClock, resolveSchedule } from "./calendar";
 
 export interface EVOptions {
   strategy?: "immediate" | "cheapest" | "solar";
@@ -194,6 +195,7 @@ export function scheduleEV(
 export function conservativeDemandProfile(
   project: Project,
   intervalMinutes = 60,
+  date?: string,
 ): { kw: number[]; phaseHeadroomKW: Record<Phase, number[]> } {
   if (
     !Number.isInteger(intervalMinutes) ||
@@ -227,14 +229,21 @@ export function conservativeDemandProfile(
     const standbyA =
       (standbyKW * 1000) /
       ((load.connection === "three" ? Math.sqrt(3) : 1) * load.voltage);
+    let spans = resolveSchedule(load, date);
+    if (load.schedule?.absoluteWindows) {
+      const clock = makeCalendarClock(project.timezone);
+      spans = load.schedule.absoluteWindows.flatMap((window): [number, number][] => {
+        const a = clock(Date.parse(window.start)), b = clock(Date.parse(window.end) - 1);
+        if (!date) return [[0, 24]];
+        if (a.date > date || b.date < date) return [];
+        const left = a.date < date ? 0 : a.hour, right = b.date > date ? 24 : b.hour + 1 / 3600000;
+        // A fold can make wall-clock order ambiguous; a whole-day envelope is conservative.
+        return right < left ? [[0, 24]] : [[left, right]];
+      });
+    }
     for (let index = 0; index < count; index++) {
       const active =
-        activeHours(
-          load.startHour,
-          load.hoursPerDay,
-          index * step,
-          (index + 1) * step,
-        ) > 0;
+        spans.some(([left, right]) => Math.min(right, (index + 1) * step) > Math.max(left, index * step));
       kw[index] += active
         ? Math.max(normalized.operatingKW, standbyKW)
         : standbyKW;

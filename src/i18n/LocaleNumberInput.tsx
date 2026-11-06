@@ -14,8 +14,31 @@ export type LocaleNumberInputProps = Omit<
   integer?: boolean;
   onValidityChange?: (valid: boolean) => void;
 };
+export type OptionalLocaleNumberInputProps = Omit<
+  LocaleNumberInputProps,
+  "value" | "onValueChange"
+> & {
+  value: number | undefined;
+  onValueChange: (value: number | undefined) => void;
+};
+export function LocaleNumberInput(props: LocaleNumberInputProps) {
+  return (
+    <NumberInput
+      {...props}
+      optional={false}
+      onValueChange={(value) => {
+        if (value !== undefined) props.onValueChange(value);
+      }}
+    />
+  );
+}
+export function OptionalLocaleNumberInput(
+  props: OptionalLocaleNumberInputProps,
+) {
+  return <NumberInput {...props} optional={!props.required} />;
+}
 /** Commits valid numbers on blur/Enter; invalid text remains visible and never mutates project state. */
-export function LocaleNumberInput({
+function NumberInput({
   value,
   onValueChange,
   min,
@@ -24,34 +47,52 @@ export function LocaleNumberInput({
   onValidityChange,
   onBlur,
   onKeyDown,
+  optional,
   ...props
-}: LocaleNumberInputProps) {
+}: OptionalLocaleNumberInputProps & { optional: boolean }) {
   const locale = useContext(LanguageContext),
     t = useT(),
     id = useId(),
     input = useRef<HTMLInputElement>(null),
     previous = useRef({ value, locale }),
-    [text, setText] = useState(() => formatEditableNumber(value, locale)),
+    draftLocale = useRef(locale),
+    [text, setText] = useState(() => formatEditableNumber(value ?? "", locale)),
     [error, setError] = useState("");
   useEffect(() => {
     if (!Object.is(value, previous.current.value)) {
-      setText(formatEditableNumber(value, locale));
+      setText(formatEditableNumber(value ?? "", locale));
+      draftLocale.current = locale;
       setError("");
       input.current?.setCustomValidity("");
       onValidityChange?.(true);
     } else if (locale !== previous.current.locale) {
-      const staged = parseLocaleNumber(text, previous.current.locale, {
+      const staged = parseLocaleNumber(text, draftLocale.current, {
         min,
         max,
         integer,
       });
-      if (staged.ok) setText(formatEditableNumber(staged.canonical, locale));
+      if (staged.ok) {
+        setText(formatEditableNumber(staged.canonical, locale));
+        draftLocale.current = locale;
+      }
       input.current?.setCustomValidity(error ? t(error) : "");
     }
     previous.current = { value, locale };
   }, [value, locale]);
   function commit() {
-    const result = parseLocaleNumber(text, locale, { min, max, integer });
+    if (optional && !text.trim()) {
+      setText("");
+      setError("");
+      input.current?.setCustomValidity("");
+      onValidityChange?.(true);
+      if (value !== undefined) onValueChange(undefined);
+      return;
+    }
+    const result = parseLocaleNumber(text, draftLocale.current, {
+      min,
+      max,
+      integer,
+    });
     if (!result.ok) {
       setError(result.message);
       input.current?.setCustomValidity(t(result.message));
@@ -62,6 +103,7 @@ export function LocaleNumberInput({
     input.current?.setCustomValidity("");
     onValidityChange?.(true);
     setText(formatEditableNumber(result.value, locale));
+    draftLocale.current = locale;
     if (!Object.is(value, result.value)) onValueChange(result.value);
   }
   return (
@@ -80,11 +122,16 @@ export function LocaleNumberInput({
         }
         onChange={(event) => {
           setText(event.target.value);
+          draftLocale.current = locale;
           setError("");
           event.target.setCustomValidity("");
           onValidityChange?.(
-            parseLocaleNumber(event.target.value, locale, { min, max, integer })
-              .ok,
+            (optional && !event.target.value.trim()) ||
+              parseLocaleNumber(event.target.value, locale, {
+                min,
+                max,
+                integer,
+              }).ok,
           );
         }}
         onBlur={(event) => {

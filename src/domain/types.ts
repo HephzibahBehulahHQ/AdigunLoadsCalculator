@@ -93,6 +93,7 @@ export interface Load {
   startingPF?: number;
   startingSeconds?: number;
   schedule?: LoadSchedule;
+  libraryRef?: { templateId: string; version: number };
   source: SourceEvidence;
   notes: string;
 }
@@ -333,6 +334,8 @@ export interface Project {
     project: Omit<Project, "scenarioBaseline">;
   };
   equipmentLibrary?: Load[];
+  equipmentFavorites?: string[];
+  equipmentVersions?: { templateId: string; version: number; capturedAt: string; record: Load }[];
   diagram?: DiagramSettings;
   startEvents?: StartEvent[];
   flexibleLoads?: FlexibleLoad[];

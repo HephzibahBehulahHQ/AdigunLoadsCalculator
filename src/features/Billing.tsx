@@ -19,6 +19,8 @@ import type {
   ReportLocale,
 } from "../import-export/reports";
 import "./Billing.css";
+import { translate } from "../i18n";
+import { LocaleDecimalInput } from "../i18n/LocaleDecimalInput";
 
 export type BillingProps = {
   projectName: string;
@@ -342,16 +344,7 @@ function localizedError(error: string, locale: ReportLocale): string {
   };
   const index = locale === "de" ? 0 : locale === "yo" ? 1 : 2;
   if (translations[error]) return translations[error][index];
-  const match = error.match(
-    /line (\d+)|Quantity (\d+)|Unit price (\d+)|Description (\d+)/i,
-  );
-  const n = match?.slice(1).find(Boolean);
-  return (
-    ui[locale].required +
-    (n
-      ? ` (${locale === "de" ? "Position" : locale === "yo" ? "Ìlà" : "Line"} ${n})`
-      : "")
-  );
+  return translate(error, locale);
 }
 
 export function Billing({
@@ -468,6 +461,31 @@ export function Billing({
         line.id === id ? { ...line, [field]: value } : line,
       ),
     }));
+    setDirty(true);
+    setStatus("");
+  };
+  const decimalChange = (
+    path: string,
+    change:
+      { canonical: string } | { draft: { text: string; locale: ReportLocale } },
+    lineId?: string,
+    field?: "quantity" | "unitPrice",
+  ) => {
+    setBill((current) => {
+      const next = structuredClone(current);
+      next.numericDrafts ??= {};
+      if ("draft" in change) next.numericDrafts[path] = change.draft;
+      else {
+        delete next.numericDrafts[path];
+        if (lineId && field) {
+          const line = next.lines.find((row) => row.id === lineId);
+          if (line) line[field] = change.canonical;
+        } else if (path === "discountPercent" || path === "taxPercent")
+          next[path] = change.canonical;
+      }
+      if (!Object.keys(next.numericDrafts).length) delete next.numericDrafts;
+      return next;
+    });
     setDirty(true);
     setStatus("");
   };
@@ -804,25 +822,50 @@ export function Billing({
                         </select>
                       </td>
                       <td>
-                        <input
+                        <LocaleDecimalInput
                           aria-label={`${l.quantity} ${i + 1}`}
-                          inputMode="decimal"
                           maxLength={32}
                           value={line.quantity}
-                          onChange={(e) =>
-                            changeLine(line.id, "quantity", e.target.value)
+                          locale={locale}
+                          decimalPlaces={3}
+                          draft={
+                            bill.numericDrafts?.[`line:${line.id}:quantity`]
+                          }
+                          onDecimalChange={(change) =>
+                            decimalChange(
+                              `line:${line.id}:quantity`,
+                              change,
+                              line.id,
+                              "quantity",
+                            )
                           }
                           disabled={disabled}
                         />
                       </td>
                       <td>
-                        <input
+                        <LocaleDecimalInput
                           aria-label={`${l.unitPrice} ${i + 1}`}
-                          inputMode="decimal"
                           maxLength={32}
                           value={line.unitPrice}
-                          onChange={(e) =>
-                            changeLine(line.id, "unitPrice", e.target.value)
+                          locale={locale}
+                          decimalPlaces={
+                            result.totals?.digits ??
+                            (bill.currency === "JPY"
+                              ? 0
+                              : bill.currency === "KWD"
+                                ? 3
+                                : 2)
+                          }
+                          draft={
+                            bill.numericDrafts?.[`line:${line.id}:unitPrice`]
+                          }
+                          onDecimalChange={(change) =>
+                            decimalChange(
+                              `line:${line.id}:unitPrice`,
+                              change,
+                              line.id,
+                              "unitPrice",
+                            )
                           }
                           disabled={disabled}
                         />
@@ -861,21 +904,29 @@ export function Billing({
           <div className="billing-adjustments">
             <label className="field">
               {u.discount}
-              <input
-                inputMode="decimal"
+              <LocaleDecimalInput
                 maxLength={8}
                 value={bill.discountPercent}
-                onChange={(e) => update("discountPercent", e.target.value)}
+                locale={locale}
+                decimalPlaces={2}
+                draft={bill.numericDrafts?.discountPercent}
+                onDecimalChange={(change) =>
+                  decimalChange("discountPercent", change)
+                }
                 disabled={disabled}
               />
             </label>
             <label className="field">
               {u.tax}
-              <input
-                inputMode="decimal"
+              <LocaleDecimalInput
                 maxLength={8}
                 value={bill.taxPercent}
-                onChange={(e) => update("taxPercent", e.target.value)}
+                locale={locale}
+                decimalPlaces={2}
+                draft={bill.numericDrafts?.taxPercent}
+                onDecimalChange={(change) =>
+                  decimalChange("taxPercent", change)
+                }
                 disabled={disabled}
               />
             </label>
