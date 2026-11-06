@@ -479,7 +479,7 @@ export default function App() {
           latest.current.revision === p.revision
         )
           setSaveState("Saved locally");
-        writePreference("currentProject", p.id);
+        if (latest.current.id === p.id) writePreference("currentProject", p.id);
         channel.current?.postMessage({
           id: p.id,
           revision: p.revision,
@@ -616,6 +616,7 @@ export default function App() {
           next.revision,
       );
       latest.current = structuredClone(next);
+      writePreference("currentProject", next.id);
       setProject(latest.current);
       setSelected(undefined);
       setDialog(null);
@@ -643,6 +644,7 @@ export default function App() {
       undo.current = [];
       redo.current = [];
       latest.current = next;
+      writePreference("currentProject", next.id);
       setProject(next);
       setSelected(undefined);
       setDialog(null);
@@ -1504,6 +1506,11 @@ export default function App() {
           <UpdateBanner
             save={() => persist()}
             version={`${project.id}:${project.revision}`}
+            projectNeedsSave={() =>
+              loaded &&
+              lastSaved.current.get(latest.current.id) !==
+                latest.current.revision
+            }
           />
           <div
             className={
