@@ -1,5 +1,6 @@
 import { planningMessages } from "./planningMessages";
 import { workspaceMessages } from "./workspaceMessages";
+import { detailMessages } from "./detailMessages";
 import { createContext, useContext } from "react";
 import { uiMessages } from "./uiMessages";
 import { reportMessages } from "./reportMessages";
@@ -1637,6 +1638,7 @@ Object.assign(
   reportMessages,
   workspaceMessages,
   planningMessages,
+  detailMessages,
 );
 const uiTemplates: Array<[string, [string, string, string]]> = [
   ["Value {0}: {1}", ["Wert {0}: {1}", "Iye {0}: {1}", "Value {0}: {1}"]],

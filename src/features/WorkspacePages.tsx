@@ -48,6 +48,7 @@ import {
 import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
 import { Field, Notice, Modal, Empty, LineChart } from "./ui";
 import { LanguageContext, useT, numberFormat, money } from "../i18n";
+import { ProjectCalculationDetails, type DetailMode } from "./DetailViews";
 type Change = (mutator: (draft: Project) => void) => void;
 export function Overview({
   project,
@@ -55,12 +56,14 @@ export function Overview({
   onAdd,
   onReference,
   onRoute,
+  detailMode = "engineering",
 }: {
   project: Project;
   result: CalculationResult;
   onAdd: () => void;
   onReference: () => void;
   onRoute: (r: string) => void;
+  detailMode?: DetailMode;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -156,6 +159,13 @@ export function Overview({
           </button>
         ))}
       </div>
+      {detailMode === "simple" && (
+        <p className="detail-help">
+          {t(
+            "Power is the rate of electricity use; energy is the amount used over time.",
+          )}
+        </p>
+      )}
       {project.loads.length === 0 ? (
         <div className="panel empty-project">
           <Empty
@@ -313,6 +323,9 @@ export function Overview({
           </section>
         </div>
       )}
+      {detailMode === "engineering" && project.loads.length > 0 && (
+        <ProjectCalculationDetails project={project} result={result} />
+      )}
       <div className="overview-bottom">
         <section className="panel panel-pad">
           <div className="panel-title">
@@ -329,14 +342,16 @@ export function Overview({
             </span>
           </div>
           {result.issues.length ? (
-            result.issues.slice(0, 3).map((issue) => (
+            result.issues.map((issue) => (
               <button
                 key={issue.id}
                 className="issue-row"
                 onClick={() => onRoute("history")}
               >
                 <AlertTriangle size={16} />
-                <span>{t(issue.message)}</span>
+                <span>
+                  <strong>{t(issue.assessment)}</strong> — {t(issue.message)}
+                </span>
                 <ArrowUpRight size={14} />
               </button>
             ))
@@ -384,6 +399,7 @@ export function Loads({
   onExport,
   onLibrary,
   selected,
+  detailMode = "engineering",
 }: {
   project: Project;
   result: CalculationResult;
@@ -396,6 +412,7 @@ export function Loads({
   onExport: () => void;
   onLibrary: () => void;
   selected?: string;
+  detailMode?: DetailMode;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -563,12 +580,16 @@ export function Loads({
                 <tr>
                   <th>{t("Name")}</th>
                   <th>{t("Quantity")}</th>
-                  <th>{t("Rating")}</th>
-                  <th>{t("Connection")}</th>
-                  <th>{t("Phase")}</th>
+                  {detailMode === "engineering" && (
+                    <>
+                      <th>{t("Rating")}</th>
+                      <th>{t("Connection")}</th>
+                      <th>{t("Phase")}</th>
+                    </>
+                  )}
                   <th>{t("Current")}</th>
                   <th>{t("Daily energy")}</th>
-                  <th>{t("Provenance")}</th>
+                  {detailMode === "engineering" && <th>{t("Provenance")}</th>}
                   <th>{t("Actions")}</th>
                 </tr>
               </thead>
@@ -611,40 +632,51 @@ export function Loads({
                             </small>
                           </span>
                         </button>
+                        {n?.issues.map((issue) => (
+                          <span className="load-check-status" key={issue.id}>
+                            {t(issue.assessment)} — {t(issue.message)}
+                          </span>
+                        ))}
                       </td>
                       <td>{load.quantity}</td>
-                      <td className="numeric">
-                        {load.rating}{" "}
-                        <span className="muted">
-                          {load.entryMode === "amps"
-                            ? "A"
-                            : load.entryMode === "kva"
-                              ? "kVA"
-                              : "kW"}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="tag">
-                          {load.connection === "three"
-                            ? "3Φ"
-                            : load.connection === "dc"
-                              ? "DC"
-                              : load.connection === "line-line"
-                                ? "L–L"
-                                : "1Φ"}{" "}
-                          · {load.voltage} V
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            "phase-pill p" +
-                            ["L1", "L2", "L3"].indexOf(load.phase)
-                          }
-                        >
-                          {load.connection === "three" ? "L1–L3" : load.phase}
-                        </span>
-                      </td>
+                      {detailMode === "engineering" && (
+                        <>
+                          <td className="numeric">
+                            {load.rating}{" "}
+                            <span className="muted">
+                              {load.entryMode === "amps"
+                                ? "A"
+                                : load.entryMode === "kva"
+                                  ? "kVA"
+                                  : "kW"}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="tag">
+                              {load.connection === "three"
+                                ? "3Φ"
+                                : load.connection === "dc"
+                                  ? "DC"
+                                  : load.connection === "line-line"
+                                    ? "L–L"
+                                    : "1Φ"}{" "}
+                              · {load.voltage} V
+                            </span>
+                          </td>
+                          <td>
+                            <span
+                              className={
+                                "phase-pill p" +
+                                ["L1", "L2", "L3"].indexOf(load.phase)
+                              }
+                            >
+                              {load.connection === "three"
+                                ? "L1–L3"
+                                : load.phase}
+                            </span>
+                          </td>
+                        </>
+                      )}
                       <td className="numeric">
                         {n?.valid ? numberFormat(n.currentA, 2, locale) : "—"} A
                       </td>
@@ -652,9 +684,13 @@ export function Loads({
                         {n?.valid ? numberFormat(n.energyKWh, 2, locale) : "—"}{" "}
                         kWh
                       </td>
-                      <td>
-                        <span className="source-badge">{load.source.kind}</span>
-                      </td>
+                      {detailMode === "engineering" && (
+                        <td>
+                          <span className="source-badge">
+                            {load.source.kind}
+                          </span>
+                        </td>
+                      )}
                       <td>
                         <div className="row-actions">
                           <button
@@ -686,11 +722,11 @@ export function Loads({
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={detailMode === "engineering" ? 5 : 2}>
                     {t("Installed load")}:{" "}
                     {numberFormat(result.installedKW, 3, locale)} kW
                   </td>
-                  <td colSpan={4}>
+                  <td colSpan={detailMode === "engineering" ? 4 : 3}>
                     {t("Daily energy")}:{" "}
                     {numberFormat(result.dailyKWh, 3, locale)} kWh
                   </td>
