@@ -234,7 +234,11 @@ test("report drafts survive route, billing tab, locale and project switches with
   await expect(
     page.getByLabel("Project reference", { exact: true }),
   ).toHaveValue("Unsaved reference A");
+  await expect(page.locator(".save-badge")).toContainText("Saved locally");
   await page.reload();
+  await expect(page.locator(".project-switch")).toContainText(
+    "Draft project A",
+  );
   await expect(
     page.getByLabel("Project reference", { exact: true }),
   ).toHaveValue("Unsaved reference A");
@@ -244,4 +248,239 @@ test("report drafts survive route, billing tab, locale and project switches with
   await expect(page.locator(".billing-grand-total strong")).toHaveText(
     "€43.99",
   );
+});
+
+test("failed report persistence retains a dirty guarded draft even after the in-memory model accepts the details", async ({
+  page,
+}) => {
+  const [original] = await seed(page);
+  await route(page, "Reports & Estimates");
+  await page
+    .getByLabel("Project reference", { exact: true })
+    .fill("Report save must retry");
+  await page.evaluate(() => {
+    const originalPut = IDBObjectStore.prototype.put;
+    (
+      window as unknown as { restoreProjectWrites: () => void }
+    ).restoreProjectWrites = () => {
+      IDBObjectStore.prototype.put = originalPut;
+    };
+    IDBObjectStore.prototype.put = function (
+      value: unknown,
+      key?: IDBValidKey,
+    ) {
+      const request =
+        key === undefined
+          ? originalPut.call(this, value)
+          : originalPut.call(this, value, key);
+      if (this.name === "projects") {
+        const transaction = this.transaction;
+        request.addEventListener("success", () => transaction.abort());
+      }
+      return request;
+    };
+  });
+  await page
+    .getByRole("button", { name: "Save report details", exact: true })
+    .click();
+  await expect(page.locator(".save-badge")).toContainText("Save failed");
+  await expect(
+    page.locator(".report-workspace").getByRole("alert"),
+  ).toContainText("Local save failed");
+  await route(page, "Overview");
+  expect(await blockers(page)).toContain("Report details and sections");
+  await route(page, "Reports & Estimates");
+  await expect(
+    page.getByLabel("Project reference", { exact: true }),
+  ).toHaveValue("Report save must retry");
+  await expect(
+    page.getByRole("button", { name: "Save report details", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Freeze report preview", exact: true }),
+  ).toBeDisabled();
+  const persisted = await page.evaluate(async (id: string) => {
+    const storage = await import(
+      /* @vite-ignore */ "/src/storage/projects.ts" as string
+    );
+    return (await storage.listProjects()).find(
+      (row: { id: string }) => row.id === id,
+    ).project;
+  }, original.id);
+  expect(persisted).toEqual(original);
+  await page.evaluate(() =>
+    (
+      window as unknown as { restoreProjectWrites: () => void }
+    ).restoreProjectWrites(),
+  );
+  await page
+    .getByRole("button", { name: "Save report details", exact: true })
+    .click();
+  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await route(page, "Overview");
+  expect(await blockers(page)).not.toContain("Report details and sections");
+  await page.reload();
+  await route(page, "Reports & Estimates");
+  await expect(
+    page.getByLabel("Project reference", { exact: true }),
+  ).toHaveValue("Report save must retry");
+});
+
+test("measurement drafts retain their CSV, mapping and raw interval across routes and projects until save or discard", async ({
+  page,
+}) => {
+  const original = await seed(page);
+  await route(page, "Schedules & Simulation");
+  const panel = page.locator(".measurements-panel");
+  await expect(panel.locator("input[type=file]")).toBeEnabled();
+  const savedCSV =
+    "at,reading\n2026-11-06T00:00:00Z,1200\n2026-11-06T01:00:00Z,600";
+  await panel
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "saved-a.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(savedCSV),
+    });
+  await panel.getByLabel("Power unit", { exact: true }).selectOption("W");
+  await panel.getByLabel(/^Declared elapsed interval/).fill("60");
+  await panel
+    .getByRole("button", { name: "Preview measured data", exact: true })
+    .click();
+  await expect(panel.locator(".measurement-metrics")).toContainText("1.8 kWh");
+  await panel
+    .getByRole("button", { name: "Save measured data", exact: true })
+    .click();
+  await expect(panel).toContainText(
+    "Measured data saved locally, separately from the engineering project.",
+  );
+  const draftCSV =
+    "at,reading\n2026-11-06T00:00:00Z,2400\n2026-11-06T01:00:00Z,1200";
+  await panel
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "draft-a.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(draftCSV),
+    });
+  await panel.getByLabel("Power unit", { exact: true }).selectOption("W");
+  await page
+    .getByRole("combobox", { name: "Language", exact: true })
+    .selectOption("de");
+  await panel
+    .getByLabel(new RegExp("^" + translate("Declared elapsed interval", "de")))
+    .fill("30,0x");
+  await route(page, "Overview", "de");
+  expect(await blockers(page)).toContain(translate("Measurements", "de"));
+  await switchProject(page, "Draft project B");
+  await route(page, "Schedules & Simulation", "de");
+  await expect(panel).not.toContainText("draft-a.csv");
+  await expect(panel.locator("input[type=file]")).toBeEnabled();
+  await panel
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "draft-b.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from("timestamp,power\n2026-11-06T00:00:00Z,5"),
+    });
+  await route(page, "Overview", "de");
+  await page
+    .getByRole("combobox", { name: translate("Language", "de"), exact: true })
+    .selectOption("en");
+  await switchProject(page, "Draft project A");
+  await route(page, "Schedules & Simulation");
+  await expect(panel).toContainText("draft-a.csv");
+  await expect(
+    panel.getByLabel("Timestamp column", { exact: true }),
+  ).toHaveValue("at");
+  await expect(
+    panel.getByLabel("Interval-average power column", { exact: true }),
+  ).toHaveValue("reading");
+  await expect(panel.getByLabel("Power unit", { exact: true })).toHaveValue(
+    "W",
+  );
+  await expect(panel.getByLabel(/^Declared elapsed interval/)).toHaveValue(
+    "30,0x",
+  );
+  await expect(panel.getByLabel(/^Declared elapsed interval/)).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  await expect(
+    panel.getByRole("button", { name: "Save measured data", exact: true }),
+  ).toBeDisabled();
+  await expect(panel).toContainText(
+    "Previous validated measurements remain visible. The new draft has not replaced them.",
+  );
+  await expect(panel.locator(".measurement-metrics")).toContainText("1.8 kWh");
+  const unchanged = await page.evaluate(
+    async (ids: string[]) => {
+      const projects = await import(
+        /* @vite-ignore */ "/src/storage/projects.ts" as string
+      );
+      const measurements = await import(
+        /* @vite-ignore */ "/src/storage/measurements.ts" as string
+      );
+      const rows = await projects.listProjects();
+      return {
+        projects: ids.map(
+          (id) => rows.find((row: { id: string }) => row.id === id).project,
+        ),
+        saved: (await measurements.readMeasurements(ids[0])).saved,
+        other: await measurements.readMeasurements(ids[1]),
+      };
+    },
+    original.map((project: { id: string }) => project.id),
+  );
+  expect(unchanged.projects).toEqual(original);
+  expect(unchanged.saved.rawCSV).toBe(savedCSV);
+  expect(unchanged.saved.options.intervalMinutes).toBe(60);
+  expect(unchanged.other).toBeNull();
+  await panel.getByLabel(/^Declared elapsed interval/).fill("30.5");
+  await panel
+    .getByRole("button", { name: "Preview measured data", exact: true })
+    .click();
+  await expect(panel.locator(".measurement-metrics")).toContainText("1.83 kWh");
+  await panel
+    .getByRole("button", { name: "Save measured data", exact: true })
+    .click();
+  await expect(panel).toContainText(
+    "Measured data saved locally, separately from the engineering project.",
+  );
+  await route(page, "Overview");
+  expect(await blockers(page)).toContain("Measurements");
+  await switchProject(page, "Draft project B");
+  await route(page, "Schedules & Simulation");
+  await expect(panel).toContainText("draft-b.csv");
+  await panel
+    .getByRole("button", { name: "Discard unsaved draft", exact: true })
+    .click();
+  await expect(panel).toContainText("No measured dataset is open.");
+  await expect(panel.locator("input[type=file]")).toBeEnabled();
+  expect(await blockers(page)).not.toContain("Measurements");
+  await switchProject(page, "Draft project A");
+  await route(page, "Schedules & Simulation");
+  await expect(panel).toContainText(
+    "Saved measurements reopened and validated.",
+  );
+  await expect(panel.getByLabel(/^Declared elapsed interval/)).toHaveValue(
+    "30.5",
+  );
+  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  await page.reload();
+  await expect(panel).toContainText("draft-a.csv");
+  await expect(panel.locator(".measurement-metrics")).toContainText("1.83 kWh");
+  const after = await page.evaluate(
+    async (ids: string[]) => {
+      const storage = await import(
+        /* @vite-ignore */ "/src/storage/projects.ts" as string
+      );
+      const rows = await storage.listProjects();
+      return ids.map(
+        (id) => rows.find((row: { id: string }) => row.id === id).project,
+      );
+    },
+    original.map((project: { id: string }) => project.id),
+  );
+  expect(after).toEqual(original);
 });
