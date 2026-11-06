@@ -1,6 +1,20 @@
 # Test evidence
 
-## Current continuation: 6 November 2026
+## Searchable-help continuation: 6 November 2026
+
+Frozen application checkpoint: `4112b88891b0c549152fc3c70e2d797810c41ecc`. Release/integration receipts, including the final exact candidate and all workflow conclusions, are maintained in [PR #5](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/5). Subsequent release-documentation changes do not substitute for the full exact-revision repository workflow.
+
+- Fresh-checkout recovery reproduced `npm ci`, `npm run lint`, `npm test` (**371/371 across 25 files**) and `npm run build`.
+- `tests/help-search.test.ts` and `tests/i18n.test.ts`: **24/24 passed**, including all 51 tool IDs in four languages, actual localized save-error queries, accent-insensitive search, unknown queries and complete displayed-guide translation coverage.
+- `tests/browser/help-support.spec.ts` covers visible desktop/mobile help, keyboard/focus lifecycle, localized search, command handoff, real 230 V / 23 Ω = 10 A calculation, repeated tool requests, unchanged project exports/reload, unfinished form protection and cached production help.
+- Focused production calculation/navigation/persistence checks passed without weakening numerical assertions. An earlier development-only calculation check failed during active translation editing; concurrent HMR is a plausible but unproven cause. Final suites run against frozen files and built assets.
+- Inspected desktop and 360 px mobile screenshots. The mobile page width was exactly 360 px and the help dialog scroll/client widths matched; no horizontal page overflow or page errors were observed.
+- Deployment YAML parsing and 33 mocked workflow/provenance/failure/stale-main checks passed. Artifact fields were additionally checked against the actual GitHub artifact API. These checks are not the final live deployment receipt.
+- Required final gates: complete development browser suite; production browser suite including offline help; `update-smoke.mjs` and `offline-smoke.mjs` at both `/` and `/AdigunPowerLab/`; successful repository CI on the final candidate and merged main; successful Pages deployment and live UI verification. See the release record for their observed results.
+
+Professional translation review, independent accessibility certification, connected-service testing and hardware validation are not claimed.
+
+## Historical workflow continuation: 6 November 2026
 
 Locally verified source: `93d5e46b484ac787c0b57249e2eaea10dd179ef8`. This recovers the continuation based on remote `0905f574216a36207698454501a6b8f6147d76c9`, repairs feeder/circuit evidence and exact tariff boundaries, and updates report capacity visibility and no-op circuit controls. Published branch `51736e6f17987e113f663662919f6318f37b8a84` includes the final documentation checkpoint; merged and deployed main is `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9`.
 

@@ -21,7 +21,7 @@ References: [GitHub workflow-run events](https://docs.github.com/en/actions/refe
 - Deployed source: `main` revision `f45d7369a7f4955e6c3d43b3ea5c03ded0c41821` (field usability, recovery and local BOT lifecycle work).
 - Complete main validation: [42176699140](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176699140), completed successfully.
 - Pages workflow: [42176946887](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176946887), completed successfully for the same main revision.
-- These are observed historical receipts. The automatic workflow change still needs its own post-merge validation, deployment receipt and live verification.
+- These are observed historical receipts. The new automatic-publication continuation is tracked in [PR #5](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/5), whose release record contains its final candidate/main validation, deployment and live verification receipts. Source integration alone does not prove publication.
 
 ## Engine 1.1.0 continuation release history
 
