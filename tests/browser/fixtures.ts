@@ -1,6 +1,6 @@
 import { test as base, chromium } from "@playwright/test";
 export const test = base.extend({
-  page: async ({}, use) => {
+  page: async ({ baseURL }, use) => {
     const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
     const browser = await chromium.launch(
       executablePath
@@ -11,7 +11,7 @@ export const test = base.extend({
         : { headless: true },
     );
     const context = await browser.newContext({
-      baseURL: "http://127.0.0.1:4176",
+      baseURL: baseURL ?? "http://127.0.0.1:4176",
       viewport: { width: 1440, height: 1000 },
     });
     const page = await context.newPage();

@@ -1,8 +1,10 @@
 import {
+  useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
@@ -15,6 +17,7 @@ import {
   type Proposal,
 } from "./adapter";
 import "./bot.css";
+import { createBotSessionStore } from "./sessionState";
 import {
   clampBotGeometry,
   readBotWindowState,
@@ -40,7 +43,7 @@ interface Message {
   dismissed?: boolean;
 }
 type Geometry = BotGeometry;
-const histories = new Map<string, Message[]>();
+const sessions = createBotSessionStore<Message>();
 let nextMessageId = 1;
 
 const text: Record<string, [string, string, string]> = {
@@ -198,10 +201,19 @@ export default function LocalBot({
   const t = useT();
   const locale = useContext(LanguageContext);
   const l = (key: string) => local(key, locale);
-  const [messages, setMessages] = useState<Message[]>(
-    () => histories.get(project.id) ?? [],
+  const { messages, draft: input } = useSyncExternalStore(
+    useCallback(
+      (listener) => sessions.subscribe(project.id, listener),
+      [project.id],
+    ),
+    useCallback(() => sessions.get(project.id), [project.id]),
   );
-  const [input, setInput] = useState("");
+  const setMessages = useCallback(
+    (value: Message[] | ((previous: Message[]) => Message[])) =>
+      sessions.setMessages(project.id, value),
+    [project.id],
+  );
+  const setInput = (value: string) => sessions.setDraft(project.id, value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [initialWindow] = useState(() => readBotWindowState());
@@ -232,8 +244,6 @@ export default function LocalBot({
   useEffect(() => {
     if (firstProject.current !== project.id) {
       firstProject.current = project.id;
-      setMessages(histories.get(project.id) ?? []);
-      setInput("");
       setError("");
       commandId.current++;
       if (timer.current) clearTimeout(timer.current);
@@ -241,9 +251,6 @@ export default function LocalBot({
       lastSeenRevision.current = project.revision;
     }
   }, [project.id, project.revision]);
-  useEffect(() => {
-    histories.set(project.id, messages);
-  }, [messages, project.id]);
   useEffect(() => {
     writeBotWindowState({ geometry, minimized, maximized });
   }, [geometry, minimized, maximized]);
@@ -302,7 +309,11 @@ export default function LocalBot({
         (live === "proactive" ? 20000 : 30000)
       )
         return;
-      if (latest.current.project.revision !== current || !result.issues.length)
+      if (
+        latest.current.project.id !== project.id ||
+        latest.current.project.revision !== current ||
+        !result.issues.length
+      )
         return;
       lastSuggestion.current = Date.now();
       lastSeenRevision.current = current;
@@ -318,9 +329,10 @@ export default function LocalBot({
     return () => clearTimeout(timeout);
   }, [project.revision, project.id, live, input, result.issues.length]);
 
-  const send = (command = input) => {
+  const send = (quickCommand?: string) => {
+    const command = quickCommand ?? input;
     if (!command.trim() || busy) return;
-    setInput("");
+    if (quickCommand === undefined) setInput("");
     setError("");
     setBusy(true);
     const id = ++commandId.current;
@@ -331,7 +343,11 @@ export default function LocalBot({
       { id: userId, role: "user", text: command.trim() },
     ]);
     timer.current = setTimeout(() => {
-      if (id !== commandId.current) return;
+      if (
+        id !== commandId.current ||
+        latest.current.project.id !== captured.project.id
+      )
+        return;
       try {
         const response = runLocalCommand(
           captured.project,
@@ -604,6 +620,8 @@ export default function LocalBot({
         title={l("Move window with arrow keys; Home centers it.")}
         aria-label={l("Move window with arrow keys; Home centers it.")}
         onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || maximized || mobile)
+            return;
           const step = event.shiftKey ? 40 : 10;
           if (
             ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
