@@ -1,5 +1,13 @@
 # AdigunPowerLab user guide
 
+## Help inside the application
+
+Select **Help & Support** beside the detail-level control on any workspace. The same guide is available from the sidebar help icon and **Ctrl/Cmd+K** search. Search in the selected language or English, or enter an exact tool number such as **T01**. Filters separate workflow guides from tool guides. Every tool guide displays its actual input names, units, conditions and catalogue example values.
+
+Select a guide to read its steps and practical example. **Open workspace** and **Open tool** lead to the existing application controls. Reading help does not change a project. If a form has unfinished edits, finish or cancel those edits before using a guide to navigate away. Escape closes help and restores keyboard focus to its opening control.
+
+Help is available offline after the production app has been cached. **Open a GitHub issue** opens the repository's issue form in a separate tab and needs an internet connection; it never sends project data automatically. Include only the minimum non-private example needed to explain a problem. The four-language guide has catalogue and browser coverage; professional technical-language review remains separate.
+
 ## Start with your installation
 
 Open the project switcher in the header and create a named project. A new project starts without customer equipment. Open **Settings** to enter the supply, voltage, frequency, timezone, currency, jurisdiction and design assumptions. Language is independent of currency and engineering criteria.

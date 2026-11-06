@@ -105,6 +105,8 @@ import type {
 } from "./commands/projectCommands";
 import { Modal, Field, Notice, ResizeHandle } from "./features/ui";
 import { LoadEditor } from "./features/LoadEditor";
+import { HelpSupport } from "./features/HelpSupport";
+import { searchHelp } from "./help/content";
 import {
   DetailModeControl,
   LoadCalculationDetails,
@@ -112,6 +114,7 @@ import {
 } from "./features/DetailViews";
 import { UpdateBanner } from "./features/UpdateBanner";
 import { useUpdateGuard } from "./pwa/useUpdateGuard";
+import { updateBlockers } from "./pwa/updates";
 import {
   Overview,
   Loads,
@@ -332,10 +335,14 @@ export default function App() {
   );
   const [editor, setEditor] = useState<{ load?: Load } | null>(null);
   const [dialog, setDialog] = useState<
-    "projects" | "import" | "commands" | "references" | "rename" | null
+    "projects" | "import" | "commands" | "references" | "rename" | "help" | null
   >(null);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
+  const [helpQuery, setHelpQuery] = useState("");
+  const [helpNavigationBlocked, setHelpNavigationBlocked] = useState(false);
+  const commandOpener = useRef<HTMLElement | null>(null);
+  const helpOpener = useRef<HTMLElement | null>(null);
   const [commandReview, setCommandReview] = useState<{
     preview: CommandPreview;
     selectedId?: string;
@@ -390,6 +397,7 @@ export default function App() {
       },
     }));
   const [toolId, setToolId] = useState("");
+  const [toolRequest, setToolRequest] = useState(0);
   const [revisions, setRevisions] = useState<Project[]>([]);
   const undo = useRef<Project[]>([]),
     redo = useRef<Project[]>([]);
@@ -586,6 +594,20 @@ export default function App() {
         .then(setRevisions)
         .catch((e) => setError(e.message));
   }
+  function openHelp(query = "") {
+    helpOpener.current =
+      dialog === "commands"
+        ? commandOpener.current
+        : (document.activeElement as HTMLElement | null);
+    setHelpQuery(query);
+    setHelpNavigationBlocked(false);
+    setDialog("help");
+  }
+  function openCommands() {
+    commandOpener.current = document.activeElement as HTMLElement | null;
+    setQuery("");
+    setDialog("commands");
+  }
   async function openProject(next: Project) {
     try {
       const source = latest.current;
@@ -739,8 +761,7 @@ export default function App() {
       );
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setDialog("commands");
-        setQuery("");
+        openCommands();
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
@@ -1213,10 +1234,7 @@ export default function App() {
             <span>{t(saveState)}</span>
           </span>
           <span className="spacer" />
-          <button
-            className="command-button"
-            onClick={() => setDialog("commands")}
-          >
+          <button className="command-button" onClick={openCommands}>
             <Search size={16} />
             <span>{t("Search")}</span>
             <kbd>⌘ K</kbd>
@@ -1306,8 +1324,9 @@ export default function App() {
             </div>
             <button
               className="icon-button"
-              title={t("Help")}
-              onClick={() => go("reference")}
+              title={t("Help & Support")}
+              aria-label={t("Help & Support")}
+              onClick={() => openHelp()}
             >
               <HelpCircle size={17} />
             </button>
@@ -1530,6 +1549,13 @@ export default function App() {
                   value={detailMode}
                   onChange={setDetailMode}
                 />
+                <button
+                  className="button small-button help-launch"
+                  onClick={() => openHelp()}
+                >
+                  <HelpCircle size={17} aria-hidden="true" />
+                  {t("Help & Support")}
+                </button>
                 {project.referenceCase && (
                   <span className="tag amber">
                     <BookOpen size={13} />
@@ -1701,7 +1727,7 @@ export default function App() {
                       project={project}
                       change={change}
                       selectedId={selected}
-                      key={route + toolId}
+                      key={`${route}:${toolId}:${toolRequest}`}
                       initialTool={toolId}
                       category={
                         route === "cables"
@@ -2707,6 +2733,22 @@ export default function App() {
                 />
               </div>
               <div className="command-results">
+                <button onClick={() => openHelp(query)}>
+                  <HelpCircle size={17} />
+                  {t("Help & Support")}
+                  <ChevronRight size={14} />
+                </button>
+                {query.trim() &&
+                  searchHelp(query, locale, 6).map((topic) => (
+                    <button
+                      key={`help-${topic.id}`}
+                      onClick={() => openHelp(t(topic.title))}
+                    >
+                      <BookOpen size={17} />
+                      {t("Help")} · {t(topic.title)}
+                      <ChevronRight size={14} />
+                    </button>
+                  ))}
                 {routes
                   .filter(
                     (r) =>
@@ -2734,6 +2776,7 @@ export default function App() {
                         key={tool.id}
                         onClick={() => {
                           setToolId(tool.id);
+                          setToolRequest((request) => request + 1);
                           go("tools");
                         }}
                       >
@@ -2801,6 +2844,38 @@ export default function App() {
                     ))}
               </div>
             </div>
+          </Modal>
+        )}
+        {dialog === "help" && (
+          <Modal
+            title={t("Help & Support")}
+            onClose={() => setDialog(null)}
+            returnFocus={helpOpener.current}
+            wide
+          >
+            {helpNavigationBlocked && (
+              <div role="status">
+                <Notice tone="warning">
+                  {t(
+                    "Finish or cancel your current edits before opening another workspace.",
+                  )}
+                </Notice>
+              </div>
+            )}
+            <HelpSupport
+              initialQuery={helpQuery}
+              onNavigate={(nextRoute, nextToolId) => {
+                if (updateBlockers().length) {
+                  setHelpNavigationBlocked(true);
+                  return;
+                }
+                if (nextToolId) {
+                  setToolId(nextToolId);
+                  setToolRequest((request) => request + 1);
+                }
+                go(nextRoute);
+              }}
+            />
           </Modal>
         )}
       </div>

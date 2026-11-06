@@ -2,6 +2,12 @@
 
 Audit date: 6 November 2026. Scope: original specification sections 01–33, fixtures F01–F20 and tools T01–T51, plus the recovered continuation.
 
+## Searchable help and publication continuation
+
+The next bounded continuation implements 20 workflow guides and guides for all 51 existing tools. `src/help/content.ts` connects searchable instructions to actual workspaces and tool metadata. `HelpSupport.tsx` provides local, responsive help with four-language content, keyboard access, real catalogue examples and an explicit GitHub support link. The existing command palette indexes the same content. Form drafts are protected from guide navigation, repeated external tool requests select the requested worksheet, and closing a help handoff restores the original keyboard focus.
+
+`tests/help-search.test.ts` checks language/search coverage; `tests/browser/help-support.spec.ts` exercises real navigation, calculations, saved-project preservation, unfinished form protection and production offline use. The deployment workflow now consumes only the artifact from successful validation of the current main revision. Candidate acceptance and publication receipts are recorded separately in `TEST_EVIDENCE.md` and `DEPLOYMENT.md`; the historical section table below is not a replacement for those receipts.
+
 ## Release conclusion
 
 **The complete original specification is not fully accepted.** The current local continuation adds substantial working behavior and closes the implementation gaps listed below; external datasets/services and exhaustive acceptance remain separate. This is not a claim that the new candidate is public.

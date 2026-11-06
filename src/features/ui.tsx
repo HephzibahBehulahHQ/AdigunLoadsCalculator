@@ -34,14 +34,18 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  returnFocus,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  returnFocus?: HTMLElement | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const opener = useRef(document.activeElement as HTMLElement | null);
+  const opener = useRef(
+    returnFocus ?? (document.activeElement as HTMLElement | null),
+  );
   const t = useT();
   const close = useRef(onClose);
   close.current = onClose;

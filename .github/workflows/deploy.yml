@@ -1,37 +1,136 @@
 name: Publish PowerLab to GitHub Pages
 on:
+  workflow_run:
+    workflows: [Validate PowerLab]
+    branches: [main]
+    types: [completed]
   workflow_dispatch:
 permissions:
   contents: read
-  pages: write
-  id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: false
 jobs:
-  build:
+  prepare:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pages: read
+    outputs:
+      sha: ${{ steps.validation.outputs.sha }}
+      run_id: ${{ steps.validation.outputs.run_id }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Select the successful main validation and its immutable artifact
+        id: validation
+        uses: actions/github-script@v8
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+          script: |
+            const { owner, repo } = context.repo;
+            const repository = `${owner}/${repo}`;
+            const { data: workflow } = await github.rest.actions.getWorkflow({
+              owner, repo, workflow_id: 'ci.yml'
+            });
+            if (workflow.path !== '.github/workflows/ci.yml' || workflow.state !== 'active') {
+              throw new Error('The required validation workflow is not active.');
+            }
+            if (context.ref !== 'refs/heads/main') {
+              throw new Error('Only the main branch can be published.');
+            }
+            const automatic = context.eventName === 'workflow_run';
+            if (!automatic && context.eventName !== 'workflow_dispatch') {
+              throw new Error('Unsupported publication event.');
+            }
+            const sha = automatic ? context.payload.workflow_run.head_sha : context.sha;
+            const { data: main } = await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
+            if (!/^[0-9a-f]{40}$/.test(sha) || sha !== main.commit.sha || sha !== context.sha) {
+              throw new Error('The validated revision is no longer the current main revision.');
+            }
+            let runId = automatic ? context.payload.workflow_run.id : undefined;
+            if (!runId) {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: workflow.id, branch: 'main',
+                event: 'push', head_sha: sha, status: 'success', per_page: 100
+              });
+              runId = data.workflow_runs.find(run => run.head_sha === sha)?.id;
+            }
+            if (!runId) throw new Error('No successful main push validation exists for this revision.');
+            const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: runId });
+            if (run.workflow_id !== workflow.id || run.event !== 'push' ||
+                run.head_branch !== 'main' || run.head_sha !== sha ||
+                run.head_repository?.full_name !== repository ||
+                run.status !== 'completed' || run.conclusion !== 'success') {
+              throw new Error('The exact revision has not passed the required repository validation.');
+            }
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+              owner, repo, run_id: run.id, per_page: 100
+            });
+            const matches = artifacts.filter(artifact => artifact.name === 'AdigunPowerLab' && !artifact.expired);
+            if (matches.length !== 1 || matches[0].workflow_run?.head_sha !== sha ||
+                matches[0].workflow_run?.id !== run.id ||
+                matches[0].workflow_run?.repository_id !== context.payload.repository.id ||
+                matches[0].workflow_run?.head_repository_id !== context.payload.repository.id) {
+              throw new Error('The successful validation must have one available artifact from this main revision.');
+            }
+            core.setOutput('sha', sha);
+            core.setOutput('run_id', run.id);
+            core.setOutput('artifact_id', matches[0].id);
+            await core.summary.addHeading('Verified publication source')
+              .addRaw(`Commit: ${sha}\n\nValidation: ${run.html_url}\n\nArtifact: ${matches[0].id}\n`)
+              .write();
+      - name: Download the exact artifact that passed all repository gates
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ steps.validation.outputs.artifact_id }}
+          run-id: ${{ steps.validation.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/powerlab-site
+          merge-multiple: true
+      - name: Check required site files without executing downloaded content
+        env:
+          SITE_PATH: ${{ runner.temp }}/powerlab-site
+        run: |
+          test -s "$SITE_PATH/index.html"
+          test -s "$SITE_PATH/sw.js"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: ${{ runner.temp }}/powerlab-site
   deploy:
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: prepare
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
     steps:
+      - name: Reject a superseded source immediately before publication
+        uses: actions/github-script@v8
+        env:
+          VALIDATED_SHA: ${{ needs.prepare.outputs.sha }}
+          VALIDATION_RUN_ID: ${{ needs.prepare.outputs.run_id }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: main } = await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner, repo, run_id: Number(process.env.VALIDATION_RUN_ID)
+            });
+            if (main.commit.sha !== process.env.VALIDATED_SHA ||
+                run.head_sha !== process.env.VALIDATED_SHA ||
+                run.status !== 'completed' || run.conclusion !== 'success') {
+              throw new Error('Main or its validation changed; the newer successful main run must publish.');
+            }
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

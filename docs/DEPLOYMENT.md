@@ -1,8 +1,29 @@
 # Public deployment
 
-The owner explicitly authorized pushing, merging and public deployment on 6 November 2026. Engine 1.1.0 is live at [AdigunPowerLab](https://hephzibahbehulahhq.github.io/AdigunPowerLab/).
+The owner explicitly authorized pushing, merging and public deployment on 6 November 2026. The public application is [AdigunPowerLab](https://hephzibahbehulahhq.github.io/AdigunPowerLab/). Current implementation and acceptance status remain in `PROJECT_STATUS.md`; this document records publication mechanics and receipts.
 
-## Current continuation release
+## Verified publication workflow
+
+`.github/workflows/deploy.yml` publishes automatically after a successful **Validate PowerLab** push run on `main`. Pull-request runs, feature branches, failed validation and foreign repository artifacts cannot publish. The workflow checks the actual `ci.yml` workflow ID, successful completed run, source repository, current main SHA and the artifact's originating run/SHA before preparing Pages.
+
+Publication downloads the immutable `AdigunPowerLab` artifact produced by that exact successful CI run. It does not rebuild or execute downloaded application content in the privileged workflow. The full lint, numerical, browser, update and offline gates therefore apply to the published bundle. Relative asset URLs preserve the existing `/AdigunPowerLab/` hosting path.
+
+The existing `github-pages` environment, public domain and Pages concurrency group remain unchanged. Write permissions and the OIDC token are limited to the deployment job. Main and the validation result are checked again immediately before `actions/deploy-pages`; a superseded revision must wait for the newer main validation. This is a stale-head guard, not an atomic lock against unrelated main pushes during GitHub's publication operation.
+
+**Manual retry:** run **Publish PowerLab to GitHub Pages** on `main`. It resolves a successful main-push validation for that exact current revision and uses the same artifact checks. Missing, expired or ambiguous artifacts stop publication; rerun the main validation to produce a new verified artifact, then retry. A manual run cannot waive CI or publish an old revision.
+
+The workflow writes the selected source SHA, validation URL and artifact ID to its run summary. Record the successful Pages run and verify the public application before calling a new release deployed. Local workflow inspection alone does not establish successful GitHub execution.
+
+References: [GitHub workflow-run events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run), [artifact download inputs](https://github.com/actions/download-artifact/blob/v4/action.yml), [Pages deployment action](https://github.com/actions/deploy-pages/tree/v4).
+
+## Latest verified deployment receipt before this update
+
+- Deployed source: `main` revision `f45d7369a7f4955e6c3d43b3ea5c03ded0c41821` (field usability, recovery and local BOT lifecycle work).
+- Complete main validation: [42176699140](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176699140), completed successfully.
+- Pages workflow: [42176946887](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176946887), completed successfully for the same main revision.
+- These are observed historical receipts. The new automatic-publication continuation is tracked in [PR #5](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/5), whose release record contains its final candidate/main validation, deployment and live verification receipts. Source integration alone does not prove publication.
+
+## Engine 1.1.0 continuation release history
 
 - Published branch: `feat/verified-workflows`, commit `51736e6f17987e113f663662919f6318f37b8a84`.
 - Integrated through [PR #2](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/2).

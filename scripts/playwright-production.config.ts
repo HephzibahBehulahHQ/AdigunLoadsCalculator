@@ -1,11 +1,13 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
+  metadata: { production: true },
   testDir: "../tests/browser",
   testMatch: [
     "detail-modes.spec.ts",
     "accessibility.spec.ts",
     "update-guards.spec.ts",
+    "help-support.spec.ts",
   ],
   timeout: 45000,
   expect: { timeout: 10000 },
