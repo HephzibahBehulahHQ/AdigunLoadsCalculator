@@ -57,6 +57,11 @@ const messages: Record<string, [string, string, string]> = {
     "Fi ètò iṣẹ́ pamọ́",
     "Save project setup",
   ],
+  "Discard setup draft": [
+    "Einrichtungsentwurf verwerfen",
+    "Pa àkọsílẹ̀ ètò rẹ́",
+    "Discard setup draft",
+  ],
   "Language, currency and jurisdiction are independent. Check the supply values against your project.":
     [
       "Sprache, Währung und Rechtsraum sind unabhängig. Prüfen Sie die Versorgungswerte für Ihr Projekt.",

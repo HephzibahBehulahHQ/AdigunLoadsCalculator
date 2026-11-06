@@ -58,6 +58,7 @@ test("first-visit setup has four languages and saves independent project setting
     await expect(setup.getByRole("heading")).toHaveText(
       setupText("Project setup", locale),
     );
+    await expect(setup.getByRole("button", { name: setupText("Discard setup draft", locale), exact: true })).toBeEnabled();
     await expect(
       setup.getByLabel(setupText("Currency", locale), { exact: true }),
     ).toHaveValue("NGN");
@@ -276,4 +277,95 @@ test("opening a saved populated project does not change its metadata or show fir
   await expect(page.locator(".overview-banner h2")).toHaveText(existing.name);
   await expect(page.locator(".project-setup")).not.toBeVisible();
   expect(await exported(page)).toEqual(existing);
+});
+
+test("memory-only setup drafts protect reload across routes and projects until each draft is discarded", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (this === sessionStorage && key.startsWith("adigunpowerlab.project-setup.v1:"))
+        throw new DOMException("Test storage quota", "QuotaExceededError");
+      originalSetItem.call(this, key, value);
+    };
+    // Simulate a waiting update; actual worker activation is covered by the production gate.
+    const worker = Object.assign(new EventTarget(), {
+      state: "installed",
+      postMessage: () => {
+        document.documentElement.dataset.setupActivation = "requested";
+        setTimeout(() => {
+          worker.state = "activated";
+          registration.waiting = null;
+          container.dispatchEvent(new Event("controllerchange"));
+        }, 0);
+      },
+    });
+    const registration = Object.assign(new EventTarget(), {
+      waiting: worker as typeof worker | null,
+      installing: null,
+    });
+    const container = Object.assign(new EventTarget(), {
+      ready: Promise.resolve(registration),
+      register: () => Promise.resolve(registration),
+    });
+    Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: container });
+  });
+  await ready(page);
+  const setup = page.locator(".project-setup");
+  const original = await exported(page);
+  const blockers = () => page.evaluate(async () => {
+    const path = "/src/pwa/updates.ts";
+    return (await import(path)).updateBlockers() as string[];
+  });
+  await setup.getByLabel("Project name", { exact: true }).fill("Temporary name");
+  await setup.getByLabel("Project name", { exact: true }).fill(original.name);
+  await expect.poll(blockers).not.toContain("Project setup");
+  await expect(setup.getByRole("button", { name: "Discard setup draft", exact: true })).toBeDisabled();
+  await setup.getByLabel("Project name", { exact: true }).fill("");
+  await setup.getByLabel("Line-to-neutral voltage (V)", { exact: true }).fill("NaN");
+  await setup.getByRole("button", { name: "Save project setup", exact: true }).click();
+  await expect(setup.getByRole("alert")).toHaveCount(2);
+  await page.locator(".sidebar").getByRole("button", { name: /^Load Schedule/ }).click();
+  await expect(setup).not.toBeVisible();
+  await expect.poll(blockers).toContain("Project setup");
+  const prompt = page.waitForEvent("dialog");
+  await page.evaluate(() => { setTimeout(() => location.reload(), 0); });
+  const beforeUnload = await prompt;
+  expect(beforeUnload.type()).toBe("beforeunload");
+  await beforeUnload.dismiss();
+
+  await page.locator(".project-actions > summary").click();
+  await page.getByRole("button", { name: "Open project", exact: true }).click();
+  let dialog = page.getByRole("dialog", { name: "Open project", exact: true });
+  await dialog.getByLabel("New project", { exact: true }).fill("Second setup project");
+  await dialog.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await setup.getByLabel("Project name", { exact: true }).fill("Unsaved second name");
+  await page.getByRole("button", { name: "Save and reload", exact: true }).click();
+  await expect(page.locator(".update-banner [role=alert]")).toContainText("Project setup");
+  await expect(page.locator("html")).not.toHaveAttribute("data-setup-activation", "requested");
+  await setup.getByRole("button", { name: "Discard setup draft", exact: true }).click();
+  await expect(setup.getByLabel("Project name", { exact: true })).toHaveValue("Second setup project");
+  await expect.poll(blockers).toContain("Project setup");
+
+  await page.locator(".project-actions > summary").click();
+  await page.getByRole("button", { name: "Open project", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "Open project", exact: true });
+  await dialog.locator(".project-list > div > button:first-child").filter({ hasText: original.name }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(setup.getByLabel("Project name", { exact: true })).toHaveValue("");
+  await expect(setup.getByLabel("Line-to-neutral voltage (V)", { exact: true })).toHaveValue("NaN");
+  await setup.getByRole("button", { name: "Save project setup", exact: true }).click();
+  await expect(setup.getByRole("alert")).toHaveCount(2);
+  await setup.getByRole("button", { name: "Discard setup draft", exact: true }).click();
+  await expect(setup.getByRole("alert")).toHaveCount(0);
+  await expect(setup.getByLabel("Project name", { exact: true })).toHaveValue(original.name);
+  await expect.poll(blockers).not.toContain("Project setup");
+  expect(await exported(page)).toEqual(original);
+  await Promise.all([
+    page.waitForEvent("load"),
+    page.getByRole("button", { name: "Save and reload", exact: true }).click(),
+  ]);
+  await expect(page.locator(".overview-banner h2")).toHaveText(original.name);
+  await expect(setup.getByLabel("Line-to-neutral voltage (V)", { exact: true })).toHaveValue(String(original.supply.voltageLN));
+  expect(await exported(page)).toEqual(original);
 });

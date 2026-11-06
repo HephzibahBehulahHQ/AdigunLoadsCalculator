@@ -3,7 +3,7 @@ import type { Project } from "../domain/types";
 import { validateProjectImport } from "../domain/project";
 import { LanguageContext, languages, type Locale } from "../i18n";
 import { formatEditableNumber, parseLocaleNumber } from "../i18n/numbers";
-import { useUpdateGuard } from "../pwa/useUpdateGuard";
+import { registerUpdateGuard } from "../pwa/updates";
 import { setupText } from "./projectSetupMessages";
 import "./projectSetup.css";
 
@@ -31,6 +31,16 @@ const textFields: TextKey[] = [
 const keys: SetupKey[] = [...textFields, ...supplyFields.map(([key]) => key)];
 const drafts = new Map<string, Draft>();
 const storageKey = (id: string) => `adigunpowerlab.project-setup.v1:${id}`;
+const hasPendingFields = (draft: Draft) =>
+  !draft.complete && Object.keys(draft.fields).length > 0;
+
+// Drafts outlive Overview, including the memory fallback when storage fails.
+registerUpdateGuard(() => {
+  if (![...drafts.values()].some(hasPendingFields)) return undefined;
+  const language = typeof document === "undefined" ? "en" : document.documentElement.lang;
+  const locale = Object.hasOwn(languages, language) ? language as Locale : "en";
+  return setupText("Project setup", locale);
+});
 
 function readDraft(id: string): Draft {
   const cached = drafts.get(id);
@@ -85,8 +95,7 @@ export function ProjectSetup({
   const [errors, setErrors] = useState<
     Partial<Record<SetupKey | "project", string>>
   >({});
-  const pending = Object.keys(draft.fields).length > 0;
-  useUpdateGuard(pending, l("Project setup"));
+  const pending = hasPendingFields(draft);
 
   const remember = (next: Draft) => {
     drafts.set(project.id, next);
@@ -98,14 +107,33 @@ export function ProjectSetup({
     setDraft(next);
   };
   const edit = (key: SetupKey, value: string) => {
+    const fields = { ...draft.fields };
+    const numberLocales = { ...draft.numberLocales };
+    const numeric = supplyFields.some(([field]) => field === key);
+    const savedValue = numeric
+      ? formatEditableNumber(project.supply[key as SupplyKey], locale)
+      : project[key as TextKey];
+    if (value === savedValue) {
+      delete fields[key];
+      if (numeric) delete numberLocales[key as SupplyKey];
+    } else {
+      fields[key] = value;
+      if (numeric) numberLocales[key as SupplyKey] = locale;
+    }
     remember({
       ...draft,
-      fields: { ...draft.fields, [key]: value },
-      numberLocales: supplyFields.some(([field]) => field === key)
-        ? { ...draft.numberLocales, [key]: locale }
-        : draft.numberLocales,
+      fields,
+      numberLocales,
     });
     setErrors({});
+  };
+  const discard = () => {
+    const clean: Draft = { fields: {}, numberLocales: {}, complete: false };
+    drafts.set(project.id, clean);
+    setDraft(clean);
+    setErrors({});
+    try { sessionStorage.removeItem(storageKey(project.id)); }
+    catch { /* Discard still clears the in-memory draft when storage is blocked. */ }
   };
   const value = (key: SetupKey) =>
     draft.fields[key] ??
@@ -317,6 +345,9 @@ export function ProjectSetup({
         <div className="project-setup-footer">
           <button className="button primary" type="submit">
             {l("Save project setup")}
+          </button>
+          <button className="button secondary" type="button" onClick={discard} disabled={!pending && !Object.keys(errors).length}>
+            {l("Discard setup draft")}
           </button>
           <span className="muted small">
             {l(
