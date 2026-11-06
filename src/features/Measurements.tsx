@@ -347,7 +347,11 @@ export function Measurements({ projectId }: { projectId: string }) {
         </button>
       </div>
       {busy && <p role="status">{t("Processing measured data…")}</p>}
-      {error && <Notice tone="error">{t(error)}</Notice>}
+      {error && (
+        <div role="alert">
+          <Notice tone="error">{t(error)}</Notice>
+        </div>
+      )}
       {message && (
         <p className="measurement-message" role="status">
           {t(message)}
