@@ -1,5 +1,13 @@
 # Test evidence
 
+## Field usability and safe-update release — 6 November 2026
+
+- Local source checkpoint `b319b5542152225d38ce69267320cdc69d8f2987` synchronized to remote candidate `562445e3c4bca9975838d9ada1cd837fc938d7ec`; exact tree `6270fbd12f49b469a72dc859f90606ef98221292` matched.
+- `npm run lint`, `npm test` (352/352), `npm run build`, complete `npm run test:browser`, and `npm run test:browser:production` (6/6) passed in both GitHub candidate runs [42174771639](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42174771639) and [42174777783](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42174777783).
+- Real production update probes passed at `/` and `/AdigunPowerLab/`: interrupted precache remained recoverable; a waiting update was detected after reload; unfinished billing blocked activation; saved billing survived; previous-build chunks remained available offline to an older tab; unrelated caches were preserved; active navigation served current build HTML. Existing offline/PDF probes also passed at both paths.
+- Earlier full browser runs found an ambiguous detail selector and duplicate nested error alerts. Both were corrected; the two affected local browser cases and the complete exact-candidate CI subsequently passed. Earlier failures are not counted as successes.
+- PR #3 merged main `426a37b4226a1a389d3e6d8591bb6e864f824a08`, preserving the verified tree. [Pages 42176036375](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176036375) succeeded for that SHA. Live UI verified Engineering → Simple and preserved 10 A current / 9.2 kWh half-duty energy. The existing analytical billing draft was explicitly saved before reload.
+
 ## Current continuation: 6 November 2026
 
 Locally verified source: `93d5e46b484ac787c0b57249e2eaea10dd179ef8`. This recovers the continuation based on remote `0905f574216a36207698454501a6b8f6147d76c9`, repairs feeder/circuit evidence and exact tariff boundaries, and updates report capacity visibility and no-op circuit controls. Published branch `51736e6f17987e113f663662919f6318f37b8a84` includes the final documentation checkpoint; merged and deployed main is `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9`.

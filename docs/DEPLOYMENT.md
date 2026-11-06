@@ -2,7 +2,15 @@
 
 The owner explicitly authorized pushing, merging and public deployment on 6 November 2026. Engine 1.1.0 is live at [AdigunPowerLab](https://hephzibahbehulahhq.github.io/AdigunPowerLab/).
 
-## Current continuation release
+## Current field-usability release
+
+- PR #3 merged source `426a37b4226a1a389d3e6d8591bb6e864f824a08` after candidate validation runs [42174771639](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42174771639) and [42174777783](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42174777783) succeeded.
+- Tested candidate `562445e3c4bca9975838d9ada1cd837fc938d7ec` and merged main have identical tree `6270fbd12f49b469a72dc859f90606ef98221292`.
+- [Pages 42176036375](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176036375) successfully deployed that exact main SHA to the existing public URL.
+- Public interaction verified the new detail selector, Simple mode, saved project and 10 A / 9.2 kWh analytical calculation. The numerical engine remains 1.1.0; the deployment SHA identifies this UI release.
+- Standing owner approval covers subsequent verified milestone merges and deployments. No new service, domain or spending was introduced.
+
+## Historical Engine 1.1.0 continuation release
 
 - Published branch: `feat/verified-workflows`, commit `51736e6f17987e113f663662919f6318f37b8a84`.
 - Integrated through [PR #2](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/2).
