@@ -5,6 +5,12 @@ import { useT, numberFormat, type Locale } from "../i18n";
 import { parseLocaleNumber, formatEditableNumber } from "../i18n/numbers";
 import { Field } from "./ui";
 import { useUpdateGuard } from "../pwa/useUpdateGuard";
+import {
+  reportDrafts,
+  useProjectDraft,
+  discardDraftLabel,
+  type ReportDraft,
+} from "./workspaceDrafts";
 import { downloadFile, safeName } from "../import-export/files";
 import {
   calculateBill,
@@ -84,93 +90,121 @@ const minorDecimal = (value: number | bigint, digits: number) => {
     : String(n);
 };
 
-export function ReportWorkspace({
+type ReportWorkspaceProps = {
+  project: Project;
+  result: CalculationResult;
+  locale: Locale;
+  context?: ReportContext;
+  onDetailsChange: (
+    details: NonNullable<Project["reportDetails"]>,
+  ) => Promise<void>;
+  onOpenBilling?: () => void;
+};
+function newReportDraft(project: Project, locale: Locale): ReportDraft {
+  return {
+    details: structuredClone(project.reportDetails ?? blankDetails),
+    detailsDirty: false,
+    selected: [...initialSections],
+    sectionsDirty: false,
+    prices: {},
+    priceLocales: {},
+    pricingLocale: locale,
+    pricingDirty: false,
+    contingency: "0",
+    contingencyLocale: locale,
+    series: "profile",
+  };
+}
+export function ReportWorkspace(props: ReportWorkspaceProps) {
+  return <ProjectReportWorkspace key={props.project.id} {...props} />;
+}
+function ProjectReportWorkspace({
   project,
   result,
   locale,
   context,
   onDetailsChange,
   onOpenBilling,
-}: {
-  project: Project;
-  result: CalculationResult;
-  locale: Locale;
-  context?: ReportContext;
-  onDetailsChange: (details: NonNullable<Project["reportDetails"]>) => void;
-  onOpenBilling?: () => void;
-}) {
+}: ReportWorkspaceProps) {
   const t = useT(),
     sequence = useRef(0),
-    priceLocales = useRef<Record<string, Locale>>({}),
-    previousLocale = useRef(locale),
-    contingencyLocale = useRef(locale),
-    activeLocale = useRef(locale),
-    current = useRef({ id: project.id, revision: project.revision });
+    mounted = useRef(true),
+    activeLocale = useRef(locale);
   activeLocale.current = locale;
-  current.current = { id: project.id, revision: project.revision };
-  const [details, setDetails] = useState(project.reportDetails ?? blankDetails),
-    [selected, setSelected] =
-      useState<EngineeringReportSection[]>(initialSections),
-    [snapshot, setSnapshot] = useState<ReportSnapshot | null>(null),
-    [busy, setBusy] = useState(false),
+  const { draft, update, field } = useProjectDraft(
+    reportDrafts,
+    project.id,
+    () => newReportDraft(project, locale),
+  );
+  const [details, setDetails] = field("details"),
+    [selected] = field("selected"),
+    [prices] = field("prices"),
+    [contingency] = field("contingency"),
+    [series, setSeries] = field("series");
+  const [snapshot, setSnapshot] = useState<ReportSnapshot | null>(null),
+    [working, setBusy] = useState(false),
+    [savingDetails, setSavingDetails] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [prices, setPrices] = useState<BOMPricing>({}),
-    [pricingDirty, setPricingDirty] = useState(false),
     [bomPage, setBomPage] = useState(0),
-    [contingency, setContingency] = useState("0"),
     [billPreview, setBillPreview] = useState<BillDocument | null>(null),
-    [series, setSeries] = useState<"profile" | "calendar" | "energy" | "ev">(
-      "profile",
-    );
-  const bom = useMemo(() => deriveBOM(project), [project]),
-    dirtyDetails =
-      JSON.stringify(details) !==
-      JSON.stringify(project.reportDetails ?? blankDetails);
-  useUpdateGuard(
-    dirtyDetails || pricingDirty || busy,
-    t("Report details and sections"),
-  );
+    [reload, setReload] = useState(0);
+  const busy = working || savingDetails,
+    dirtyDetails = draft.detailsDirty;
+  const bom = useMemo(() => deriveBOM(project), [project]);
+  useUpdateGuard(busy, t("Report details and sections"));
   useEffect(() => {
-    priceLocales.current = {};
-    setDetails(project.reportDetails ?? blankDetails);
-    setPrices({});
-    setPricingDirty(false);
-    setBomPage(0);
-    setBillPreview(null);
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      sequence.current++;
+    };
+  }, []);
+  useEffect(() => {
+    if (reportDrafts.get(project.id)?.pricingDirty) return;
     let alive = true;
     void loadBillingDocument(project.id)
       .then((bill) => {
-        if (!alive || !bill) return;
+        if (!alive || reportDrafts.get(project.id)?.pricingDirty) return;
         const next: BOMPricing = {};
-        for (const row of deriveBOM(project).rows) {
-          const material = bill.lines.find(
-              (line) => line.id === `bom:${project.id}:${row.id}`,
-            ),
-            labour = bill.lines.find(
-              (line) => line.id === `bom-labour:${project.id}:${row.id}`,
-            );
-          if (material)
-            next[row.id] = {
-              unitPrice: formatEditableNumber(
-                material.unitPrice,
-                activeLocale.current,
+        if (bill)
+          for (const row of deriveBOM(project).rows) {
+            const material = bill.lines.find(
+                (line) => line.id === `bom:${project.id}:${row.id}`,
               ),
-              wastePercent: formatEditableNumber(
-                material.source?.wastePercent ?? "0",
-                activeLocale.current,
-              ),
-              labourQuantity: formatEditableNumber(
-                labour?.quantity ?? "",
-                activeLocale.current,
-              ),
-              labourRate: formatEditableNumber(
-                labour?.unitPrice ?? "",
-                activeLocale.current,
-              ),
-            };
-        }
-        setPrices(next);
+              labour = bill.lines.find(
+                (line) => line.id === `bom-labour:${project.id}:${row.id}`,
+              );
+            if (material)
+              next[row.id] = {
+                unitPrice: formatEditableNumber(
+                  material.unitPrice,
+                  activeLocale.current,
+                ),
+                wastePercent: formatEditableNumber(
+                  material.source?.wastePercent ?? "0",
+                  activeLocale.current,
+                ),
+                labourQuantity: formatEditableNumber(
+                  labour?.quantity ?? "",
+                  activeLocale.current,
+                ),
+                labourRate: formatEditableNumber(
+                  labour?.unitPrice ?? "",
+                  activeLocale.current,
+                ),
+              };
+          }
+        update((previous) =>
+          previous.pricingDirty
+            ? previous
+            : {
+                ...previous,
+                prices: next,
+                priceLocales: {},
+                pricingLocale: activeLocale.current,
+              },
+        );
       })
       .catch((cause) => {
         if (alive) setError(t((cause as Error).message));
@@ -178,44 +212,88 @@ export function ReportWorkspace({
     return () => {
       alive = false;
     };
-  }, [project.id]);
+  }, [project.id, reload]);
   useEffect(() => {
-    const oldLocale = previousLocale.current;
-    if (oldLocale === locale) return;
-    previousLocale.current = locale;
-    const next = structuredClone(prices);
-    for (const [id, row] of Object.entries(next))
-      for (const key of Object.keys(row) as Array<keyof BOMPricing[string]>) {
-        const path = `${id}:${key}`;
-        const sourceLocale = priceLocales.current[path] ?? oldLocale;
-        const parsed = parseLocaleNumber(row[key], sourceLocale, {
-          min: 0,
-          allowScientific: false,
-        });
-        row[key] = parsed.ok
+    update((previous) => {
+      if (previous.pricingLocale === locale) return previous;
+      const next = structuredClone(previous.prices),
+        priceLocales = { ...previous.priceLocales };
+      for (const [id, row] of Object.entries(next))
+        for (const key of Object.keys(row) as Array<keyof BOMPricing[string]>) {
+          const path = `${id}:${key}`,
+            sourceLocale = priceLocales[path] ?? previous.pricingLocale;
+          const parsed = parseLocaleNumber(row[key], sourceLocale, {
+            min: 0,
+            allowScientific: false,
+          });
+          row[key] = parsed.ok
+            ? formatEditableNumber(parsed.canonical, locale)
+            : row[key];
+          priceLocales[path] = parsed.ok ? locale : sourceLocale;
+        }
+      const parsed = parseLocaleNumber(
+        previous.contingency,
+        previous.contingencyLocale,
+        { min: 0, allowScientific: false },
+      );
+      return {
+        ...previous,
+        prices: next,
+        priceLocales,
+        pricingLocale: locale,
+        contingency: parsed.ok
           ? formatEditableNumber(parsed.canonical, locale)
-          : row[key];
-        priceLocales.current[path] = parsed.ok ? locale : sourceLocale;
-      }
-    setPrices(next);
-    const parsed = parseLocaleNumber(contingency, contingencyLocale.current, {
-      min: 0,
-      allowScientific: false,
+          : previous.contingency,
+        contingencyLocale: parsed.ok ? locale : previous.contingencyLocale,
+      };
     });
-    if (parsed.ok) {
-      setContingency(formatEditableNumber(parsed.canonical, locale));
-      contingencyLocale.current = locale;
-    }
   }, [locale]);
   useEffect(() => {
-    setDetails(project.reportDetails ?? blankDetails);
-  }, [project.reportDetails]);
+    if (
+      !draft.detailsDirty &&
+      JSON.stringify(details) !==
+        JSON.stringify(project.reportDetails ?? blankDetails)
+    )
+      setDetails(structuredClone(project.reportDetails ?? blankDetails));
+  }, [project.reportDetails, draft.detailsDirty]);
   useEffect(() => {
     sequence.current++;
     setSnapshot(null);
     setBillPreview(null);
     setBusy(false);
   }, [project.id, project.revision, locale]);
+  function editDetails(value: ReportDraft["details"]) {
+    sequence.current++;
+    update((previous) => ({ ...previous, details: value, detailsDirty: true }));
+    setSnapshot(null);
+  }
+  async function saveDetails() {
+    const saved = structuredClone(details);
+    setSavingDetails(true);
+    setError("");
+    try {
+      await onDetailsChange(saved);
+      reportDrafts.update(project.id, (previous) =>
+        JSON.stringify(previous.details) === JSON.stringify(saved)
+          ? { ...previous, detailsDirty: false }
+          : previous,
+      );
+    } catch (cause) {
+      if (mounted.current) setError(t((cause as Error).message));
+    } finally {
+      if (mounted.current) setSavingDetails(false);
+    }
+  }
+  function discard() {
+    sequence.current++;
+    update(() => newReportDraft(project, locale));
+    setSnapshot(null);
+    setBillPreview(null);
+    setError("");
+    setMessage("");
+    setBomPage(0);
+    setReload((value) => value + 1);
+  }
   const blocks = useMemo(
     () =>
       snapshot
@@ -254,6 +332,7 @@ export function ReportWorkspace({
           context: supplied,
         }),
       );
+      update((previous) => ({ ...previous, sectionsDirty: false }));
       setMessage(
         t(
           "Report snapshot frozen. Preview and exports use this exact revision.",
@@ -325,22 +404,27 @@ export function ReportWorkspace({
     field: keyof BOMPricing[string],
     value: string,
   ) {
-    priceLocales.current[`${rowId}:${field}`] = locale;
-    setPricingDirty(true);
+    sequence.current++;
     setBillPreview(null);
-    setPrices((previous) => ({
+    update((previous) => ({
       ...previous,
-      [rowId]: {
-        ...(previous[rowId] ?? {
-          unitPrice: "",
-          wastePercent: "0",
-          labourQuantity: "",
-          labourRate: "",
-        }),
-        [field]: value,
+      pricingDirty: true,
+      priceLocales: { ...previous.priceLocales, [`${rowId}:${field}`]: locale },
+      prices: {
+        ...previous.prices,
+        [rowId]: {
+          ...(previous.prices[rowId] ?? {
+            unitPrice: "",
+            wastePercent: "0",
+            labourQuantity: "",
+            labourRate: "",
+          }),
+          [field]: value,
+        },
       },
     }));
   }
+
   function normalizeDecimal(
     value: string,
     places: number,
@@ -366,23 +450,23 @@ export function ReportWorkspace({
           unitPrice: normalizeDecimal(
             row.unitPrice,
             currencyDigits(project.currency),
-            priceLocales.current[`${id}:unitPrice`] ?? locale,
+            draft.priceLocales[`${id}:unitPrice`] ?? locale,
           ),
           wastePercent:
             normalizeDecimal(
               row.wastePercent,
               2,
-              priceLocales.current[`${id}:wastePercent`] ?? locale,
+              draft.priceLocales[`${id}:wastePercent`] ?? locale,
             ) || "0",
           labourQuantity: normalizeDecimal(
             row.labourQuantity,
             3,
-            priceLocales.current[`${id}:labourQuantity`] ?? locale,
+            draft.priceLocales[`${id}:labourQuantity`] ?? locale,
           ),
           labourRate: normalizeDecimal(
             row.labourRate,
             currencyDigits(project.currency),
-            priceLocales.current[`${id}:labourRate`] ?? locale,
+            draft.priceLocales[`${id}:labourRate`] ?? locale,
           ),
         };
       const lines = pricedBOMLines(bom, normalized);
@@ -393,7 +477,7 @@ export function ReportWorkspace({
         discountPercent: "0",
       });
       const rate = decimalInteger(
-        normalizeDecimal(contingency, 2, contingencyLocale.current) || "0",
+        normalizeDecimal(contingency, 2, draft.contingencyLocale) || "0",
         2,
         "Contingency",
       );
@@ -433,12 +517,27 @@ export function ReportWorkspace({
   async function applyEstimate() {
     if (!billPreview) return;
     const ticket = ++sequence.current;
+    const pricingAtSave = JSON.stringify([
+      draft.prices,
+      draft.priceLocales,
+      draft.contingency,
+      draft.contingencyLocale,
+    ]);
     setBusy(true);
     setError("");
     try {
       await saveBillingDocument(project.id, billPreview);
+      reportDrafts.update(project.id, (previous) =>
+        JSON.stringify([
+          previous.prices,
+          previous.priceLocales,
+          previous.contingency,
+          previous.contingencyLocale,
+        ]) === pricingAtSave
+          ? { ...previous, pricingDirty: false }
+          : previous,
+      );
       if (ticket !== sequence.current) return;
-      setPricingDirty(false);
       setBillPreview(null);
       setMessage(
         t(
@@ -475,7 +574,7 @@ export function ReportWorkspace({
               value={details.reference}
               maxLength={120}
               onChange={(event) =>
-                setDetails({ ...details, reference: event.target.value })
+                editDetails({ ...details, reference: event.target.value })
               }
             />
           </Field>
@@ -484,7 +583,7 @@ export function ReportWorkspace({
               value={details.preparedBy}
               maxLength={1000}
               onChange={(event) =>
-                setDetails({ ...details, preparedBy: event.target.value })
+                editDetails({ ...details, preparedBy: event.target.value })
               }
             />
           </Field>
@@ -493,7 +592,7 @@ export function ReportWorkspace({
               value={details.customer}
               maxLength={1000}
               onChange={(event) =>
-                setDetails({ ...details, customer: event.target.value })
+                editDetails({ ...details, customer: event.target.value })
               }
             />
           </Field>
@@ -502,7 +601,7 @@ export function ReportWorkspace({
               value={details.scopeNotes}
               maxLength={4000}
               onChange={(event) =>
-                setDetails({ ...details, scopeNotes: event.target.value })
+                editDetails({ ...details, scopeNotes: event.target.value })
               }
             />
           </Field>
@@ -510,9 +609,19 @@ export function ReportWorkspace({
         <button
           className="button"
           disabled={!dirtyDetails || busy}
-          onClick={() => onDetailsChange({ ...details })}
+          onClick={() => void saveDetails()}
         >
           {t("Save report details")}
+        </button>
+        <button
+          className="button secondary"
+          disabled={
+            busy ||
+            !(draft.detailsDirty || draft.pricingDirty || draft.sectionsDirty)
+          }
+          onClick={discard}
+        >
+          {discardDraftLabel[locale]}
         </button>
         <fieldset>
           <legend>{t("Choose report sections")}</legend>
@@ -524,11 +633,14 @@ export function ReportWorkspace({
                   checked={selected.includes(section.id)}
                   disabled={busy}
                   onChange={(event) => {
-                    setSelected((previous) =>
-                      event.target.checked
-                        ? [...previous, section.id]
-                        : previous.filter((id) => id !== section.id),
-                    );
+                    sequence.current++;
+                    update((previous) => ({
+                      ...previous,
+                      sectionsDirty: true,
+                      selected: event.target.checked
+                        ? [...previous.selected, section.id]
+                        : previous.selected.filter((id) => id !== section.id),
+                    }));
                     setSnapshot(null);
                   }}
                 />
@@ -786,9 +898,13 @@ export function ReportWorkspace({
             inputMode="decimal"
             value={contingency}
             onChange={(event) => {
-              contingencyLocale.current = locale;
-              setContingency(event.target.value);
-              setPricingDirty(true);
+              sequence.current++;
+              update((previous) => ({
+                ...previous,
+                contingency: event.target.value,
+                contingencyLocale: locale,
+                pricingDirty: true,
+              }));
               setBillPreview(null);
             }}
           />

@@ -1,7 +1,18 @@
 import {
-  LocaleNumberInput,
-  OptionalLocaleNumberInput,
-} from "../i18n/LocaleNumberInput";
+  PlanningNumberInput as LocaleNumberInput,
+  PlanningOptionalNumberInput as OptionalLocaleNumberInput,
+  PlanningDraftNumberList as PlanningNumberList,
+  PlanningDraftContext,
+  usePlanningDraft,
+  partDirty,
+  planningDirty,
+  pendingRaw,
+  clearRaw,
+  prunePlanningRaw,
+  mergePlanning,
+  scheduleFor,
+  planningText,
+} from "./planningDrafts";
 import { useContext, useEffect, useRef, useState } from "react";
 import type {
   FlexibleLoad,
@@ -27,14 +38,14 @@ import { LanguageContext, money, numberFormat, useT } from "../i18n";
 import { downloadFile, makeCSV, safeName } from "../import-export/files";
 import { Field, LineChart, Notice } from "./ui";
 import "./advanced-planning.css";
-import { PlanningNumberList, validPlanningInputs } from "./PlanningInputs";
+import { validPlanningInputs } from "./PlanningInputs";
 import { parseLocaleNumberList } from "../i18n/numbers";
 
 export type AdvancedPlanningTab =
   "schedules" | "starts" | "flexible" | "billing";
 export interface AdvancedPlanningProps {
   project: Project;
-  onChange: (mutator: (draft: Project) => void) => void;
+  onChange: (mutator: (draft: Project) => void) => boolean | void;
   initialTab?: AdvancedPlanningTab;
   onCalendarComplete?: (
     result: CalendarResult,
@@ -45,12 +56,12 @@ export interface AdvancedPlanningProps {
     inputs: Record<string, unknown>,
   ) => void;
 }
-const parseList = (value: string) =>
-  value.trim() ? value.split(/[,;\s]+/).map(Number) : undefined;
 function WindowEditor({
+  prefix,
   windows,
   onChange,
 }: {
+  prefix: string;
   windows: ScheduleWindow[];
   onChange: (rows: ScheduleWindow[]) => void;
 }) {
@@ -72,6 +83,7 @@ function WindowEditor({
                 min={0}
                 max={23.999}
                 step="any"
+                draftKey={`${prefix}${row.id}:startHour`}
                 value={row.startHour}
                 onValueChange={(value) => edit(index, { startHour: value })}
               />
@@ -81,6 +93,7 @@ function WindowEditor({
                 min={0.001}
                 max={24}
                 step="any"
+                draftKey={`${prefix}${row.id}:durationHours`}
                 value={row.durationHours}
                 onValueChange={(value) => edit(index, { durationHours: value })}
               />
@@ -90,6 +103,7 @@ function WindowEditor({
               hint={t("Leave empty for every day.")}
             >
               <PlanningNumberList
+                draftKey={`${prefix}${row.id}:weekdays`}
                 value={row.weekdays}
                 min={0}
                 max={6}
@@ -102,6 +116,7 @@ function WindowEditor({
               hint={t("Leave empty for every month.")}
             >
               <PlanningNumberList
+                draftKey={`${prefix}${row.id}:months`}
                 value={row.months}
                 min={1}
                 max={12}
@@ -153,7 +168,15 @@ function WindowEditor({
   );
 }
 
-export function AdvancedPlanning({
+export function AdvancedPlanning(props: AdvancedPlanningProps) {
+  const store = usePlanningDraft(props.project);
+  return (
+    <PlanningDraftContext.Provider value={store}>
+      <AdvancedPlanningContent {...props} />
+    </PlanningDraftContext.Provider>
+  );
+}
+function AdvancedPlanningContent({
   project,
   onChange,
   initialTab = "schedules",
@@ -163,28 +186,39 @@ export function AdvancedPlanning({
   const t = useT(),
     locale = useContext(LanguageContext);
   const [tab, setTab] = useState<AdvancedPlanningTab>(initialTab);
-  const [loadId, setLoadId] = useState(project.loads[0]?.id ?? "");
+  const store = useContext(PlanningDraftContext)!;
+  const { draft, update, field } = store;
+  const [loadId, setLoadId] = field("loadId");
   const selected = project.loads.find((load) => load.id === loadId);
-  const [schedule, setSchedule] = useState<LoadSchedule>({ windows: [] });
-  const [events, setEvents] = useState<StartEvent[]>(
-    structuredClone(project.startEvents ?? []),
-  );
-  const [requirements, setRequirements] = useState<FlexibleLoad[]>(
-    structuredClone(project.flexibleLoads ?? []),
-  );
+  const schedule = draft.schedules[loadId]?.value ?? { windows: [] };
+  const setSchedule = (value: LoadSchedule) =>
+    update((current) => ({
+      ...current,
+      raw: prunePlanningRaw(current, `schedule:${loadId}:`, value),
+      schedules: {
+        ...current.schedules,
+        [loadId]: { ...current.schedules[loadId], value },
+      },
+    }));
+  const events = draft.events.value;
+  const setEvents = (value: StartEvent[]) =>
+    update((current) => ({
+      ...current,
+      raw: prunePlanningRaw(current, "events:", value),
+      events: { ...current.events, value },
+    }));
+  const requirements = draft.requirements.value;
+  const setRequirements = (value: FlexibleLoad[]) =>
+    update((current) => ({
+      ...current,
+      raw: prunePlanningRaw(current, "requirements:", value),
+      requirements: { ...current.requirements, value },
+    }));
   const today = new Date().toISOString().slice(0, 10);
-  const [range, setRange] = useState<RangeOptions>({
-    start: `${today}T00:00:00Z`,
-    end: new Date(Date.parse(`${today}T00:00:00Z`) + 86400000).toISOString(),
-    intervalMinutes: 15,
-    includeBilling: true,
-  });
-  const [strategy, setStrategy] =
-    useState<FlexiblePlanOptions["strategy"]>("deadline");
-  const [siteLimitKW, setSiteLimitKW] = useState(
-    (project.supply.limitA * project.supply.voltageLN * 3) / 1000,
-  );
-  const [solar, setSolar] = useState("");
+  const [range, setRange] = field("range");
+  const [strategy, setStrategy] = field("strategy");
+  const [siteLimitKW, setSiteLimitKW] = field("siteLimitKW");
+  const [solar, setSolar] = field("solar");
   const [result, setResult] = useState<CalendarResult>();
   const [starts, setStarts] = useState<StartResult>();
   const [plan, setPlan] = useState<FlexiblePlan>();
@@ -204,29 +238,6 @@ export function AdvancedPlanning({
       setLoadId(project.loads[0]?.id ?? "");
   }, [project.loads, loadId]);
   useEffect(() => {
-    setSchedule(
-      structuredClone(
-        selected?.schedule ?? {
-          windows:
-            selected && selected.hoursPerDay > 0
-              ? [
-                  {
-                    id: newId("window"),
-                    startHour: selected.startHour,
-                    durationHours: selected.hoursPerDay,
-                    weekdays: selected.weekdays,
-                  },
-                ]
-              : [],
-        },
-      ),
-    );
-  }, [project.id, project.revision, loadId]);
-  useEffect(() => {
-    setEvents(structuredClone(project.startEvents ?? []));
-    setRequirements(structuredClone(project.flexibleLoads ?? []));
-  }, [project.id, project.revision]);
-  useEffect(() => {
     generation.current++;
     worker.current?.terminate();
     worker.current = null;
@@ -243,8 +254,14 @@ export function AdvancedPlanning({
   }, [project.id, project.revision, rangeKey]);
   useEffect(() => {
     setPlan(undefined);
-  }, [strategy, siteLimitKW, solar]);
-  function commit(mutator: (draft: Project) => void) {
+  }, [strategy, siteLimitKW, solar, requirements, draft.raw]);
+  useEffect(() => {
+    setStarts(undefined);
+  }, [events, draft.raw]);
+  function commit(
+    mutator: (draft: Project) => void,
+    section?: "schedule" | "events" | "requirements",
+  ) {
     if (!validPlanningInputs(container.current)) {
       setError(t("Correct invalid draft values before applying changes."));
       return;
@@ -254,11 +271,60 @@ export function AdvancedPlanning({
       mutator(candidate);
       const checked = validateProjectImport(candidate);
       if (!checked.valid) throw new Error(checked.errors.join(" "));
-      onChange(mutator);
+      let applied = candidate;
+      const accepted = onChange((current) => {
+        const candidate = structuredClone(current);
+        mutator(candidate);
+        const checked = validateProjectImport(candidate);
+        if (!checked.valid) throw new Error(checked.errors.join(" "));
+        mutator(current);
+        applied = structuredClone(current);
+      });
+      if (accepted === false)
+        throw new Error(
+          t("Correct invalid draft values before applying changes."),
+        );
+      if (section)
+        update((current) => {
+          const prefix =
+            section === "schedule" ? `schedule:${loadId}:` : `${section}:`;
+          const raw = clearRaw(current, prefix);
+          if (section === "schedule") {
+            const load = applied.loads.find((load) => load.id === loadId)!;
+            const value = scheduleFor(load);
+            return {
+              ...current,
+              raw,
+              schedules: {
+                ...current.schedules,
+                [loadId]: { base: structuredClone(value), value },
+              },
+            };
+          }
+          if (section === "events") {
+            const value = structuredClone(applied.startEvents ?? []);
+            return {
+              ...current,
+              raw,
+              events: { base: structuredClone(value), value },
+            };
+          }
+          const value = structuredClone(applied.flexibleLoads ?? []);
+          return {
+            ...current,
+            raw,
+            requirements: { base: structuredClone(value), value },
+          };
+        });
       setError("");
       setMessage(t("Changes saved. Undo is available in the workspace."));
     } catch (caught) {
-      setError((caught as Error).message);
+      const message = (caught as Error).message;
+      setError(
+        message === planningText.en.conflict
+          ? planningText[locale].conflict
+          : message,
+      );
     }
   }
   function runCalendar() {
@@ -334,7 +400,7 @@ export function AdvancedPlanning({
     try {
       const generation =
         strategy === "solar"
-          ? parseLocaleNumberList(solar, locale, { min: 0 })
+          ? parseLocaleNumberList(solar, draft.solarLocale, { min: 0 })
           : undefined;
       if (generation && !generation.ok) throw new Error(generation.message);
       setPlan(
@@ -352,10 +418,8 @@ export function AdvancedPlanning({
     }
   }
   const requirementsDirty =
-    JSON.stringify(requirements) !==
-    JSON.stringify(project.flexibleLoads ?? []);
-  const eventDirty =
-    JSON.stringify(events) !== JSON.stringify(project.startEvents ?? []);
+    partDirty(draft.requirements) || pendingRaw(draft, "requirements:");
+  const eventDirty = partDirty(draft.events) || pendingRaw(draft, "events:");
   return (
     <section
       ref={container}
@@ -394,6 +458,21 @@ export function AdvancedPlanning({
           </button>
         ))}
       </div>
+      {planningDirty(draft) && <Notice>{planningText[locale].kept}</Notice>}
+      <button
+        className="button"
+        disabled={!planningDirty(draft)}
+        onClick={() => {
+          store.discard();
+          setError("");
+          setMessage("");
+          setPlan(undefined);
+          setStarts(undefined);
+          setResult(undefined);
+        }}
+      >
+        {planningText[locale].discard}
+      </button>
       {error && (
         <p className="error-text" role="alert">
           {t(error)}
@@ -427,6 +506,7 @@ export function AdvancedPlanning({
                 </Notice>
               )}
               <WindowEditor
+                prefix={`schedule:${loadId}:`}
                 windows={schedule.windows}
                 onChange={(windows) => setSchedule({ ...schedule, windows })}
               />
@@ -483,6 +563,7 @@ export function AdvancedPlanning({
                   </div>
                   {exception.mode === "replace" && (
                     <WindowEditor
+                      prefix={`schedule:${loadId}:exception:${index}:`}
                       windows={exception.windows ?? []}
                       onChange={(windows) =>
                         setSchedule({
@@ -557,6 +638,7 @@ export function AdvancedPlanning({
                         <LocaleNumberInput
                           step="any"
                           min={0}
+                          draftKey={`schedule:${loadId}:cycle:${key}`}
                           value={schedule.timedCycle![key]}
                           onValueChange={(value) =>
                             setSchedule({
@@ -578,12 +660,19 @@ export function AdvancedPlanning({
                   className="button primary"
                   onClick={() =>
                     commit((draft) => {
-                      draft.loads.find((load) => load.id === loadId)!.schedule =
-                        {
-                          ...structuredClone(schedule),
-                          absoluteWindows: undefined,
-                        };
-                    })
+                      const load = draft.loads.find(
+                        (load) => load.id === loadId,
+                      );
+                      if (!load) throw new Error(t("Select a load"));
+                      load.schedule = {
+                        ...mergePlanning(
+                          store.draft.schedules[loadId].base,
+                          schedule,
+                          scheduleFor(load),
+                        ),
+                        absoluteWindows: undefined,
+                      };
+                    }, "schedule")
                   }
                 >
                   {t("Save calendar rules")}
@@ -594,7 +683,7 @@ export function AdvancedPlanning({
                     commit((draft) => {
                       delete draft.loads.find((load) => load.id === loadId)!
                         .schedule;
-                    })
+                    }, "schedule")
                   }
                 >
                   {t("Use basic daily schedule")}
@@ -648,6 +737,7 @@ export function AdvancedPlanning({
                     <LocaleNumberInput
                       min={0.001}
                       step="any"
+                      draftKey={`events:${event.id}:durationSeconds`}
                       value={event.durationSeconds}
                       onValueChange={(value) =>
                         edit({ durationSeconds: value })
@@ -686,6 +776,7 @@ export function AdvancedPlanning({
                     <LocaleNumberInput
                       min={0.001}
                       step="any"
+                      draftKey={`events:${event.id}:${event.currentA === undefined ? "multiplier" : "currentA"}`}
                       value={event.currentA ?? event.multiplier ?? 0}
                       onValueChange={(value) =>
                         edit(
@@ -701,6 +792,7 @@ export function AdvancedPlanning({
                       min={0.001}
                       max={1}
                       step="any"
+                      draftKey={`events:${event.id}:pf`}
                       value={event.pf}
                       onValueChange={(value) => edit({ pf: value })}
                     />
@@ -709,7 +801,9 @@ export function AdvancedPlanning({
                     <select
                       value={event.method}
                       onChange={(e) =>
-                        edit({ method: e.target.value as StartEvent["method"] })
+                        edit({
+                          method: e.target.value as StartEvent["method"],
+                        })
                       }
                     >
                       {["user", "dol", "star-delta", "soft-starter", "vfd"].map(
@@ -765,8 +859,12 @@ export function AdvancedPlanning({
               className="button primary"
               onClick={() =>
                 commit((draft) => {
-                  draft.startEvents = structuredClone(events);
-                })
+                  draft.startEvents = mergePlanning(
+                    store.draft.events.base,
+                    events,
+                    draft.startEvents ?? [],
+                  );
+                }, "events")
               }
             >
               {t("Save start events")}
@@ -910,6 +1008,7 @@ export function AdvancedPlanning({
                     <LocaleNumberInput
                       min={0.001}
                       step="any"
+                      draftKey={`requirements:${requirement.id}:requiredKWh`}
                       value={requirement.requiredKWh}
                       onValueChange={(value) => edit({ requiredKWh: value })}
                     />
@@ -918,6 +1017,7 @@ export function AdvancedPlanning({
                     <LocaleNumberInput
                       min={1}
                       step="1"
+                      draftKey={`requirements:${requirement.id}:minimumRunMinutes`}
                       value={requirement.minimumRunMinutes}
                       onValueChange={(value) =>
                         edit({ minimumRunMinutes: value })
@@ -928,6 +1028,7 @@ export function AdvancedPlanning({
                     <LocaleNumberInput
                       min={0}
                       max={1000}
+                      draftKey={`requirements:${requirement.id}:priority`}
                       value={requirement.priority}
                       onValueChange={(value) => edit({ priority: value })}
                     />
@@ -1055,8 +1156,12 @@ export function AdvancedPlanning({
               className="button primary"
               onClick={() =>
                 commit((draft) => {
-                  draft.flexibleLoads = structuredClone(requirements);
-                })
+                  draft.flexibleLoads = mergePlanning(
+                    store.draft.requirements.base,
+                    requirements,
+                    draft.flexibleLoads ?? [],
+                  );
+                }, "requirements")
               }
             >
               {t("Save requirements")}
@@ -1081,6 +1186,7 @@ export function AdvancedPlanning({
               <LocaleNumberInput
                 min={0.001}
                 step="any"
+                draftKey="options:siteLimitKW"
                 value={siteLimitKW}
                 onValueChange={(value) => setSiteLimitKW(value)}
               />
@@ -1089,7 +1195,13 @@ export function AdvancedPlanning({
               <Field label={t("Entered interval generation")} unit="kW">
                 <textarea
                   value={solar}
-                  onChange={(e) => setSolar(e.target.value)}
+                  onChange={(e) => {
+                    setSolar(e.target.value);
+                    update((current) => ({
+                      ...current,
+                      solarLocale: locale,
+                    }));
+                  }}
                   placeholder={t("One value for every planning interval")}
                 />
               </Field>
@@ -1106,6 +1218,7 @@ export function AdvancedPlanning({
             <button
               className="button primary"
               disabled={
+                requirementsDirty ||
                 !plan?.feasible ||
                 plan.revision !== project.revision ||
                 !plan.blocks.length

@@ -47,7 +47,14 @@ import {
 } from "../commands/projectCommands";
 import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
 import { Field, Notice, Modal, Empty, LineChart } from "./ui";
-import { LanguageContext, useT, numberFormat, money } from "../i18n";
+import {
+  LanguageContext,
+  useT,
+  numberFormat,
+  money,
+  type Locale,
+} from "../i18n";
+import { ProjectSetup, type ProjectSetupProps } from "./ProjectSetup";
 import { ProjectCalculationDetails, type DetailMode } from "./DetailViews";
 type Change = (mutator: (draft: Project) => void) => void;
 export function Overview({
@@ -57,6 +64,8 @@ export function Overview({
   onReference,
   onRoute,
   detailMode = "engineering",
+  change,
+  onLocale,
 }: {
   project: Project;
   result: CalculationResult;
@@ -64,6 +73,8 @@ export function Overview({
   onReference: () => void;
   onRoute: (r: string) => void;
   detailMode?: DetailMode;
+  change?: ProjectSetupProps["change"];
+  onLocale?: (locale: Locale) => void;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -96,6 +107,15 @@ export function Overview({
           </div>
         </div>
       </div>
+      {change && onLocale && (
+        <ProjectSetup
+          key={project.id}
+          project={project}
+          change={change}
+          onLocale={onLocale}
+          onAdd={onAdd}
+        />
+      )}
       <div className="kpi-grid">
         {[
           {

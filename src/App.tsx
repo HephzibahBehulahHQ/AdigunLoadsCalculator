@@ -112,6 +112,7 @@ import {
 } from "./features/DetailViews";
 import { UpdateBanner } from "./features/UpdateBanner";
 import { useUpdateGuard } from "./pwa/useUpdateGuard";
+import { useCompactPanels, useMobilePanel } from "./features/useMobilePanels";
 import {
   Overview,
   Loads,
@@ -297,6 +298,11 @@ export default function App() {
   const [sidebar, setSidebar] = useState(() =>
     readPreference("sidebar", innerWidth > 900),
   );
+  const compactPanels = useCompactPanels();
+  const [mobileNavigation, setMobileNavigation] = useState(false);
+  const navigationRef = useRef<HTMLElement>(null);
+  const inspectorRef = useRef<HTMLElement>(null);
+  const navigationVisible = compactPanels ? mobileNavigation : sidebar;
   const [sidebarWidth, setSidebarWidth] = useState(() =>
     readPreference("sidebarWidth", 240),
   );
@@ -408,6 +414,25 @@ export default function App() {
   const selectedSource = project.sources?.find((row) => row.id === selected);
   const selectedObject =
     selectedLoad ?? selectedBoard ?? selectedCircuit ?? selectedSource;
+  const mobilePanel = compactPanels
+    ? mobileNavigation
+      ? "navigation"
+      : selectedObject || showTrace
+        ? "inspector"
+        : undefined
+    : undefined;
+  const closeMobilePanel = () => {
+    if (mobilePanel === "navigation") setMobileNavigation(false);
+    else {
+      setSelected(undefined);
+      setShowTrace(false);
+    }
+  };
+  useMobilePanel(
+    mobilePanel === "navigation" ? navigationRef : inspectorRef,
+    !!mobilePanel,
+    closeMobilePanel,
+  );
   const refreshRecords = useCallback(async () => {
     try {
       setRecords(await listProjects(true));
@@ -444,13 +469,8 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    const media = matchMedia("(max-width: 800px)");
-    const closeSmall = () => {
-      if (media.matches) setSidebar(false);
-    };
-    media.addEventListener("change", closeSmall);
-    return () => media.removeEventListener("change", closeSmall);
-  }, []);
+    setMobileNavigation(false);
+  }, [compactPanels]);
   useEffect(() => {
     writePreference("locale", locale);
     document.documentElement.lang = locale;
@@ -580,7 +600,7 @@ export default function App() {
     history.replaceState(null, "", "#/" + r);
     setDialog(null);
     setQuery("");
-    if (innerWidth < 900) setSidebar(false);
+    setMobileNavigation(false);
     if (r === "history")
       void projectHistory(project.id)
         .then(setRevisions)
@@ -1155,7 +1175,7 @@ export default function App() {
       <div
         className={
           "app " +
-          (sidebar ? "" : "sidebar-collapsed") +
+          (navigationVisible ? "" : "sidebar-collapsed") +
           " " +
           detailMode +
           "-mode"
@@ -1241,18 +1261,36 @@ export default function App() {
             <Settings2 size={18} />
           </button>
         </header>
-        <aside className="sidebar">
+        {mobilePanel && (
+          <div
+            className="mobile-panel-backdrop"
+            data-mobile-panel-backdrop
+            aria-hidden="true"
+            onClick={closeMobilePanel}
+          />
+        )}
+        <aside
+          className="sidebar"
+          id="workspace-navigation"
+          ref={navigationRef}
+          role={compactPanels ? "dialog" : undefined}
+          aria-modal={compactPanels && navigationVisible ? true : undefined}
+          aria-label={t("Main navigation")}
+          tabIndex={-1}
+        >
           <div className="sidebar-head">
             <span>{t("Workspace")}</span>
             <button
               className="icon-button"
               aria-label={t("Collapse navigation")}
-              onClick={() => setSidebar(false)}
+              onClick={() =>
+                compactPanels ? setMobileNavigation(false) : setSidebar(false)
+              }
             >
               <PanelLeftClose size={17} />
             </button>
           </div>
-          <nav aria-label="Main navigation">
+          <nav aria-label={t("Main navigation")}>
             {["Workspace", "Engineering", "Energy & Planning", "Resources"].map(
               (group) => (
                 <div className="nav-group" key={group}>
@@ -1323,11 +1361,16 @@ export default function App() {
         </aside>
         <div className="workspace-shell">
           <div className="workspace-toolbar">
-            {!sidebar && (
+            {(compactPanels || !sidebar) && (
               <button
                 className="icon-button"
                 aria-label={t("Open navigation")}
-                onClick={() => setSidebar(true)}
+                aria-expanded={navigationVisible}
+                aria-controls="workspace-navigation"
+                data-navigation-toggle
+                onClick={() =>
+                  compactPanels ? setMobileNavigation(true) : setSidebar(true)
+                }
               >
                 <PanelLeftOpen size={19} />
               </button>
@@ -1518,7 +1561,7 @@ export default function App() {
               (selectedObject || showTrace ? "with-inspector" : "")
             }
           >
-            <main id="workspace" className="main-content">
+            <main id="workspace" className="main-content" tabIndex={-1}>
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">
@@ -1557,6 +1600,8 @@ export default function App() {
                       project={project}
                       result={result}
                       detailMode={detailMode}
+                      change={change}
+                      onLocale={setLocale}
                       onAdd={() => setEditor({})}
                       onReference={() => setDialog("references")}
                       onRoute={go}
@@ -1858,11 +1903,17 @@ export default function App() {
                                   label: r.project.name,
                                 })),
                             }}
-                            onDetailsChange={(details) =>
-                              change((p) => {
-                                p.reportDetails = details;
-                              })
-                            }
+                            onDetailsChange={async (details) => {
+                              if (
+                                !change((p) => {
+                                  p.reportDetails = details;
+                                })
+                              )
+                                throw new Error(
+                                  "Report details could not be applied.",
+                                );
+                              await persist(latest.current);
+                            }}
                             onOpenBilling={() => setReportTab("billing")}
                           />
                         </Suspense>
@@ -2042,7 +2093,16 @@ export default function App() {
               )}
             </main>
             {(selectedObject || showTrace) && (
-              <aside className="inspector">
+              <aside
+                className="inspector"
+                ref={inspectorRef}
+                role={compactPanels ? "dialog" : undefined}
+                aria-modal={compactPanels ? true : undefined}
+                aria-label={t(
+                  showTrace ? "Calculation trace" : "Selected object",
+                )}
+                tabIndex={-1}
+              >
                 <ResizeHandle
                   value={inspectorWidth}
                   min={250}

@@ -1,8 +1,15 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, Download, FolderOpen, RefreshCw, Save } from "lucide-react";
 import { Field, LineChart, Notice } from "./ui";
-import { LanguageContext, numberFormat, useT } from "../i18n";
+import { LanguageContext, numberFormat, useT, type Locale } from "../i18n";
 import { useUpdateGuard } from "../pwa/useUpdateGuard";
+import { formatEditableNumber, parseLocaleNumber } from "../i18n/numbers";
+import {
+  measurementDrafts,
+  useProjectDraft,
+  discardDraftLabel,
+  type MeasurementDraft,
+} from "./workspaceDrafts";
 import {
   parseMeasurementCSV,
   type MeasurementImport,
@@ -29,30 +36,63 @@ const initialOptions: MeasurementOptions = {
   powerColumn: "",
   intervalMinutes: 15,
 };
+function newMeasurementDraft(locale: Locale): MeasurementDraft {
+  return {
+    rawCSV: "",
+    filename: "",
+    headers: [],
+    options: { ...initialOptions },
+    interval: { text: "15", locale },
+    reviewed: null,
+    savedRevision: null,
+    savedAt: "",
+    dirty: false,
+  };
+}
 export function Measurements({ projectId }: { projectId: string }) {
+  return <ProjectMeasurements key={projectId} projectId={projectId} />;
+}
+function ProjectMeasurements({ projectId }: { projectId: string }) {
   const t = useT(),
     locale = useContext(LanguageContext),
     operation = useRef(0),
+    activeLocale = useRef(locale),
     owner = useRef(projectId);
+  activeLocale.current = locale;
   owner.current = projectId;
-  const [rawCSV, setRawCSV] = useState(""),
-    [filename, setFilename] = useState(""),
-    [headers, setHeaders] = useState<string[]>([]),
-    [options, setOptions] = useState<MeasurementOptions>({ ...initialOptions });
-  const [resultPayload, setResultPayload] = useState<MeasurementPayload | null>(
-      null,
-    ),
-    [reviewErrors, setReviewErrors] = useState<string[]>([]);
-  const [preview, setPreview] = useState<MeasurementImport | null>(null),
+  const { draft, update, field } = useProjectDraft(
+    measurementDrafts,
+    projectId,
+    () => newMeasurementDraft(locale),
+  );
+  const [rawCSV] = field("rawCSV"),
+    [filename] = field("filename"),
+    [headers] = field("headers"),
+    [options] = field("options"),
+    [resultPayload, setResultPayload] = field("reviewed"),
+    [savedRevision, setSavedRevision] = field("savedRevision"),
+    [savedAt, setSavedAt] = field("savedAt"),
+    [dirty, setDirty] = field("dirty");
+  const preview = useMemo(
+    () =>
+      resultPayload
+        ? parseMeasurementCSV(resultPayload.rawCSV, resultPayload.options)
+        : null,
+    [resultPayload],
+  );
+  const [reviewErrors, setReviewErrors] = useState<string[]>([]),
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [savedRevision, setSavedRevision] = useState<number | null>(null),
-    [savedAt, setSavedAt] = useState(""),
-    [dirty, setDirty] = useState(false),
     [page, setPage] = useState(0),
-    [selected, setSelected] = useState<number | undefined>();
-  useUpdateGuard(dirty || busy, t("Measurements"));
+    [selected, setSelected] = useState<number | undefined>(),
+    [reload, setReload] = useState(0);
+  const parsedInterval = parseLocaleNumber(
+    draft.interval.text,
+    draft.interval.locale,
+    { min: 0.001, max: 1440, allowScientific: false },
+  );
+  useUpdateGuard(busy, t("Measurements"));
   const loadPayload = (
     payload: MeasurementPayload,
     parsed: MeasurementImport | null,
@@ -61,42 +101,68 @@ export function Measurements({ projectId }: { projectId: string }) {
       parseCSV(payload.rawCSV.replace(/^\uFEFF/, ""))[0]?.map((value) =>
         value.trim(),
       ) ?? [];
-    setRawCSV(payload.rawCSV);
-    setFilename(payload.filename);
-    setHeaders(labels);
-    setOptions({ ...payload.options });
-    if (parsed) {
-      setPreview(parsed);
-      setResultPayload({ ...payload, options: { ...payload.options } });
-    }
+    update((previous) => ({
+      ...previous,
+      rawCSV: payload.rawCSV,
+      filename: payload.filename,
+      headers: labels,
+      options: { ...payload.options },
+      interval: {
+        text: formatEditableNumber(
+          payload.options.intervalMinutes,
+          activeLocale.current,
+        ),
+        locale: activeLocale.current,
+      },
+      reviewed: parsed
+        ? { ...payload, options: { ...payload.options } }
+        : previous.reviewed,
+    }));
     setReviewErrors([]);
     setPage(0);
     setSelected(undefined);
   };
   useEffect(() => {
+    update((previous) => {
+      if (previous.interval.locale === locale) return previous;
+      const parsed = parseLocaleNumber(
+        previous.interval.text,
+        previous.interval.locale,
+        { min: 0.001, max: 1440, allowScientific: false },
+      );
+      return parsed.ok
+        ? {
+            ...previous,
+            interval: {
+              text: formatEditableNumber(parsed.canonical, locale),
+              locale,
+            },
+          }
+        : previous;
+    });
+  }, [locale]);
+  useEffect(() => {
     const ticket = ++operation.current;
-    setRawCSV("");
-    setFilename("");
-    setHeaders([]);
-    setOptions({ ...initialOptions });
-    setPreview(null);
-    setResultPayload(null);
-    setReviewErrors([]);
-    setSavedRevision(null);
-    setSavedAt("");
+    if (measurementDrafts.get(projectId)?.dirty)
+      return () => {
+        operation.current++;
+      };
     setError("");
     setMessage("");
-    setDirty(false);
     setBusy(true);
-    setPage(0);
-    setSelected(undefined);
     readMeasurements(projectId)
       .then((data) => {
-        if (ticket !== operation.current || owner.current !== projectId) return;
+        if (
+          ticket !== operation.current ||
+          owner.current !== projectId ||
+          measurementDrafts.get(projectId)?.dirty
+        )
+          return;
         if (data) {
           loadPayload(data.saved, data.parsed);
           setSavedRevision(data.saved.revision);
           setSavedAt(data.saved.savedAt);
+          setDirty(false);
           setMessage("Saved measurements reopened and validated.");
         }
       })
@@ -109,22 +175,38 @@ export function Measurements({ projectId }: { projectId: string }) {
     return () => {
       operation.current++;
     };
-  }, [projectId]);
-  const payload = (): MeasurementPayload => ({
-    filename,
-    rawCSV,
-    options: { ...options },
-  });
+  }, [projectId, reload]);
+  const payload = (): MeasurementPayload => {
+    if (!parsedInterval.ok) throw new Error(parsedInterval.message);
+    return {
+      filename,
+      rawCSV,
+      options: { ...options, intervalMinutes: parsedInterval.value },
+    };
+  };
   const change = <K extends keyof MeasurementOptions>(
     key: K,
     value: MeasurementOptions[K],
   ) => {
-    setOptions((current) => ({ ...current, [key]: value }));
+    update((previous) => ({
+      ...previous,
+      options: { ...previous.options, [key]: value },
+      dirty: true,
+    }));
     setReviewErrors([]);
-    setDirty(true);
     setMessage("Mapping changed. Preview again before saving.");
     setError("");
   };
+  function discard() {
+    operation.current++;
+    update(() => newMeasurementDraft(locale));
+    setReviewErrors([]);
+    setError("");
+    setMessage("");
+    setPage(0);
+    setSelected(undefined);
+    setReload((value) => value + 1);
+  }
   async function openFile(file: File | undefined) {
     if (!file) return;
     const backup = file.name.toLowerCase().endsWith(".json");
@@ -190,29 +272,25 @@ export function Measurements({ projectId }: { projectId: string }) {
   }
   function review() {
     setError("");
-    const parsed = parseMeasurementCSV(rawCSV, options);
-    setReviewErrors(parsed.errors);
-    if (!parsed.errors.length) {
-      setPreview(parsed);
-      setResultPayload(payload());
+    try {
+      const snapshot = payload(),
+        parsed = parseMeasurementCSV(snapshot.rawCSV, snapshot.options);
+      setReviewErrors(parsed.errors);
+      if (!parsed.errors.length) setResultPayload(snapshot);
+      setPage(0);
+      setSelected(undefined);
+      setMessage(
+        parsed.errors.length
+          ? "Resolve the shown errors before saving."
+          : "Measured intervals validated. Review missing-coverage warnings before saving.",
+      );
+    } catch (cause) {
+      setReviewErrors([(cause as Error).message]);
+      setMessage("Resolve the shown errors before saving.");
     }
-    setPage(0);
-    setSelected(undefined);
-    setMessage(
-      parsed.errors.length
-        ? "Resolve the shown errors before saving."
-        : "Measured intervals validated. Review missing-coverage warnings before saving.",
-    );
   }
   async function save() {
-    if (
-      !preview ||
-      preview.errors.length ||
-      !resultPayload ||
-      resultPayload.rawCSV !== rawCSV ||
-      JSON.stringify(resultPayload.options) !== JSON.stringify(options)
-    )
-      return;
+    if (!preview || preview.errors.length || !matchesDraft) return;
     const project = projectId,
       ticket = ++operation.current,
       snapshot = payload();
@@ -220,10 +298,29 @@ export function Measurements({ projectId }: { projectId: string }) {
     setError("");
     try {
       const data = await saveMeasurements(project, snapshot, savedRevision);
+      measurementDrafts.update(project, (latest) => {
+        if (latest.savedRevision !== savedRevision) return latest;
+        const interval = parseLocaleNumber(
+          latest.interval.text,
+          latest.interval.locale,
+          { min: 0.001, max: 1440, allowScientific: false },
+        );
+        const unchanged =
+          interval.ok &&
+          latest.rawCSV === snapshot.rawCSV &&
+          latest.filename === snapshot.filename &&
+          JSON.stringify({
+            ...latest.options,
+            intervalMinutes: interval.value,
+          }) === JSON.stringify(snapshot.options);
+        return {
+          ...latest,
+          savedRevision: data.revision,
+          savedAt: data.savedAt,
+          dirty: unchanged ? false : latest.dirty,
+        };
+      });
       if (ticket !== operation.current || owner.current !== project) return;
-      setSavedRevision(data.revision);
-      setSavedAt(data.savedAt);
-      setDirty(false);
       setMessage(
         "Measured data saved locally, separately from the engineering project.",
       );
@@ -271,8 +368,11 @@ export function Measurements({ projectId }: { projectId: string }) {
       !!preview && !preview.errors.length && preview.points.length > 0,
     matchesDraft =
       !!resultPayload &&
+      parsedInterval.ok &&
+      resultPayload.filename === filename &&
       resultPayload.rawCSV === rawCSV &&
-      JSON.stringify(resultPayload.options) === JSON.stringify(options),
+      JSON.stringify(resultPayload.options) ===
+        JSON.stringify({ ...options, intervalMinutes: parsedInterval.value }),
     pageCount = valid ? Math.ceil(preview!.points.length / 100) : 0,
     visible = valid ? preview!.points.slice(page * 100, (page + 1) * 100) : [];
   const exportCleaned = () => {
@@ -344,6 +444,14 @@ export function Measurements({ projectId }: { projectId: string }) {
         >
           <RefreshCw size={16} />
           {t("Reopen saved measurements")}
+        </button>
+        <button
+          className="button secondary"
+          type="button"
+          disabled={busy || !dirty}
+          onClick={discard}
+        >
+          {discardDraftLabel[locale]}
         </button>
       </div>
       {busy && <p role="status">{t("Processing measured data…")}</p>}
@@ -422,18 +530,26 @@ export function Measurements({ projectId }: { projectId: string }) {
             <Field label={t("Declared elapsed interval")} unit="min">
               <input
                 disabled={busy}
-                type="number"
-                min="0.001"
-                max="1440"
-                step="any"
-                value={options.intervalMinutes}
-                onChange={(event) =>
-                  change(
-                    "intervalMinutes",
-                    event.target.value === "" ? 0 : Number(event.target.value),
-                  )
-                }
+                type="text"
+                inputMode="decimal"
+                value={draft.interval.text}
+                aria-invalid={!parsedInterval.ok || undefined}
+                onChange={(event) => {
+                  update((previous) => ({
+                    ...previous,
+                    interval: { text: event.target.value, locale },
+                    dirty: true,
+                  }));
+                  setReviewErrors([]);
+                  setMessage("Mapping changed. Preview again before saving.");
+                  setError("");
+                }}
               />
+              {!parsedInterval.ok && (
+                <small className="error-text" role="alert">
+                  {t(parsedInterval.message)}
+                </small>
+              )}
             </Field>
           </div>
           <p className="measurement-caption">

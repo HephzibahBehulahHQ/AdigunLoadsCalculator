@@ -420,6 +420,7 @@ small,
   background: transparent;
 }
 .sidebar {
+  position: relative;
   grid-column: 1;
   grid-row: 2;
   background: #0b1422;
@@ -1456,6 +1457,7 @@ tfoot td {
   box-shadow: var(--shadow);
 }
 .inspector {
+  position: relative;
   width: var(--inspector, 300px);
   flex-shrink: 0;
   border-left: 1px solid var(--border);
@@ -2397,9 +2399,6 @@ details p {
   }
 }
 @media (max-width: 1050px) {
-  .app {
-    --sidebar: 210px;
-  }
   .nav-item {
     font-size: 10px;
     padding: 7px 8px;
@@ -2458,15 +2457,6 @@ details p {
   }
   .statusbar > span:last-of-type {
     display: none;
-  }
-  .inspector {
-    position: absolute;
-    right: 0;
-    top: 131px;
-    bottom: 30px;
-    z-index: 25;
-    width: 280px;
-    box-shadow: -15px 0 35px #0005;
   }
   .tool-layout {
     grid-template-columns: 210px minmax(0, 1fr);
@@ -3140,10 +3130,6 @@ details p {
   }
 }
 
-.sidebar,
-.inspector {
-  position: relative;
-}
 .resize-handle {
   position: absolute;
   top: 0;
@@ -3241,4 +3227,67 @@ details p {
 .object-context-menu button:focus-visible {
   background: var(--surface2);
   outline: 2px solid var(--cyan);
+}
+
+.mobile-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: #02081799;
+  touch-action: none;
+}
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(320px, calc(100vw - 24px));
+    height: 100dvh;
+    z-index: 82;
+    box-shadow: 15px 0 40px #0008;
+  }
+  .inspector {
+    position: fixed;
+    inset: 12px 12px 12px auto;
+    width: min(420px, calc(100vw - 24px));
+    max-width: none;
+    max-height: calc(100dvh - 24px);
+    z-index: 81;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: -15px 0 35px #0005;
+    overscroll-behavior: contain;
+  }
+  .sidebar-head .icon-button,
+  .inspector-head .icon-button,
+  .nav-item,
+  .nav-group-toggle {
+    min-height: 44px;
+  }
+  .sidebar-head .icon-button,
+  .inspector-head .icon-button {
+    min-width: 44px;
+  }
+  .inspector-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface);
+  }
+  .workspace-content {
+    min-width: 0;
+  }
+  .table-wrap {
+    max-width: 100%;
+  }
+}
+@media (max-width: 600px) {
+  .inspector {
+    inset: auto 0 0;
+    width: 100%;
+    max-height: calc(100dvh - 40px);
+    border-radius: 16px 16px 0 0;
+  }
 }
