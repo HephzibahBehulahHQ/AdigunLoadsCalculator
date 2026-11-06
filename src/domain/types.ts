@@ -202,7 +202,11 @@ export interface EnergySettings {
     reserveSoc: number;
     peakLimitKW?: number;
     allowGridCharge: boolean;
-    gridChargeWindows: { startHour: number; endHour: number; targetSoc: number }[];
+    gridChargeWindows: {
+      startHour: number;
+      endHour: number;
+      targetSoc: number;
+    }[];
   };
   backup?: {
     sourceId?: string;
@@ -223,7 +227,12 @@ export interface SourceEquipment {
   continuousKW: number;
   continuousKVA: number;
   derating: number;
-  overload?: { kw: number; kva: number; durationSeconds: number; source: string };
+  overload?: {
+    kw: number;
+    kva: number;
+    durationSeconds: number;
+    source: string;
+  };
   islandCapable: boolean;
   gridForming: boolean;
   transferIsolationVerified: boolean;
@@ -335,13 +344,28 @@ export interface Project {
   };
   equipmentLibrary?: Load[];
   equipmentFavorites?: string[];
-  equipmentVersions?: { templateId: string; version: number; capturedAt: string; record: Load }[];
+  equipmentVersions?: {
+    templateId: string;
+    version: number;
+    capturedAt: string;
+    record: Load;
+  }[];
   diagram?: DiagramSettings;
   startEvents?: StartEvent[];
   flexibleLoads?: FlexibleLoad[];
-  reportDetails?: { reference: string; preparedBy: string; customer: string; scopeNotes: string };
+  reportDetails?: {
+    reference: string;
+    preparedBy: string;
+    customer: string;
+    scopeNotes: string;
+  };
   sources?: SourceEquipment[];
-  zones?: { id: string; name: string; kind: "building" | "zone"; parentId?: string }[];
+  zones?: {
+    id: string;
+    name: string;
+    kind: "building" | "zone";
+    parentId?: string;
+  }[];
 }
 export interface Issue {
   id: string;

@@ -87,13 +87,16 @@ export interface CommandPreview {
 
 // Candidates never leave this module. Fingerprints use the same JSON data boundary as persistence.
 // Callers may add presentation warnings, but cannot alter the reviewed command or its source data.
-const validatedPreviews = new WeakMap<CommandPreview, {
-  source: string;
-  command: string;
-  candidate?: Project;
-  errors: string[];
-  hasChanges: boolean;
-}>();
+const validatedPreviews = new WeakMap<
+  CommandPreview,
+  {
+    source: string;
+    command: string;
+    candidate?: Project;
+    errors: string[];
+    hasChanges: boolean;
+  }
+>();
 
 const loadFields = [
   "name",
@@ -570,7 +573,9 @@ export function previewProjectCommand(
     errors: [],
     warnings: [],
   };
-  let sourceFingerprint = "", commandFingerprint = "", candidate: Project | undefined;
+  let sourceFingerprint = "",
+    commandFingerprint = "",
+    candidate: Project | undefined;
   try {
     sourceFingerprint = JSON.stringify(project);
     preview.command = structuredClone(command);
@@ -637,7 +642,13 @@ export function previewProjectCommand(
   }
   preview.errors = [...new Set(preview.errors)].slice(0, 100);
   preview.warnings = [...new Set(preview.warnings)].slice(0, 100);
-  validatedPreviews.set(preview, { source: sourceFingerprint, command: commandFingerprint, candidate: preview.errors.length ? undefined : candidate, errors: [...preview.errors], hasChanges: !!preview.changes.length });
+  validatedPreviews.set(preview, {
+    source: sourceFingerprint,
+    command: commandFingerprint,
+    candidate: preview.errors.length ? undefined : candidate,
+    errors: [...preview.errors],
+    hasChanges: !!preview.changes.length,
+  });
   return preview;
 }
 
@@ -650,13 +661,25 @@ export function applyProjectCommand(
       "This preview is stale. Review the changes against the current project revision.",
     );
   const checked = validatedPreviews.get(preview);
-  if (!checked) throw new Error("This preview cannot be verified. Generate a fresh preview before applying it.");
+  if (!checked)
+    throw new Error(
+      "This preview cannot be verified. Generate a fresh preview before applying it.",
+    );
   if (checked.errors.length) throw new Error(checked.errors.join(" "));
-  if (JSON.stringify(project) !== checked.source) throw new Error("Project data changed without a matching revision. Review the changes again.");
-  if (JSON.stringify(preview.command) !== checked.command) throw new Error("The preview command changed after validation. Review the changes again.");
+  if (JSON.stringify(project) !== checked.source)
+    throw new Error(
+      "Project data changed without a matching revision. Review the changes again.",
+    );
+  if (JSON.stringify(preview.command) !== checked.command)
+    throw new Error(
+      "The preview command changed after validation. Review the changes again.",
+    );
   if (!checked.hasChanges)
     throw new Error("The command does not change any fields.");
-  if (!checked.candidate) throw new Error("No validated candidate is available. Generate a fresh preview.");
+  if (!checked.candidate)
+    throw new Error(
+      "No validated candidate is available. Generate a fresh preview.",
+    );
   return structuredClone(checked.candidate);
 }
 

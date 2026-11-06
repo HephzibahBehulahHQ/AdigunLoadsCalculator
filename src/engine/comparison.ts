@@ -41,9 +41,30 @@ export function compareScenarioPeriod(
       intervalMinutes: 15,
       outageRange: options.outageRange,
     });
-  let starts:{peakKVA:number;issues:Issue[]}|undefined;
-  const periodStart=Date.parse(options.start),periodEnd=Date.parse(options.end);
-  for(let start=periodStart;start<periodEnd;start+=7*86400000){const end=Math.min(periodEnd,start+7*86400000);const events=project.startEvents?.filter(event=>Date.parse(event.start)<end&&Date.parse(event.start)+event.durationSeconds*1000>start);if(events?.length){const run=simulateStartEvents({...project,startEvents:events},{start:new Date(start).toISOString(),end:new Date(end).toISOString()});starts={peakKVA:Math.max(starts?.peakKVA??0,run.peakKVA),issues:[...(starts?.issues??[]),...run.issues]};}}
+  let starts: { peakKVA: number; issues: Issue[] } | undefined;
+  const periodStart = Date.parse(options.start),
+    periodEnd = Date.parse(options.end);
+  for (let start = periodStart; start < periodEnd; start += 7 * 86400000) {
+    const end = Math.min(periodEnd, start + 7 * 86400000);
+    const events = project.startEvents?.filter(
+      (event) =>
+        Date.parse(event.start) < end &&
+        Date.parse(event.start) + event.durationSeconds * 1000 > start,
+    );
+    if (events?.length) {
+      const run = simulateStartEvents(
+        { ...project, startEvents: events },
+        {
+          start: new Date(start).toISOString(),
+          end: new Date(end).toISOString(),
+        },
+      );
+      starts = {
+        peakKVA: Math.max(starts?.peakKVA ?? 0, run.peakKVA),
+        issues: [...(starts?.issues ?? []), ...run.issues],
+      };
+    }
+  }
   const routes = new Map<string, string>();
   let lossComplete = project.loads.length > 0;
   for (const load of project.loads) {
@@ -84,7 +105,10 @@ export function compareScenarioPeriod(
     feederLossW: lossComplete
       ? [...segments.values()].reduce((sum, value) => sum + value, 0)
       : null,
-    totalCost: energy.bill?.complete===false || !energy.complete ? null : energy.totalCost,
+    totalCost:
+      energy.bill?.complete === false || !energy.complete
+        ? null
+        : energy.totalCost,
     carbonKg:
       project.tariff.carbonKgPerKWh === undefined
         ? null

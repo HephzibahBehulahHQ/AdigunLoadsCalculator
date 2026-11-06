@@ -21,7 +21,7 @@ export interface EngineeringCheck {
 }
 export interface CircuitAssessment {
   circuitId: string;
-  designCurrentA: number;
+  designCurrentA: number | null;
   checks: EngineeringCheck[];
   complete: boolean;
   revision: number;
@@ -45,10 +45,11 @@ export function assessCircuit(
   for (const load of normalized.filter((item) => item.valid))
     for (const phase of PHASES)
       currents[phase] = addComplex(currents[phase], load.phaseCurrents[phase]);
-  // Conservative running envelope: energy duty and project-level diversity do not derate cable current.
-  const designCurrentA = Math.max(
-    0,
-    ...PHASES.map((phase) => magnitude(currents[phase])),
+  const dc = loads[0]?.connection === "dc";
+  const compatible = loads.every(
+    (load) =>
+      (load.connection === "dc") === dc &&
+      (!dc || load.voltage === loads[0]?.voltage),
   );
   const relatedIds = new Set([
     circuit.id,
@@ -61,15 +62,32 @@ export function assessCircuit(
   const completeLoads =
     normalized.every((load) => load.valid && load.reactiveKvar !== null) &&
     loads.length > 0 &&
-    !topologyIncomplete;
+    !topologyIncomplete &&
+    compatible;
+  // Duty/diversity do not derate running current. DC has no AC phase phasor.
+  const runningCurrentA = dc
+    ? normalized.reduce((sum, load) => sum + load.currentA, 0)
+    : Math.max(0, ...PHASES.map((phase) => magnitude(currents[phase])));
+  const designCurrentA =
+    completeLoads && Number.isFinite(runningCurrentA) ? runningCurrentA : null;
+  const neutralA = magnitude(
+    addComplex(addComplex(currents.L1, currents.L2), currents.L3),
+  );
+  // The entered cable ampacity is common to all current-carrying conductors.
+  const conductorCurrentA =
+    designCurrentA === null
+      ? null
+      : Math.max(designCurrentA, dc ? 0 : neutralA);
   if (!completeLoads)
     checks.push({
       id: "load-data",
       label: "Load inputs",
-      assessment: "incomplete",
-      detail: loads.length
-        ? "Correct invalid loads or supply displacement-PF/complex-power data before circuit assessment."
-        : "Assign at least one load to the circuit.",
+      assessment: compatible ? "incomplete" : "unsupported",
+      detail: !compatible
+        ? "A circuit requires one compatible AC or DC supply; separate mixed supplies or incompatible DC voltages."
+        : loads.length
+          ? "Correct invalid loads or supply displacement-PF/complex-power data before circuit assessment."
+          : "Assign at least one load to the circuit.",
     });
   const cable = circuit.cable;
   let correctedAmpacity: number | undefined;
@@ -96,29 +114,31 @@ export function assessCircuit(
     checks.push({
       id: "ampacity",
       label: "Running current versus conductor capacity",
-      assessment: !completeLoads
-        ? "incomplete"
-        : designCurrentA <= correctedAmpacity
-          ? "passed"
-          : "failed",
-      value: designCurrentA,
+      assessment: !compatible
+        ? "unsupported"
+        : conductorCurrentA === null
+          ? "incomplete"
+          : conductorCurrentA <= correctedAmpacity
+            ? "passed"
+            : "failed",
+      value: conductorCurrentA ?? undefined,
       limit: correctedAmpacity,
       unit: "A",
       detail:
-        "Checks the entered capacity under its stated installation conditions only.",
-      formula: "Iz = Ibase × ∏ correction factors; Ib ≤ Iz",
+        "Checks the highest phase or neutral current against the entered common conductor capacity under its stated installation conditions.",
+      formula: "Iz = Ibase × ∏ correction factors; max(Iphase, Ineutral) ≤ Iz",
       source: cable.source,
     });
   }
   if (
-    !completeLoads ||
+    designCurrentA === null ||
     !positive(circuit.protectiveA) ||
     correctedAmpacity === undefined
   )
     checks.push({
       id: "protection-rating",
       label: "Device rating coordination",
-      assessment: "incomplete",
+      assessment: compatible ? "incomplete" : "unsupported",
       detail:
         "A valid load current, protective-device current and sourced corrected cable ampacity are required.",
     });
@@ -149,12 +169,13 @@ export function assessCircuit(
     (load) =>
       load.connection === connection &&
       load.voltage === loads[0]?.voltage &&
+      (connection !== "single" || load.phase === loads[0]?.phase) &&
       (connection !== "line-line" ||
         [...(load.phasePair ?? [])].sort().join() ===
           [...(loads[0].phasePair ?? [])].sort().join()),
   );
   if (
-    !completeLoads ||
+    designCurrentA === null ||
     !cable ||
     !nonnegative(cable.lengthM) ||
     !nonnegative(cable.resistanceOhmPerKm) ||

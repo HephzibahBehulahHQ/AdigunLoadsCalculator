@@ -1,4 +1,7 @@
-import { LocaleNumberInput, OptionalLocaleNumberInput } from "../i18n/LocaleNumberInput";
+import {
+  LocaleNumberInput,
+  OptionalLocaleNumberInput,
+} from "../i18n/LocaleNumberInput";
 import { useContext, useMemo, useState, useEffect, useRef } from "react";
 import {
   Plus,
@@ -16,7 +19,11 @@ import type {
   EnergySettings,
   Phase,
 } from "../domain/types";
-import { createLoad, duplicateProject, validateProjectImport } from "../domain/project";
+import {
+  createLoad,
+  duplicateProject,
+  validateProjectImport,
+} from "../domain/project";
 import { calculateProject } from "../engine/electrical";
 import {
   simulateEnergy,
@@ -49,16 +56,30 @@ export function Renewables({
     structuredClone(project.energy),
   );
   const [profile, setProfile] = useState(
-    project.energy.pvHourlyProfile?.map((n) => formatEditableNumber(n, locale)).join("; ") || "",
+    project.energy.pvHourlyProfile
+      ?.map((n) => formatEditableNumber(n, locale))
+      .join("; ") || "",
   );
-  const [wind, setWind] = useState(project.energy.windHourlyKW?.map((n) => formatEditableNumber(n, locale)).join("; ") ?? "");
+  const [wind, setWind] = useState(
+    project.energy.windHourlyKW
+      ?.map((n) => formatEditableNumber(n, locale))
+      .join("; ") ?? "",
+  );
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
   const [actualRange, setActualRange] = useState(false);
-  const [range, setRange] = useState({ start: `${today}T00:00:00Z`, end: new Date(Date.parse(`${today}T00:00:00Z`) + 86400000).toISOString() });
-  const [outageRange, setOutageRange] = useState({ start: `${today}T18:00:00Z`, end: `${today}T22:00:00Z` });
+  const [range, setRange] = useState({
+    start: `${today}T00:00:00Z`,
+    end: new Date(Date.parse(`${today}T00:00:00Z`) + 86400000).toISOString(),
+  });
+  const [outageRange, setOutageRange] = useState({
+    start: `${today}T18:00:00Z`,
+    end: `${today}T22:00:00Z`,
+  });
   const [busy, setBusy] = useState(false);
-  const job = useRef<Worker | null>(null), runToken = useRef(0), latest = useRef(project);
+  const job = useRef<Worker | null>(null),
+    runToken = useRef(0),
+    latest = useRef(project);
   latest.current = project;
   const [outage, setOutage] = useState({
     enabled: false,
@@ -67,29 +88,90 @@ export function Renewables({
   });
   const [result, setResult] = useState<EnergyResult>();
   const [error, setError] = useState("");
-  const profileLocale = useRef(locale), windLocale = useRef(locale);
-  const parsedProfile = profile.trim() ? parseLocaleNumberList(profile, profileLocale.current, { min: 0, max: 1 }) : undefined;
-  const parsedWind = wind.trim() ? parseLocaleNumberList(wind, windLocale.current, { min: 0 }) : undefined;
-  const inputKey = JSON.stringify({ energy: { ...draft, pvHourlyProfile: parsedProfile?.ok ? parsedProfile.values : profile || undefined, windHourlyKW: parsedWind?.ok ? parsedWind.values : wind || undefined }, date, actualRange, range, outageRange, outage });
+  const profileLocale = useRef(locale),
+    windLocale = useRef(locale);
+  const parsedProfile = profile.trim()
+    ? parseLocaleNumberList(profile, profileLocale.current, { min: 0, max: 1 })
+    : undefined;
+  const parsedWind = wind.trim()
+    ? parseLocaleNumberList(wind, windLocale.current, { min: 0 })
+    : undefined;
+  const inputKey = JSON.stringify({
+    energy: {
+      ...draft,
+      pvHourlyProfile: parsedProfile?.ok
+        ? parsedProfile.values
+        : profile || undefined,
+      windHourlyKW: parsedWind?.ok ? parsedWind.values : wind || undefined,
+    },
+    date,
+    actualRange,
+    range,
+    outageRange,
+    outage,
+  });
   const lastRunInput = useRef("");
   const energyKey = JSON.stringify(project.energy);
   useEffect(() => {
-    profileLocale.current = locale; windLocale.current = locale;
+    profileLocale.current = locale;
+    windLocale.current = locale;
     setDraft(structuredClone(project.energy));
-    setProfile(project.energy.pvHourlyProfile?.map((n) => formatEditableNumber(n, locale)).join("; ") || "");
-    setWind(project.energy.windHourlyKW?.map((n) => formatEditableNumber(n, locale)).join("; ") ?? "");
+    setProfile(
+      project.energy.pvHourlyProfile
+        ?.map((n) => formatEditableNumber(n, locale))
+        .join("; ") || "",
+    );
+    setWind(
+      project.energy.windHourlyKW
+        ?.map((n) => formatEditableNumber(n, locale))
+        .join("; ") ?? "",
+    );
     setError("");
   }, [project.id, energyKey]);
   useEffect(() => {
-    const pv = parseLocaleNumberList(profile, profileLocale.current, { min: 0, max: 1 });
-    if (pv.ok) { setProfile(pv.values.map((n) => formatEditableNumber(n, locale)).join("; ")); profileLocale.current = locale; }
-    const windValues = parseLocaleNumberList(wind, windLocale.current, { min: 0 });
-    if (windValues.ok) { setWind(windValues.values.map((n) => formatEditableNumber(n, locale)).join("; ")); windLocale.current = locale; }
+    const pv = parseLocaleNumberList(profile, profileLocale.current, {
+      min: 0,
+      max: 1,
+    });
+    if (pv.ok) {
+      setProfile(
+        pv.values.map((n) => formatEditableNumber(n, locale)).join("; "),
+      );
+      profileLocale.current = locale;
+    }
+    const windValues = parseLocaleNumberList(wind, windLocale.current, {
+      min: 0,
+    });
+    if (windValues.ok) {
+      setWind(
+        windValues.values
+          .map((n) => formatEditableNumber(n, locale))
+          .join("; "),
+      );
+      windLocale.current = locale;
+    }
   }, [locale]);
-  useEffect(() => { if (lastRunInput.current !== inputKey) { runToken.current++; job.current?.terminate(); job.current = null; setBusy(false); setResult(undefined); } }, [inputKey]);
-  useEffect(() => () => { runToken.current++; job.current?.terminate(); }, []);
   useEffect(() => {
-    runToken.current++; job.current?.terminate(); job.current = null; setBusy(false);
+    if (lastRunInput.current !== inputKey) {
+      runToken.current++;
+      job.current?.terminate();
+      job.current = null;
+      setBusy(false);
+      setResult(undefined);
+    }
+  }, [inputKey]);
+  useEffect(
+    () => () => {
+      runToken.current++;
+      job.current?.terminate();
+    },
+    [],
+  );
+  useEffect(() => {
+    runToken.current++;
+    job.current?.terminate();
+    job.current = null;
+    setBusy(false);
     setResult((previous) =>
       previous?.revision === project.revision ? previous : undefined,
     );
@@ -99,7 +181,8 @@ export function Renewables({
     e.preventDefault();
     try {
       lastRunInput.current = inputKey;
-      if (parsedProfile && !parsedProfile.ok) throw new Error(parsedProfile.message);
+      if (parsedProfile && !parsedProfile.ok)
+        throw new Error(parsedProfile.message);
       if (parsedWind && !parsedWind.ok) throw new Error(parsedWind.message);
       const energy = {
         ...draft,
@@ -121,25 +204,66 @@ export function Renewables({
         date,
         range: actualRange ? range : undefined,
         outageRange: actualRange && outage.enabled ? outageRange : undefined,
-        outage: !actualRange && outage.enabled
-          ? { startHour: outage.startHour, durationHours: outage.durationHours }
-          : undefined,
+        outage:
+          !actualRange && outage.enabled
+            ? {
+                startHour: outage.startHour,
+                durationHours: outage.durationHours,
+              }
+            : undefined,
       };
       const checked = validateProjectImport(p);
       if (!checked.valid) throw new Error(checked.errors.join(" "));
-      const baseRevision = project.revision, projectId = project.id, token = ++runToken.current;
+      const baseRevision = project.revision,
+        projectId = project.id,
+        token = ++runToken.current;
       const accept = (next: EnergyResult) => {
-        if (token !== runToken.current || latest.current.id !== projectId || latest.current.revision !== baseRevision) return;
-        const accepted = change((d) => { if (d.revision !== baseRevision) throw new Error("Project changed while dispatch was running; run it again."); d.energy = energy; });
+        if (
+          token !== runToken.current ||
+          latest.current.id !== projectId ||
+          latest.current.revision !== baseRevision
+        )
+          return;
+        const accepted = change((d) => {
+          if (d.revision !== baseRevision)
+            throw new Error(
+              "Project changed while dispatch was running; run it again.",
+            );
+          d.energy = energy;
+        });
         if (accepted === false) return;
-        setResult(next); setError(""); setBusy(false); onComplete?.(next, { ...options, energy: structuredClone(energy) });
+        setResult(next);
+        setError("");
+        setBusy(false);
+        onComplete?.(next, { ...options, energy: structuredClone(energy) });
       };
       job.current?.terminate();
       if (actualRange && typeof Worker !== "undefined") {
-        setBusy(true); setResult(undefined);
-        const worker = new Worker(new URL("../workers/energy.ts", import.meta.url), { type: "module" }); job.current = worker;
-        worker.onmessage = (event: MessageEvent<{ result?: EnergyResult; error?: string }>) => { if (token !== runToken.current || worker !== job.current) return; if (event.data.error) { setError(event.data.error); setBusy(false); } else if (event.data.result) accept(event.data.result); worker.terminate(); job.current = null; };
-        worker.onerror = () => { if (token === runToken.current) { setError("Dispatch worker failed. Your project is unchanged."); setBusy(false); } worker.terminate(); };
+        setBusy(true);
+        setResult(undefined);
+        const worker = new Worker(
+          new URL("../workers/energy.ts", import.meta.url),
+          { type: "module" },
+        );
+        job.current = worker;
+        worker.onmessage = (
+          event: MessageEvent<{ result?: EnergyResult; error?: string }>,
+        ) => {
+          if (token !== runToken.current || worker !== job.current) return;
+          if (event.data.error) {
+            setError(event.data.error);
+            setBusy(false);
+          } else if (event.data.result) accept(event.data.result);
+          worker.terminate();
+          job.current = null;
+        };
+        worker.onerror = () => {
+          if (token === runToken.current) {
+            setError("Dispatch worker failed. Your project is unchanged.");
+            setBusy(false);
+          }
+          worker.terminate();
+        };
         worker.postMessage({ project: p, options });
       } else accept(simulateEnergy(p, options));
     } catch (e) {
@@ -230,15 +354,57 @@ export function Renewables({
             rows={2}
             value={profile}
             onChange={(e) => {
-              profileLocale.current = locale; setProfile(e.target.value);
+              profileLocale.current = locale;
+              setProfile(e.target.value);
               setResult(undefined);
             }}
           />
         </Field>
-        <EnergySettingsFields project={project} energy={draft} setEnergy={setDraft} wind={wind} setWind={(value) => { windLocale.current = locale; setWind(value); }} />
+        <EnergySettingsFields
+          project={project}
+          energy={draft}
+          setEnergy={setDraft}
+          wind={wind}
+          setWind={(value) => {
+            windLocale.current = locale;
+            setWind(value);
+          }}
+        />
         <h3>{t("Dispatch period")}</h3>
-        <div className="check-row"><label><input type="checkbox" checked={actualRange} onChange={(e) => setActualRange(e.target.checked)} />{t("Use actual timestamped calendar range")}</label></div>
-        {actualRange ? <div className="form-grid"><Field label={t("Dispatch range start (explicit offset)")}><input value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} /></Field><Field label={t("Dispatch range end (explicit offset)")}><input value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} /></Field></div> : <Field label={t("Representative local date for rules and tariffs")}><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>}
+        <div className="check-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={actualRange}
+              onChange={(e) => setActualRange(e.target.checked)}
+            />
+            {t("Use actual timestamped calendar range")}
+          </label>
+        </div>
+        {actualRange ? (
+          <div className="form-grid">
+            <Field label={t("Dispatch range start (explicit offset)")}>
+              <input
+                value={range.start}
+                onChange={(e) => setRange({ ...range, start: e.target.value })}
+              />
+            </Field>
+            <Field label={t("Dispatch range end (explicit offset)")}>
+              <input
+                value={range.end}
+                onChange={(e) => setRange({ ...range, end: e.target.value })}
+              />
+            </Field>
+          </div>
+        ) : (
+          <Field label={t("Representative local date for rules and tariffs")}>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </Field>
+        )}
         <div className="check-row">
           <label>
             <input
@@ -268,7 +434,26 @@ export function Renewables({
             {t("Simulate grid outage")}
           </label>
         </div>
-        {outage.enabled && actualRange && <div className="form-grid"><Field label={t("Outage starts (explicit offset)")}><input value={outageRange.start} onChange={(e) => setOutageRange({ ...outageRange, start: e.target.value })} /></Field><Field label={t("Outage ends (explicit offset)")}><input value={outageRange.end} onChange={(e) => setOutageRange({ ...outageRange, end: e.target.value })} /></Field></div>}
+        {outage.enabled && actualRange && (
+          <div className="form-grid">
+            <Field label={t("Outage starts (explicit offset)")}>
+              <input
+                value={outageRange.start}
+                onChange={(e) =>
+                  setOutageRange({ ...outageRange, start: e.target.value })
+                }
+              />
+            </Field>
+            <Field label={t("Outage ends (explicit offset)")}>
+              <input
+                value={outageRange.end}
+                onChange={(e) =>
+                  setOutageRange({ ...outageRange, end: e.target.value })
+                }
+              />
+            </Field>
+          </div>
+        )}
         {outage.enabled && !actualRange && (
           <div className="form-grid">
             <Field label={t("Start hour")} unit="h">
@@ -288,7 +473,7 @@ export function Renewables({
             </Field>
             <Field label={t("Outage duration")} unit="h">
               <LocaleNumberInput
-                min={.25}
+                min={0.25}
                 max={24}
                 step=".25"
                 value={outage.durationHours}
@@ -308,7 +493,20 @@ export function Renewables({
             <Save size={16} />
             {t("Save")} & {t("Run simulation")}
           </button>
-          {busy && <button type="button" className="button" onClick={() => { runToken.current++; job.current?.terminate(); job.current = null; setBusy(false); }}>{t("Cancel simulation")}</button>}
+          {busy && (
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                runToken.current++;
+                job.current?.terminate();
+                job.current = null;
+                setBusy(false);
+              }}
+            >
+              {t("Cancel simulation")}
+            </button>
+          )}
         </div>
         {error && (
           <p className="error-text" role="alert">
@@ -324,10 +522,28 @@ export function Renewables({
       {result && result.revision === project.revision && (
         <>
           <Notice>{t(result.method)}</Notice>
-          <div className="metric-strip"><div><span>{t("Deliberately shed energy")}</span><strong>{f(result.shedKWh)} kWh</strong></div><div><span>{t("Critical unserved energy")}</span><strong>{f(result.criticalUnservedKWh)} kWh</strong></div><div><span>{t("Grid charging")}</span><strong>{f(result.gridChargeKWh)} kWh</strong></div></div>
+          <div className="metric-strip">
+            <div>
+              <span>{t("Deliberately shed energy")}</span>
+              <strong>{f(result.shedKWh)} kWh</strong>
+            </div>
+            <div>
+              <span>{t("Critical unserved energy")}</span>
+              <strong>{f(result.criticalUnservedKWh)} kWh</strong>
+            </div>
+            <div>
+              <span>{t("Grid charging")}</span>
+              <strong>{f(result.gridChargeKWh)} kWh</strong>
+            </div>
+          </div>
           <div className="kpi-grid">
             {[
-              [project.energy.windHourlyKW?.some((kw) => kw > 0) ? "PV + wind generation" : "PV generation", result.generationKWh],
+              [
+                project.energy.windHourlyKW?.some((kw) => kw > 0)
+                  ? "PV + wind generation"
+                  : "PV generation",
+                result.generationKWh,
+              ],
               ["Grid import", result.importKWh],
               ["Grid export", result.exportKWh],
               ["Battery stored", result.finalStoredKWh],
@@ -344,16 +560,32 @@ export function Renewables({
           <section className="panel">
             <div className="panel-head">
               <h3>
-                {t(project.energy.windHourlyKW?.some((kw) => kw > 0) ? "PV + wind generation" : "PV generation")} / {t("Load Schedule")}
+                {t(
+                  project.energy.windHourlyKW?.some((kw) => kw > 0)
+                    ? "PV + wind generation"
+                    : "PV generation",
+                )}{" "}
+                / {t("Load Schedule")}
               </h3>
               <span className="tag cyan">15 min</span>
             </div>
             <LineChart
               points={result.points.map((p) => ({
-                x: p.timestamp ? (Date.parse(p.timestamp) - Date.parse(result.points[0].timestamp!)) / 3600000 : p.hour,
+                x: p.timestamp
+                  ? (Date.parse(p.timestamp) -
+                      Date.parse(result.points[0].timestamp!)) /
+                    3600000
+                  : p.hour,
                 y: p.generationKW,
               }))}
-              secondary={result.points.map((p) => ({ x: p.timestamp ? (Date.parse(p.timestamp) - Date.parse(result.points[0].timestamp!)) / 3600000 : p.hour, y: p.loadKW }))}
+              secondary={result.points.map((p) => ({
+                x: p.timestamp
+                  ? (Date.parse(p.timestamp) -
+                      Date.parse(result.points[0].timestamp!)) /
+                    3600000
+                  : p.hour,
+                y: p.loadKW,
+              }))}
               color="var(--gold)"
             />
             <div className="chart-footer">
@@ -374,7 +606,14 @@ export function Renewables({
                         "losses_kWh",
                         "unserved_kWh",
                         "balance_error_kWh",
-                        "timestamp", "duration_hours", "curtailed_kWh", "grid_charge_kWh", "shed_kWh", "critical_unserved_kWh", "served_load_ids", "unserved_load_ids",
+                        "timestamp",
+                        "duration_hours",
+                        "curtailed_kWh",
+                        "grid_charge_kWh",
+                        "shed_kWh",
+                        "critical_unserved_kWh",
+                        "served_load_ids",
+                        "unserved_load_ids",
                       ],
                       ...result.points.map((p) => [
                         p.hour,
@@ -386,7 +625,14 @@ export function Renewables({
                         p.lossesKWh,
                         p.unservedKWh,
                         p.balanceErrorKWh,
-                        p.timestamp ?? "", p.durationHours, p.curtailedKWh, p.gridChargeKWh, p.shedKWh, p.criticalUnservedKWh, p.servedLoadIds?.join(";") ?? "", p.unservedLoadIds?.join(";") ?? "",
+                        p.timestamp ?? "",
+                        p.durationHours,
+                        p.curtailedKWh,
+                        p.gridChargeKWh,
+                        p.shedKWh,
+                        p.criticalUnservedKWh,
+                        p.servedLoadIds?.join(";") ?? "",
+                        p.unservedLoadIds?.join(";") ?? "",
                       ]),
                     ]),
                     "text/csv",
@@ -404,7 +650,14 @@ export function Renewables({
               <span>{money(result.totalCost, project.currency, locale)}</span>
             </div>
             <LineChart
-              points={result.points.map((p) => ({ x: p.timestamp ? (Date.parse(p.timestamp) - Date.parse(result.points[0].timestamp!)) / 3600000 : p.hour, y: p.storedKWh }))}
+              points={result.points.map((p) => ({
+                x: p.timestamp
+                  ? (Date.parse(p.timestamp) -
+                      Date.parse(result.points[0].timestamp!)) /
+                    3600000
+                  : p.hour,
+                y: p.storedKWh,
+              }))}
               color="var(--violet)"
               label="kWh"
             />
@@ -449,7 +702,11 @@ export function EVPlanner({
   project: Project;
   result: CalculationResult;
   change: Change;
-  onComplete?: (sessionId: string, plan: EVPlan, inputs: Record<string, unknown>) => void;
+  onComplete?: (
+    sessionId: string,
+    plan: EVPlan,
+    inputs: Record<string, unknown>,
+  ) => void;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -457,31 +714,109 @@ export function EVPlanner({
   const [strategy, setStrategy] = useState<"immediate" | "cheapest" | "solar">(
     "immediate",
   );
-  const [chargingDate, setChargingDate] = useState(new Date().toISOString().slice(0, 10));
-  const completeRef = useRef(onComplete); completeRef.current = onComplete;
+  const [chargingDate, setChargingDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const completeRef = useRef(onComplete);
+  completeRef.current = onComplete;
   const [error, setError] = useState("");
   const planning = useMemo(() => {
     try {
-      const planningProject = { ...project, supply: { ...project.supply, limitA: Math.min(project.supply.limitA, project.boards.find((board) => !board.parentId)?.ratedA ?? project.supply.limitA) } };
-      const envelope = conservativeDemandProfile(planningProject, 60, chargingDate);
-      const nextDate = new Date(Date.parse(`${chargingDate}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+      const planningProject = {
+        ...project,
+        supply: {
+          ...project.supply,
+          limitA: Math.min(
+            project.supply.limitA,
+            project.boards.find((board) => !board.parentId)?.ratedA ??
+              project.supply.limitA,
+          ),
+        },
+      };
+      const envelope = conservativeDemandProfile(
+        planningProject,
+        60,
+        chargingDate,
+      );
+      const nextDate = new Date(
+        Date.parse(`${chargingDate}T00:00:00Z`) + 86400000,
+      )
+        .toISOString()
+        .slice(0, 10);
       const tomorrow = conservativeDemandProfile(planningProject, 60, nextDate);
       const base = [...envelope.kw, ...tomorrow.kw];
-      const remaining = { L1: [...envelope.phaseHeadroomKW.L1, ...tomorrow.phaseHeadroomKW.L1], L2: [...envelope.phaseHeadroomKW.L2, ...tomorrow.phaseHeadroomKW.L2], L3: [...envelope.phaseHeadroomKW.L3, ...tomorrow.phaseHeadroomKW.L3] };
-      if (strategy === "solar" && !project.energy.pvHourlyProfile && !project.energy.windHourlyKW) throw new Error("Enter a generation profile before using generation-following charging.");
+      const remaining = {
+        L1: [...envelope.phaseHeadroomKW.L1, ...tomorrow.phaseHeadroomKW.L1],
+        L2: [...envelope.phaseHeadroomKW.L2, ...tomorrow.phaseHeadroomKW.L2],
+        L3: [...envelope.phaseHeadroomKW.L3, ...tomorrow.phaseHeadroomKW.L3],
+      };
+      if (
+        strategy === "solar" &&
+        !project.energy.pvHourlyProfile &&
+        !project.energy.windHourlyKW
+      )
+        throw new Error(
+          "Enter a generation profile before using generation-following charging.",
+        );
       const rows = project.evSessions.map((session) => {
         const phase = session.phase || "L1";
-        const slotIndex = (hour: number) => hour + (session.departureHour < session.arrivalHour && hour < session.arrivalHour ? 24 : 0);
-        const headroom = Array.from({ length: 24 }, (_, hour) => { const index = slotIndex(hour); return session.connection === "three" ? Math.min(remaining.L1[index], remaining.L2[index], remaining.L3[index]) * 3 : remaining[phase][index]; });
+        const slotIndex = (hour: number) =>
+          hour +
+          (session.departureHour < session.arrivalHour &&
+          hour < session.arrivalHour
+            ? 24
+            : 0);
+        const headroom = Array.from({ length: 24 }, (_, hour) => {
+          const index = slotIndex(hour);
+          return session.connection === "three"
+            ? Math.min(
+                remaining.L1[index],
+                remaining.L2[index],
+                remaining.L3[index],
+              ) * 3
+            : remaining[phase][index];
+        });
         const plan = scheduleEV(
           session,
           Array.from({ length: 24 }, (_, hour) => base[slotIndex(hour)]),
-          result.profile.map((p) => { const date = slotIndex(p.hour) >= 24 ? nextDate : chargingDate; return tariffRate(project.tariff, p.hour, new Date(`${date}T00:00:00Z`).getUTCDay(), date); }),
-          { strategy, phaseHeadroomKW: headroom, generationKW: strategy === "solar" ? Array.from({ length: 24 }, (_, hour) => Math.min((project.energy.pvHourlyProfile?.[hour] ?? 0) * project.energy.pvKW * project.energy.pvPerformanceRatio, project.energy.inverterACLimitKW ?? Infinity) + (project.energy.windHourlyKW?.[hour] ?? 0)) : undefined },
+          result.profile.map((p) => {
+            const date = slotIndex(p.hour) >= 24 ? nextDate : chargingDate;
+            return tariffRate(
+              project.tariff,
+              p.hour,
+              new Date(`${date}T00:00:00Z`).getUTCDay(),
+              date,
+            );
+          }),
+          {
+            strategy,
+            phaseHeadroomKW: headroom,
+            generationKW:
+              strategy === "solar"
+                ? Array.from(
+                    { length: 24 },
+                    (_, hour) =>
+                      Math.min(
+                        (project.energy.pvHourlyProfile?.[hour] ?? 0) *
+                          project.energy.pvKW *
+                          project.energy.pvPerformanceRatio,
+                        project.energy.inverterACLimitKW ?? Infinity,
+                      ) + (project.energy.windHourlyKW?.[hour] ?? 0),
+                  )
+                : undefined,
+          },
         );
         plan.points.forEach((p, i) => {
-          const index = slotIndex(i); base[index] += p.acKW;
-          for (const connectionPhase of session.connection === "three" ? ["L1", "L2", "L3"] as Phase[] : [phase]) remaining[connectionPhase][index] = Math.max(0, remaining[connectionPhase][index] - p.acKW / (session.connection === "three" ? 3 : 1));
+          const index = slotIndex(i);
+          base[index] += p.acKW;
+          for (const connectionPhase of session.connection === "three"
+            ? (["L1", "L2", "L3"] as Phase[])
+            : [phase])
+            remaining[connectionPhase][index] = Math.max(
+              0,
+              remaining[connectionPhase][index] -
+                p.acKW / (session.connection === "three" ? 3 : 1),
+            );
         });
         return { session, plan };
       });
@@ -491,7 +826,14 @@ export function EVPlanner({
     }
   }, [project, result, strategy, chargingDate]);
   const plans = planning.plans;
-  useEffect(() => { for (const { session, plan } of plans) completeRef.current?.(session.id, plan, { strategy, date: chargingDate, session: structuredClone(session) }); }, [plans]);
+  useEffect(() => {
+    for (const { session, plan } of plans)
+      completeRef.current?.(session.id, plan, {
+        strategy,
+        date: chargingDate,
+        session: structuredClone(session),
+      });
+  }, [plans]);
   const fresh = () => ({
     id: crypto.randomUUID(),
     name: "",
@@ -521,7 +863,13 @@ export function EVPlanner({
           </option>
           <option value="solar">{t("Follow supplied generation")}</option>
         </select>
-        <Field label={t("Charging tariff / calendar date")}><input type="date" value={chargingDate} onChange={(e) => setChargingDate(e.target.value)} /></Field>
+        <Field label={t("Charging tariff / calendar date")}>
+          <input
+            type="date"
+            value={chargingDate}
+            onChange={(e) => setChargingDate(e.target.value)}
+          />
+        </Field>
         <span className="spacer" />
         <button className="button primary" onClick={() => setEditing(fresh())}>
           <Plus size={16} />
@@ -533,7 +881,11 @@ export function EVPlanner({
         share site and phase limits in listed order, and preserve their actual
         duration. {t("All results use entered assumptions.")}
       </Notice>
-      {planning.error && <p className="error-text" role="alert">{t(planning.error)}</p>}
+      {planning.error && (
+        <p className="error-text" role="alert">
+          {t(planning.error)}
+        </p>
+      )}
       {plans.length === 0 && (
         <section className="panel tool-intro">
           <CarFront size={40} className="cyan-text" />
@@ -618,12 +970,46 @@ export function EVPlanner({
                           category: "EV",
                           rating: point.acKW,
                           connection: session.connection ?? "single",
-                          voltage: session.connection === "three" ? p.supply.voltageLL : p.supply.voltageLN,
+                          voltage:
+                            session.connection === "three"
+                              ? p.supply.voltageLL
+                              : p.supply.voltageLN,
                           phase: session.phase || "L1",
                           startHour: point.startHour,
                           hoursPerDay: point.durationHours,
-                          boardId: p.boards.find((board) => !board.parentId)?.id,
-                          schedule: { windows: [{ id: crypto.randomUUID(), startHour: point.startHour, durationHours: point.durationHours, effectiveFrom: session.departureHour < session.arrivalHour && point.hour < session.arrivalHour ? new Date(Date.parse(`${chargingDate}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : chargingDate, effectiveTo: session.departureHour < session.arrivalHour && point.hour < session.arrivalHour ? new Date(Date.parse(`${chargingDate}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : chargingDate }] },
+                          boardId: p.boards.find((board) => !board.parentId)
+                            ?.id,
+                          schedule: {
+                            windows: [
+                              {
+                                id: crypto.randomUUID(),
+                                startHour: point.startHour,
+                                durationHours: point.durationHours,
+                                effectiveFrom:
+                                  session.departureHour < session.arrivalHour &&
+                                  point.hour < session.arrivalHour
+                                    ? new Date(
+                                        Date.parse(
+                                          `${chargingDate}T00:00:00Z`,
+                                        ) + 86400000,
+                                      )
+                                        .toISOString()
+                                        .slice(0, 10)
+                                    : chargingDate,
+                                effectiveTo:
+                                  session.departureHour < session.arrivalHour &&
+                                  point.hour < session.arrivalHour
+                                    ? new Date(
+                                        Date.parse(
+                                          `${chargingDate}T00:00:00Z`,
+                                        ) + 86400000,
+                                      )
+                                        .toISOString()
+                                        .slice(0, 10)
+                                    : chargingDate,
+                              },
+                            ],
+                          },
                           source: {
                             kind: "user",
                             reference:
@@ -722,9 +1108,65 @@ export function EVPlanner({
                     />
                   </Field>
                 ))}
-                <Field label={t("Charging connection")}><select value={editing.connection ?? "single"} onChange={(e) => setEditing({ ...editing, connection: e.target.value as "single" | "three" })}><option value="single">{t("Single phase")}</option><option value="three">{t("Balanced three phase")}</option></select></Field>
-                <Field label={t("Required energy basis")}><select value={editing.energyBasis ?? "required"} onChange={(e) => setEditing({ ...editing, energyBasis: e.target.value as "required" | "soc", usableCapacityKWh: editing.usableCapacityKWh ?? 0, initialSoc: editing.initialSoc ?? 0, targetSoc: editing.targetSoc ?? 1 })}><option value="required">{t("Entered battery-delivered energy")}</option><option value="soc">{t("Usable capacity and SOC change")}</option></select></Field>
-                {editing.energyBasis === "soc" && ([['usableCapacityKWh', 'Usable vehicle battery capacity', 'kWh'], ['initialSoc', 'Arrival SOC', '0–1'], ['targetSoc', 'Departure target SOC', '0–1']] as const).map(([key, label, unit]) => <Field key={key} label={t(label)} unit={unit}><LocaleNumberInput min={0} max={unit === '0–1' ? 1 : undefined} step="any" value={editing[key] ?? 0} onValueChange={(value) => setEditing({ ...editing, [key]: value })} /></Field>)}
+                <Field label={t("Charging connection")}>
+                  <select
+                    value={editing.connection ?? "single"}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        connection: e.target.value as "single" | "three",
+                      })
+                    }
+                  >
+                    <option value="single">{t("Single phase")}</option>
+                    <option value="three">{t("Balanced three phase")}</option>
+                  </select>
+                </Field>
+                <Field label={t("Required energy basis")}>
+                  <select
+                    value={editing.energyBasis ?? "required"}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        energyBasis: e.target.value as "required" | "soc",
+                        usableCapacityKWh: editing.usableCapacityKWh ?? 0,
+                        initialSoc: editing.initialSoc ?? 0,
+                        targetSoc: editing.targetSoc ?? 1,
+                      })
+                    }
+                  >
+                    <option value="required">
+                      {t("Entered battery-delivered energy")}
+                    </option>
+                    <option value="soc">
+                      {t("Usable capacity and SOC change")}
+                    </option>
+                  </select>
+                </Field>
+                {editing.energyBasis === "soc" &&
+                  (
+                    [
+                      [
+                        "usableCapacityKWh",
+                        "Usable vehicle battery capacity",
+                        "kWh",
+                      ],
+                      ["initialSoc", "Arrival SOC", "0–1"],
+                      ["targetSoc", "Departure target SOC", "0–1"],
+                    ] as const
+                  ).map(([key, label, unit]) => (
+                    <Field key={key} label={t(label)} unit={unit}>
+                      <LocaleNumberInput
+                        min={0}
+                        max={unit === "0–1" ? 1 : undefined}
+                        step="any"
+                        value={editing[key] ?? 0}
+                        onValueChange={(value) =>
+                          setEditing({ ...editing, [key]: value })
+                        }
+                      />
+                    </Field>
+                  ))}
                 <Field label={t("Phase")}>
                   <select
                     value={editing.phase}
@@ -774,8 +1216,17 @@ export function Costs({
   const [tariff, setTariff] = useState(structuredClone(project.tariff));
   const [error, setError] = useState("");
   const tariffKey = JSON.stringify(project.tariff);
-  const demandRule = tariff.demandRule ?? { method: "aligned" as const, windowMinutes: 15, stepMinutes: 15, period: "range" as const };
-  const setDemand = (values: Partial<NonNullable<typeof tariff.demandRule>>) => setTariff((draft) => ({ ...draft, demandRule: { ...demandRule, ...values } }));
+  const demandRule = tariff.demandRule ?? {
+    method: "aligned" as const,
+    windowMinutes: 15,
+    stepMinutes: 15,
+    period: "range" as const,
+  };
+  const setDemand = (values: Partial<NonNullable<typeof tariff.demandRule>>) =>
+    setTariff((draft) => ({
+      ...draft,
+      demandRule: { ...demandRule, ...values },
+    }));
   useEffect(() => {
     setTariff(structuredClone(project.tariff));
     setError("");
@@ -862,7 +1313,9 @@ export function Costs({
                 min={key === "taxPercent" ? 0 : undefined}
                 max={key === "taxPercent" ? 100 : undefined}
                 step="any"
-                value={(tariff[key as keyof typeof tariff] as number) ?? undefined}
+                value={
+                  (tariff[key as keyof typeof tariff] as number) ?? undefined
+                }
                 onValueChange={(value) =>
                   setTariff((d) => ({
                     ...d,
@@ -884,7 +1337,9 @@ export function Costs({
         </Field>
         <h3>{t("Time-of-use bands")}</h3>
         <Notice>
-          {t("Tariff dates and weekdays use local calendar time. Overlaps are rejected. Choose an explicit base-rate fallback or require complete band coverage. Overview remains a repeated-day estimate; the calendar bill applies actual aligned or rolling demand windows.")}
+          {t(
+            "Tariff dates and weekdays use local calendar time. Overlaps are rejected. Choose an explicit base-rate fallback or require complete band coverage. Overview remains a repeated-day estimate; the calendar bill applies actual aligned or rolling demand windows.",
+          )}
         </Notice>
         {tariff.bands.map((band, i) => (
           <div className="tariff-row" key={band.id}>
@@ -900,26 +1355,100 @@ export function Costs({
                 }))
               }
             />
-            {(["startHour", "endHour", "importRate", "exportRate"] as const).map((k) => (
+            {(
+              ["startHour", "endHour", "importRate", "exportRate"] as const
+            ).map((k) => (
               <Field key={k} label={k}>
                 <OptionalLocaleNumberInput
                   step="any"
                   min={k === "importRate" || k === "exportRate" ? undefined : 0}
-                  max={k === "importRate" || k === "exportRate" ? undefined : 24}
+                  max={
+                    k === "importRate" || k === "exportRate" ? undefined : 24
+                  }
                   value={band[k] ?? undefined}
                   onValueChange={(value) =>
                     setTariff((d) => ({
                       ...d,
                       bands: d.bands.map((b, j) =>
-                        j === i ? { ...b, [k]: k === "exportRate" && value === undefined ? undefined : value } : b,
+                        j === i
+                          ? {
+                              ...b,
+                              [k]:
+                                k === "exportRate" && value === undefined
+                                  ? undefined
+                                  : value,
+                            }
+                          : b,
                       ),
                     }))
                   }
                 />
               </Field>
             ))}
-            {(["effectiveFrom", "effectiveTo"] as const).map((key) => <Field key={key} label={t(key === "effectiveFrom" ? "Effective from" : "Effective to")}><input type="date" value={band[key] ?? ""} onChange={(e) => setTariff((draft) => ({ ...draft, bands: draft.bands.map((row, j) => j === i ? { ...row, [key]: e.target.value || undefined } : row) }))} /></Field>)}
-            <Field label={t("Active tariff weekdays")}><select multiple value={band.weekdays?.map(String) ?? ["0", "1", "2", "3", "4", "5", "6"]} onChange={(e) => { const days = [...e.target.selectedOptions].map((option) => Number(option.value)); setTariff((draft) => ({ ...draft, bands: draft.bands.map((row, j) => j === i ? { ...row, weekdays: days } : row) })); }}>{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => <option key={day} value={index}>{t(day)}</option>)}</select></Field>
+            {(["effectiveFrom", "effectiveTo"] as const).map((key) => (
+              <Field
+                key={key}
+                label={t(
+                  key === "effectiveFrom" ? "Effective from" : "Effective to",
+                )}
+              >
+                <input
+                  type="date"
+                  value={band[key] ?? ""}
+                  onChange={(e) =>
+                    setTariff((draft) => ({
+                      ...draft,
+                      bands: draft.bands.map((row, j) =>
+                        j === i
+                          ? { ...row, [key]: e.target.value || undefined }
+                          : row,
+                      ),
+                    }))
+                  }
+                />
+              </Field>
+            ))}
+            <Field label={t("Active tariff weekdays")}>
+              <select
+                multiple
+                value={
+                  band.weekdays?.map(String) ?? [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                  ]
+                }
+                onChange={(e) => {
+                  const days = [...e.target.selectedOptions].map((option) =>
+                    Number(option.value),
+                  );
+                  setTariff((draft) => ({
+                    ...draft,
+                    bands: draft.bands.map((row, j) =>
+                      j === i ? { ...row, weekdays: days } : row,
+                    ),
+                  }));
+                }}
+              >
+                {[
+                  "Sunday",
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ].map((day, index) => (
+                  <option key={day} value={index}>
+                    {t(day)}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <button
               type="button"
               className="icon-button danger"
@@ -936,8 +1465,196 @@ export function Costs({
           </div>
         ))}
         <h3>{t("Demand and billing-period rules")}</h3>
-        <div className="form-grid three"><Field label={t("Demand averaging method")}><select value={demandRule.method} onChange={(e) => setDemand({ method: e.target.value as "aligned" | "rolling" })}><option value="aligned">{t("Aligned intervals")}</option><option value="rolling">{t("Rolling windows")}</option></select></Field><Field label={t("Demand window")} unit="min"><LocaleNumberInput min={1} max={1440} step="1" value={demandRule.windowMinutes} onValueChange={(value) => setDemand({ windowMinutes: value, stepMinutes: Math.min(demandRule.stepMinutes, value) })} /></Field><Field label={t("Rolling step")} unit="min"><LocaleNumberInput min={1} max={demandRule.windowMinutes} step="1" value={demandRule.stepMinutes} onValueChange={(value) => setDemand({ stepMinutes: value })} /></Field><Field label={t("Demand billing period")}><select value={demandRule.period} onChange={(e) => setDemand({ period: e.target.value as "range" | "calendar-month" })}><option value="range">{t("Selected billing period")}</option><option value="calendar-month">{t("Each local calendar month")}</option></select></Field><Field label={t("Alignment origin (optional UTC offset)")}><input value={demandRule.alignmentOrigin ?? ""} onChange={(e) => setDemand({ alignmentOrigin: e.target.value || undefined })} /></Field><Field label={t("Tax basis")}><select value={tariff.taxBasis ?? "net"} onChange={(e) => setTariff({ ...tariff, taxBasis: e.target.value as "net" | "imports-and-fixed" })}><option value="net">{t("Net bill including export credit")}</option><option value="imports-and-fixed">{t("Import, demand and standing charges")}</option></select></Field><Field label={t("Standing-charge day basis")}><select value={tariff.standingBasis ?? "elapsed-24h"} onChange={(e) => setTariff({ ...tariff, standingBasis: e.target.value as "elapsed-24h" | "local-calendar-days" })}><option value="elapsed-24h">{t("Elapsed 24-hour periods")}</option><option value="local-calendar-days">{t("Each local calendar date touched")}</option></select></Field><Field label={t("Tariff coverage")}><select value={tariff.coverage ?? "base-rate"} onChange={(e) => setTariff({ ...tariff, coverage: e.target.value as "base-rate" | "complete-bands" })}><option value="base-rate">{t("Explicit base-rate fallback")}</option><option value="complete-bands">{t("Require complete bands")}</option></select></Field></div>
-        <details><summary>{t("Demand-charge time restrictions")}</summary><div className="form-grid"><Field label={t("Eligible demand start hour (optional)")}><OptionalLocaleNumberInput min={0} max={23.999} step="any" value={demandRule.startHour ?? undefined} onValueChange={(value) => setDemand({ startHour: value === undefined ? undefined : value, endHour: value === undefined ? undefined : demandRule.endHour ?? 24 })} /></Field><Field label={t("Eligible demand end hour (optional)")}><OptionalLocaleNumberInput min={0} max={24} step="any" value={demandRule.endHour ?? undefined} onValueChange={(value) => setDemand({ endHour: value === undefined ? undefined : value, startHour: value === undefined ? undefined : demandRule.startHour ?? 0 })} /></Field><Field label={t("Eligible demand weekdays")}><select multiple value={demandRule.weekdays?.map(String) ?? ["0", "1", "2", "3", "4", "5", "6"]} onChange={(e) => setDemand({ weekdays: [...e.target.selectedOptions].map((option) => Number(option.value)) })}>{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => <option key={day} value={index}>{t(day)}</option>)}</select></Field></div></details>
+        <div className="form-grid three">
+          <Field label={t("Demand averaging method")}>
+            <select
+              value={demandRule.method}
+              onChange={(e) =>
+                setDemand({ method: e.target.value as "aligned" | "rolling" })
+              }
+            >
+              <option value="aligned">{t("Aligned intervals")}</option>
+              <option value="rolling">{t("Rolling windows")}</option>
+            </select>
+          </Field>
+          <Field label={t("Demand window")} unit="min">
+            <LocaleNumberInput
+              min={1}
+              max={1440}
+              step="1"
+              value={demandRule.windowMinutes}
+              onValueChange={(value) =>
+                setDemand({
+                  windowMinutes: value,
+                  stepMinutes: Math.min(demandRule.stepMinutes, value),
+                })
+              }
+            />
+          </Field>
+          <Field label={t("Rolling step")} unit="min">
+            <LocaleNumberInput
+              min={1}
+              max={demandRule.windowMinutes}
+              step="1"
+              value={demandRule.stepMinutes}
+              onValueChange={(value) => setDemand({ stepMinutes: value })}
+            />
+          </Field>
+          <Field label={t("Demand billing period")}>
+            <select
+              value={demandRule.period}
+              onChange={(e) =>
+                setDemand({
+                  period: e.target.value as "range" | "calendar-month",
+                })
+              }
+            >
+              <option value="range">{t("Selected billing period")}</option>
+              <option value="calendar-month">
+                {t("Each local calendar month")}
+              </option>
+            </select>
+          </Field>
+          <Field label={t("Alignment origin (optional UTC offset)")}>
+            <input
+              value={demandRule.alignmentOrigin ?? ""}
+              onChange={(e) =>
+                setDemand({ alignmentOrigin: e.target.value || undefined })
+              }
+            />
+          </Field>
+          <Field label={t("Tax basis")}>
+            <select
+              value={tariff.taxBasis ?? "net"}
+              onChange={(e) =>
+                setTariff({
+                  ...tariff,
+                  taxBasis: e.target.value as "net" | "imports-and-fixed",
+                })
+              }
+            >
+              <option value="net">
+                {t("Net bill including export credit")}
+              </option>
+              <option value="imports-and-fixed">
+                {t("Import, demand and standing charges")}
+              </option>
+            </select>
+          </Field>
+          <Field label={t("Standing-charge day basis")}>
+            <select
+              value={tariff.standingBasis ?? "elapsed-24h"}
+              onChange={(e) =>
+                setTariff({
+                  ...tariff,
+                  standingBasis: e.target.value as
+                    "elapsed-24h" | "local-calendar-days",
+                })
+              }
+            >
+              <option value="elapsed-24h">
+                {t("Elapsed 24-hour periods")}
+              </option>
+              <option value="local-calendar-days">
+                {t("Each local calendar date touched")}
+              </option>
+            </select>
+          </Field>
+          <Field label={t("Tariff coverage")}>
+            <select
+              value={tariff.coverage ?? "base-rate"}
+              onChange={(e) =>
+                setTariff({
+                  ...tariff,
+                  coverage: e.target.value as "base-rate" | "complete-bands",
+                })
+              }
+            >
+              <option value="base-rate">
+                {t("Explicit base-rate fallback")}
+              </option>
+              <option value="complete-bands">
+                {t("Require complete bands")}
+              </option>
+            </select>
+          </Field>
+        </div>
+        <details>
+          <summary>{t("Demand-charge time restrictions")}</summary>
+          <div className="form-grid">
+            <Field label={t("Eligible demand start hour (optional)")}>
+              <OptionalLocaleNumberInput
+                min={0}
+                max={23.999}
+                step="any"
+                value={demandRule.startHour ?? undefined}
+                onValueChange={(value) =>
+                  setDemand({
+                    startHour: value === undefined ? undefined : value,
+                    endHour:
+                      value === undefined
+                        ? undefined
+                        : (demandRule.endHour ?? 24),
+                  })
+                }
+              />
+            </Field>
+            <Field label={t("Eligible demand end hour (optional)")}>
+              <OptionalLocaleNumberInput
+                min={0}
+                max={24}
+                step="any"
+                value={demandRule.endHour ?? undefined}
+                onValueChange={(value) =>
+                  setDemand({
+                    endHour: value === undefined ? undefined : value,
+                    startHour:
+                      value === undefined
+                        ? undefined
+                        : (demandRule.startHour ?? 0),
+                  })
+                }
+              />
+            </Field>
+            <Field label={t("Eligible demand weekdays")}>
+              <select
+                multiple
+                value={
+                  demandRule.weekdays?.map(String) ?? [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                  ]
+                }
+                onChange={(e) =>
+                  setDemand({
+                    weekdays: [...e.target.selectedOptions].map((option) =>
+                      Number(option.value),
+                    ),
+                  })
+                }
+              >
+                {[
+                  "Sunday",
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ].map((day, index) => (
+                  <option key={day} value={index}>
+                    {t(day)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </details>
         <div className="button-row">
           <button
             type="button"

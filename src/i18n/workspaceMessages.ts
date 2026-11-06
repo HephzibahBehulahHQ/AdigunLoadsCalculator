@@ -1,6 +1,11 @@
 /** Exact interface strings; entered project names and source quotations are never translated. */
 export const workspaceMessages: Record<string, [string, string, string]> = {
-  "Methods, assumptions and unresolved checks": ["Methoden, Annahmen und ungeklärte Prüfungen", "Ọ̀nà, àfojúsùn àti àyẹ̀wò tí kò tíì yanjú", "Methods, assumptions and unresolved checks"],
+  Unavailable: ["Nicht verfügbar", "Kò sí", "No dey available"],
+  "Methods, assumptions and unresolved checks": [
+    "Methoden, Annahmen und ungeklärte Prüfungen",
+    "Ọ̀nà, àfojúsùn àti àyẹ̀wò tí kò tíì yanjú",
+    "Methods, assumptions and unresolved checks",
+  ],
   "Save measured data before exporting a Workspace backup. Saved measurements are included with projects and bills; an unsaved preview is not included.":
     [
       "Messdaten vor dem Export einer Arbeitsbereichssicherung speichern. Gespeicherte Messungen werden mit Projekten und Belegen gesichert; eine ungespeicherte Vorschau ist nicht enthalten.",

@@ -149,6 +149,10 @@ export function reportBlocks(
       );
     }
     heading("Source-to-load route assessment");
+    const routes = p.loads.map((load) => ({
+      load,
+      route: assessEndpointRoute(p, load.id),
+    }));
     table(
       [
         "Endpoint",
@@ -156,10 +160,17 @@ export function reportBlocks(
         "Drop (%)",
         "Receiving (V)",
         "Loss (W)",
-        "Assessment",
+        "Route result",
+        "Capacity check",
       ],
-      p.loads.map((load) => {
-        const route = assessEndpointRoute(p, load.id);
+      routes.map(({ load, route }) => {
+        const capacityStatus = route.segments.length
+          ? ((["failed", "unsupported", "incomplete"] as const).find((state) =>
+              route.segments.some(
+                (segment) => segment.capacityAssessment === state,
+              ),
+            ) ?? "passed")
+          : "incomplete";
         return [
           load.name,
           n(route.totalDropV),
@@ -167,12 +178,38 @@ export function reportBlocks(
           n(route.receivingVoltage),
           n(route.lossW),
           t(route.assessment),
+          t(capacityStatus),
         ];
       }),
-      [57, 25, 25, 25, 25, 25],
+      [34, 18, 18, 22, 18, 30, 42],
     );
     paragraph(
       "Nominal-current radial phasor model. A missing upstream segment makes the route total unavailable; it is not treated as zero.",
+    );
+    heading("Capacity check");
+    const segments = new Map(
+      routes.flatMap(({ route }) =>
+        route.segments.map(
+          (segment) => [`${segment.kind}:${segment.id}`, segment] as const,
+        ),
+      ),
+    );
+    table(
+      [
+        "Segment",
+        "Capacity check",
+        "Value / limit",
+        "Neutral current",
+        "Source",
+      ],
+      [...segments.values()].map((segment) => [
+        segment.name,
+        t(segment.capacityAssessment),
+        `${n(segment.currentA)} / ${n(segment.capacityA)} A`,
+        `${n(segment.neutralA)} A`,
+        segment.source || t("Not available"),
+      ]),
+      [42, 30, 32, 30, 48],
     );
   } else if (section === "motors") {
     const motors = p.loads.filter(

@@ -38,13 +38,11 @@ async function seed(page: Page) {
       startHour: 8,
     }),
   ];
-  await page
-    .locator('input[type=file][accept=".json,.csv"]')
-    .setInputFiles({
-      name: "fixture.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(p)),
-    });
+  await page.locator('input[type=file][accept=".json,.csv"]').setInputFiles({
+    name: "fixture.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(p)),
+  });
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Apply import", exact: true })
@@ -136,11 +134,19 @@ test("spatial graph follows real objects and hourly flow with keyboard orbit and
     .getByRole("button", { name: "Analytical spatial view", exact: true })
     .click();
   const spatial = page.locator(".spatial-workspace");
+  const scene = spatial.getByRole("img", {
+    name: "Perspective project graph",
+    exact: true,
+  });
+  const heaterPower = scene
+    .getByRole("button", { name: /: Analytical heater$/ })
+    .locator("text")
+    .last();
   await expect(spatial).toBeVisible();
   await spatial.getByLabel("Representative hour", { exact: true }).fill("12");
-  await expect(spatial.locator("svg")).toContainText("2.3 kW");
+  await expect(heaterPower).toHaveText("2.3 kW");
   await spatial.getByLabel("Representative hour", { exact: true }).fill("2");
-  await expect(spatial.locator("svg")).not.toContainText("2.3 kW");
+  await expect(heaterPower).toHaveText("0 kW");
   await spatial.getByLabel("Orbit angle", { exact: false }).focus();
   await spatial.getByLabel("Orbit angle", { exact: false }).press("ArrowRight");
   await expect(spatial.getByLabel("Orbit angle", { exact: false })).toHaveValue(
@@ -149,8 +155,8 @@ test("spatial graph follows real objects and hourly flow with keyboard orbit and
   await spatial
     .getByLabel("Isolate board", { exact: true })
     .selectOption({ label: "Validation board" });
-  await expect(spatial.locator("svg")).toContainText("Validation circuit");
-  await expect(spatial.locator("svg")).not.toContainText("Grid / supply");
+  await expect(scene).toContainText("Validation circuit");
+  await expect(scene).not.toContainText("Grid / supply");
   await spatial
     .getByLabel("Inspect spatial object", { exact: true })
     .selectOption({ label: "Analytical heater" });
@@ -186,10 +192,8 @@ test("responsive layouts, persisted split widths, reduced motion and keyboard co
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await route(page, "Settings");
-  await page.getByRole("slider",{name:/Navigation width/})
-    .fill("300");
-  await page.getByRole("slider",{name:/Inspector width/})
-    .fill("340");
+  await page.getByRole("slider", { name: /Navigation width/ }).fill("300");
+  await page.getByRole("slider", { name: /Inspector width/ }).fill("340");
   await page.getByLabel("Motion", { exact: true }).selectOption("paused");
   await page.getByLabel("Detail level", { exact: true }).selectOption("simple");
   await expect(page.locator("html")).toHaveAttribute("data-motion", "paused");

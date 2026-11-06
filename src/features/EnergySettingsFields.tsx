@@ -1,14 +1,346 @@
-import { LocaleNumberInput, OptionalLocaleNumberInput } from "../i18n/LocaleNumberInput";
+import {
+  LocaleNumberInput,
+  OptionalLocaleNumberInput,
+} from "../i18n/LocaleNumberInput";
 import type { Dispatch, SetStateAction } from "react";
 import type { EnergySettings, Project } from "../domain/types";
 import { useT } from "../i18n";
 import { Field, Notice } from "./ui";
 
-export function EnergySettingsFields({ project, energy, setEnergy, wind, setWind }: { project: Project; energy: EnergySettings; setEnergy: Dispatch<SetStateAction<EnergySettings>>; wind: string; setWind: (value: string) => void }) {
+export function EnergySettingsFields({
+  project,
+  energy,
+  setEnergy,
+  wind,
+  setWind,
+}: {
+  project: Project;
+  energy: EnergySettings;
+  setEnergy: Dispatch<SetStateAction<EnergySettings>>;
+  wind: string;
+  setWind: (value: string) => void;
+}) {
   const t = useT();
-  const dispatch = energy.dispatch ?? { strategy: "self-consumption" as const, reserveSoc: energy.battery.minSoc, allowGridCharge: false, gridChargeWindows: [] };
-  const editDispatch = (values: Partial<NonNullable<EnergySettings["dispatch"]>>) => setEnergy({ ...energy, dispatch: { ...dispatch, ...values } });
+  const dispatch = energy.dispatch ?? {
+    strategy: "self-consumption" as const,
+    reserveSoc: energy.battery.minSoc,
+    allowGridCharge: false,
+    gridChargeWindows: [],
+  };
+  const editDispatch = (
+    values: Partial<NonNullable<EnergySettings["dispatch"]>>,
+  ) => setEnergy({ ...energy, dispatch: { ...dispatch, ...values } });
   const backup = energy.backup;
-  const editBackup = (values: Partial<NonNullable<EnergySettings["backup"]>>) => setEnergy({ ...energy, backup: { criticalOnly: true, priorityLoadIds: [], restartDelayMinutes: 0, requireBlackStart: true, ...backup, ...values } });
-  return <div className="advanced-planning"><h3>{t("Supplied wind and generation limits")}</h3><Field label={t("Hourly wind AC output, 00:00–23:00")} unit="24 × kW"><textarea rows={2} value={wind} onChange={(e) => setWind(e.target.value)} /></Field><Field label={t("Wind profile source / period")}><input value={energy.windSource ?? ""} onChange={(e) => setEnergy({ ...energy, windSource: e.target.value })} /></Field><div className="form-grid three">{([['inverterACLimitKW', 'PV inverter AC limit'], ['gridImportLimitKW', 'Grid import limit'], ['gridExportLimitKW', 'Grid export limit']] as const).map(([key, label]) => <Field label={t(label)} unit="kW" key={key} hint={t("Leave empty for no entered limit; zero means no allowed power.")}><OptionalLocaleNumberInput min={0} step="any" value={energy[key] ?? undefined} onValueChange={(value) => setEnergy({ ...energy, [key]: value === undefined ? undefined : value })} /></Field>)}</div><h3>{t("Storage dispatch")}</h3><div className="form-grid three"><Field label={t("Dispatch objective")}><select value={dispatch.strategy} onChange={(e) => editDispatch({ strategy: e.target.value as typeof dispatch.strategy })}><option value="self-consumption">{t("Self-consumption")}</option><option value="reserve">{t("Preserve critical-load reserve")}</option><option value="time-of-use">{t("Entered time-of-use charging")}</option><option value="peak-shaving">{t("Grid peak shaving")}</option></select></Field><Field label={t("Grid-connected reserve SOC")} unit="0–1"><LocaleNumberInput min={energy.battery.minSoc} max={energy.battery.maxSoc} step="any" value={dispatch.reserveSoc} onValueChange={(value) => editDispatch({ reserveSoc: value })} /></Field>{dispatch.strategy === "peak-shaving" && <Field label={t("Grid-import peak target")} unit="kW"><OptionalLocaleNumberInput min={0} step="any" value={dispatch.peakLimitKW ?? undefined} onValueChange={(value) => editDispatch({ peakLimitKW: value === undefined ? undefined : value })} /></Field>}</div><Notice>{t("Reserve is an energy floor while grid connected; an outage may use reserve down to the absolute minimum SOC. Each conversion loss is applied once. Peak targets can remain unmet when storage power or energy is insufficient.")}</Notice><label className="check-label"><input type="checkbox" checked={dispatch.allowGridCharge} onChange={(e) => editDispatch({ allowGridCharge: e.target.checked })} />{t("Explicitly permit grid charging in entered windows")}</label>{dispatch.gridChargeWindows.map((window, index) => <div className="form-grid four" key={index}>{(["startHour", "endHour", "targetSoc"] as const).map((key) => <Field key={key} label={t({ startHour: "Charge-window start", endHour: "Charge-window end", targetSoc: "Target SOC" }[key])} unit={key === "targetSoc" ? "0–1" : "h"}><LocaleNumberInput min={0} max={key === "targetSoc" ? 1 : 24} step="any" value={window[key]} onValueChange={(value) => editDispatch({ gridChargeWindows: dispatch.gridChargeWindows.map((row, i) => i === index ? { ...row, [key]: value } : row) })} /></Field>)}<button type="button" className="button danger" onClick={() => editDispatch({ gridChargeWindows: dispatch.gridChargeWindows.filter((_, i) => i !== index) })}>{t("Remove charging window")}</button></div>)}<button type="button" className="button" onClick={() => editDispatch({ gridChargeWindows: [...dispatch.gridChargeWindows, { startHour: 0, endHour: 6, targetSoc: energy.battery.maxSoc }] })}>{t("Add grid-charge window")}</button><h3>{t("Backup source and load priority")}</h3><label className="check-label"><input type="checkbox" checked={Boolean(backup)} onChange={(e) => e.target.checked ? editBackup({}) : setEnergy({ ...energy, backup: undefined })} />{t("Use evidenced source and explicit outage shedding")}</label>{backup && <><div className="form-grid"><Field label={t("Entered island-forming source")}><select value={backup.sourceId ?? ""} onChange={(e) => editBackup({ sourceId: e.target.value || undefined })}><option value="">{t("Select an evidenced source")}</option>{project.sources?.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</select></Field><Field label={t("Additional restart delay")} unit="min"><LocaleNumberInput min={0} max={1440} step="any" value={backup.restartDelayMinutes} onValueChange={(value) => editBackup({ restartDelayMinutes: value })} /></Field></div><div className="check-row"><label><input type="checkbox" checked={backup.criticalOnly} onChange={(e) => editBackup({ criticalOnly: e.target.checked })} />{t("Serve only loads marked critical")}</label><label><input type="checkbox" checked={backup.requireBlackStart} onChange={(e) => editBackup({ requireBlackStart: e.target.checked })} />{t("Require entered black-start capability")}</label></div><Field label={t("Add a load to the priority order")}><select value="" onChange={(e) => { if (e.target.value && !backup.priorityLoadIds.includes(e.target.value)) editBackup({ priorityLoadIds: [...backup.priorityLoadIds, e.target.value] }); }}><option value="">{t("Select a load")}</option>{project.loads.filter((load) => !backup.priorityLoadIds.includes(load.id)).map((load) => <option key={load.id} value={load.id}>{load.name || load.id}</option>)}</select></Field><ol>{backup.priorityLoadIds.map((id, index) => <li key={id}><span>{project.loads.find((load) => load.id === id)?.name || id}</span><div className="button-row"><button type="button" className="button" disabled={index === 0} onClick={() => { const order = [...backup.priorityLoadIds]; [order[index - 1], order[index]] = [order[index], order[index - 1]]; editBackup({ priorityLoadIds: order }); }}>{t("Move up")}</button><button type="button" className="button" onClick={() => editBackup({ priorityLoadIds: backup.priorityLoadIds.filter((value) => value !== id) })}>{t("Remove")}</button></div></li>)}</ol><Notice>{t("Loads outside the selected source boundary, incompatible phases, missing transfer/black-start evidence and restart delays prevent backup supply. Whole loads are shed in the entered priority order. No generator energy is invented from a source nameplate; generation comes from the entered profiles.")}</Notice></>}</div>;
+  const editBackup = (values: Partial<NonNullable<EnergySettings["backup"]>>) =>
+    setEnergy({
+      ...energy,
+      backup: {
+        criticalOnly: true,
+        priorityLoadIds: [],
+        restartDelayMinutes: 0,
+        requireBlackStart: true,
+        ...backup,
+        ...values,
+      },
+    });
+  return (
+    <div className="advanced-planning">
+      <h3>{t("Supplied wind and generation limits")}</h3>
+      <Field label={t("Hourly wind AC output, 00:00–23:00")} unit="24 × kW">
+        <textarea
+          rows={2}
+          value={wind}
+          onChange={(e) => setWind(e.target.value)}
+        />
+      </Field>
+      <Field label={t("Wind profile source / period")}>
+        <input
+          value={energy.windSource ?? ""}
+          onChange={(e) => setEnergy({ ...energy, windSource: e.target.value })}
+        />
+      </Field>
+      <div className="form-grid three">
+        {(
+          [
+            ["inverterACLimitKW", "PV inverter AC limit"],
+            ["gridImportLimitKW", "Grid import limit"],
+            ["gridExportLimitKW", "Grid export limit"],
+          ] as const
+        ).map(([key, label]) => (
+          <Field
+            label={t(label)}
+            unit="kW"
+            key={key}
+            hint={t(
+              "Leave empty for no entered limit; zero means no allowed power.",
+            )}
+          >
+            <OptionalLocaleNumberInput
+              min={0}
+              step="any"
+              value={energy[key] ?? undefined}
+              onValueChange={(value) =>
+                setEnergy({
+                  ...energy,
+                  [key]: value === undefined ? undefined : value,
+                })
+              }
+            />
+          </Field>
+        ))}
+      </div>
+      <h3>{t("Storage dispatch")}</h3>
+      <div className="form-grid three">
+        <Field label={t("Dispatch objective")}>
+          <select
+            value={dispatch.strategy}
+            onChange={(e) =>
+              editDispatch({
+                strategy: e.target.value as typeof dispatch.strategy,
+              })
+            }
+          >
+            <option value="self-consumption">{t("Self-consumption")}</option>
+            <option value="reserve">
+              {t("Preserve critical-load reserve")}
+            </option>
+            <option value="time-of-use">
+              {t("Entered time-of-use charging")}
+            </option>
+            <option value="peak-shaving">{t("Grid peak shaving")}</option>
+          </select>
+        </Field>
+        <Field label={t("Grid-connected reserve SOC")} unit="0–1">
+          <LocaleNumberInput
+            min={energy.battery.minSoc}
+            max={energy.battery.maxSoc}
+            step="any"
+            value={dispatch.reserveSoc}
+            onValueChange={(value) => editDispatch({ reserveSoc: value })}
+          />
+        </Field>
+        {dispatch.strategy === "peak-shaving" && (
+          <Field label={t("Grid-import peak target")} unit="kW">
+            <OptionalLocaleNumberInput
+              min={0}
+              step="any"
+              value={dispatch.peakLimitKW ?? undefined}
+              onValueChange={(value) =>
+                editDispatch({
+                  peakLimitKW: value === undefined ? undefined : value,
+                })
+              }
+            />
+          </Field>
+        )}
+      </div>
+      <Notice>
+        {t(
+          "Reserve is an energy floor while grid connected; an outage may use reserve down to the absolute minimum SOC. Each conversion loss is applied once. Peak targets can remain unmet when storage power or energy is insufficient.",
+        )}
+      </Notice>
+      <label className="check-label">
+        <input
+          type="checkbox"
+          checked={dispatch.allowGridCharge}
+          onChange={(e) => editDispatch({ allowGridCharge: e.target.checked })}
+        />
+        {t("Explicitly permit grid charging in entered windows")}
+      </label>
+      {dispatch.gridChargeWindows.map((window, index) => (
+        <div className="form-grid four" key={index}>
+          {(["startHour", "endHour", "targetSoc"] as const).map((key) => (
+            <Field
+              key={key}
+              label={t(
+                {
+                  startHour: "Charge-window start",
+                  endHour: "Charge-window end",
+                  targetSoc: "Target SOC",
+                }[key],
+              )}
+              unit={key === "targetSoc" ? "0–1" : "h"}
+            >
+              <LocaleNumberInput
+                min={0}
+                max={key === "targetSoc" ? 1 : 24}
+                step="any"
+                value={window[key]}
+                onValueChange={(value) =>
+                  editDispatch({
+                    gridChargeWindows: dispatch.gridChargeWindows.map(
+                      (row, i) =>
+                        i === index ? { ...row, [key]: value } : row,
+                    ),
+                  })
+                }
+              />
+            </Field>
+          ))}
+          <button
+            type="button"
+            className="button danger"
+            onClick={() =>
+              editDispatch({
+                gridChargeWindows: dispatch.gridChargeWindows.filter(
+                  (_, i) => i !== index,
+                ),
+              })
+            }
+          >
+            {t("Remove charging window")}
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="button"
+        onClick={() =>
+          editDispatch({
+            gridChargeWindows: [
+              ...dispatch.gridChargeWindows,
+              { startHour: 0, endHour: 6, targetSoc: energy.battery.maxSoc },
+            ],
+          })
+        }
+      >
+        {t("Add grid-charge window")}
+      </button>
+      <h3>{t("Backup source and load priority")}</h3>
+      <label className="check-label">
+        <input
+          type="checkbox"
+          checked={Boolean(backup)}
+          onChange={(e) =>
+            e.target.checked
+              ? editBackup({})
+              : setEnergy({ ...energy, backup: undefined })
+          }
+        />
+        {t("Use evidenced source and explicit outage shedding")}
+      </label>
+      {backup && (
+        <>
+          <div className="form-grid">
+            <Field label={t("Entered island-forming source")}>
+              <select
+                value={backup.sourceId ?? ""}
+                onChange={(e) =>
+                  editBackup({ sourceId: e.target.value || undefined })
+                }
+              >
+                <option value="">{t("Select an evidenced source")}</option>
+                {project.sources?.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t("Additional restart delay")} unit="min">
+              <LocaleNumberInput
+                min={0}
+                max={1440}
+                step="any"
+                value={backup.restartDelayMinutes}
+                onValueChange={(value) =>
+                  editBackup({ restartDelayMinutes: value })
+                }
+              />
+            </Field>
+          </div>
+          <div className="check-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={backup.criticalOnly}
+                onChange={(e) => editBackup({ criticalOnly: e.target.checked })}
+              />
+              {t("Serve only loads marked critical")}
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={backup.requireBlackStart}
+                onChange={(e) =>
+                  editBackup({ requireBlackStart: e.target.checked })
+                }
+              />
+              {t("Require entered black-start capability")}
+            </label>
+          </div>
+          <Field label={t("Add a load to the priority order")}>
+            <select
+              value=""
+              onChange={(e) => {
+                if (
+                  e.target.value &&
+                  !backup.priorityLoadIds.includes(e.target.value)
+                )
+                  editBackup({
+                    priorityLoadIds: [
+                      ...backup.priorityLoadIds,
+                      e.target.value,
+                    ],
+                  });
+              }}
+            >
+              <option value="">{t("Select a load")}</option>
+              {project.loads
+                .filter((load) => !backup.priorityLoadIds.includes(load.id))
+                .map((load) => (
+                  <option key={load.id} value={load.id}>
+                    {load.name || load.id}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <ol>
+            {backup.priorityLoadIds.map((id, index) => (
+              <li key={id}>
+                <span>
+                  {project.loads.find((load) => load.id === id)?.name || id}
+                </span>
+                <div className="button-row">
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={index === 0}
+                    onClick={() => {
+                      const order = [...backup.priorityLoadIds];
+                      [order[index - 1], order[index]] = [
+                        order[index],
+                        order[index - 1],
+                      ];
+                      editBackup({ priorityLoadIds: order });
+                    }}
+                  >
+                    {t("Move up")}
+                  </button>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() =>
+                      editBackup({
+                        priorityLoadIds: backup.priorityLoadIds.filter(
+                          (value) => value !== id,
+                        ),
+                      })
+                    }
+                  >
+                    {t("Remove")}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <Notice>
+            {t(
+              "Loads outside the selected source boundary, incompatible phases, missing transfer/black-start evidence and restart delays prevent backup supply. Whole loads are shed in the entered priority order. No generator energy is invented from a source nameplate; generation comes from the entered profiles.",
+            )}
+          </Notice>
+        </>
+      )}
+    </div>
+  );
 }

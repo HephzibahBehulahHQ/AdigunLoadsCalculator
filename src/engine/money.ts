@@ -1,4 +1,6 @@
-const finite = (value: number, name: string) => { if (!Number.isFinite(value)) throw new Error(`${name} must be finite.`); };
+const finite = (value: number, name: string) => {
+  if (!Number.isFinite(value)) throw new Error(`${name} must be finite.`);
+};
 
 /** Converts a finite decimal to integer micro-units using decimal notation, not binary multiplication. */
 function scaled(value: number, precision = 6): bigint {
@@ -53,4 +55,3 @@ export function energyCharge(entries: { kWh: number; rate: number }[]): number {
   }
   return Number(roundedDivision(total, 10n ** BigInt(places - 2))) / 100;
 }
-

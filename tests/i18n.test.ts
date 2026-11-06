@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   hasTranslation,
   languages,
@@ -10,6 +11,25 @@ import { tools } from "../src/tools";
 
 const secondary: Locale[] = ["de", "yo", "pcm"];
 describe("four-language core and tool navigation", () => {
+  it("covers every exact literal t call in the current app and feature components", () => {
+    const files = [
+      "src/App.tsx",
+      ...readdirSync("src/features")
+        .filter((name) => name.endsWith(".tsx"))
+        .map((name) => `src/features/${name}`),
+    ];
+    const missing = new Set<string>();
+    for (const file of files)
+      for (const match of readFileSync(file, "utf8").matchAll(
+        /\bt\(\s*("(?:\\.|[^"\\])*")/g,
+      )) {
+        const key: string = JSON.parse(match[1]);
+        for (const locale of secondary)
+          if (!hasTranslation(key, locale))
+            missing.add(`${locale}: ${file}: ${key}`);
+      }
+    expect([...missing]).toEqual([]);
+  });
   it("exposes the four required language names", () => {
     expect(languages).toEqual({
       en: "English",

@@ -114,3 +114,78 @@ test("customer bill computes exact money, persists, downloads, prints and works 
   );
   expect(errors).toEqual([]);
 });
+
+test("German bill decimals preserve invalid drafts across reload without exporting stale totals", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: "Reports & Estimates", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Customer bill", exact: true })
+    .click();
+  await page.getByLabel("Document number", { exact: true }).fill("QA-DE-DRAFT");
+  await page
+    .getByLabel("Supplier", { exact: true })
+    .fill("Analytical supplier");
+  await page
+    .getByLabel("Customer", { exact: true })
+    .fill("Analytical customer");
+  await page.getByRole("button", { name: "Add line", exact: false }).click();
+  await page
+    .getByLabel("Description 1", { exact: true })
+    .fill("Locale decimal fixture");
+  await page
+    .getByRole("combobox", { name: "Language", exact: true })
+    .selectOption("de");
+  await page.getByLabel("Menge 1", { exact: true }).fill("2,5");
+  await page.getByLabel("Einzelpreis 1", { exact: true }).fill("19,99");
+  await page.getByLabel("Rabatt (%)", { exact: true }).fill("10");
+  await page.getByLabel("Steuer (%)", { exact: true }).fill("19");
+  await expect(page.locator(".billing-grand-total strong")).toContainText(
+    "53,53",
+  );
+  await page.getByLabel("Einzelpreis 1", { exact: true }).fill("1.234");
+  await page.getByLabel("Einzelpreis 1", { exact: true }).blur();
+  await expect(
+    page.getByLabel("Einzelpreis 1", { exact: true }),
+  ).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByRole("button", { name: "PDF herunterladen", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Entwurf lokal speichern", exact: true })
+    .click();
+  await expect(
+    page.getByText("Entwurf lokal gespeichert", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Kundenrechnung", exact: true })
+    .click();
+  await expect(page.getByLabel("Einzelpreis 1", { exact: true })).toHaveValue(
+    "1.234",
+  );
+  await expect(
+    page.getByRole("button", { name: "PDF herunterladen", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("combobox", { name: "Sprache", exact: true })
+    .selectOption("en");
+  await expect(page.getByLabel("Unit price 1", { exact: true })).toHaveValue(
+    "1.234",
+  );
+  await expect(
+    page.getByRole("button", { name: "Download PDF", exact: true }),
+  ).toBeDisabled();
+  await page.getByLabel("Unit price 1", { exact: true }).fill("19.99");
+  await page.getByLabel("Unit price 1", { exact: true }).blur();
+  await expect(page.locator(".billing-grand-total strong")).toHaveText(
+    "€53.53",
+  );
+  await expect(
+    page.getByRole("button", { name: "Download PDF", exact: true }),
+  ).toBeEnabled();
+});

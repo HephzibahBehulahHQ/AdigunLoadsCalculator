@@ -100,7 +100,12 @@ export function ReportWorkspace({
 }) {
   const t = useT(),
     sequence = useRef(0),
+    priceLocales = useRef<Record<string, Locale>>({}),
+    previousLocale = useRef(locale),
+    contingencyLocale = useRef(locale),
+    activeLocale = useRef(locale),
     current = useRef({ id: project.id, revision: project.revision });
+  activeLocale.current = locale;
   current.current = { id: project.id, revision: project.revision };
   const [details, setDetails] = useState(project.reportDetails ?? blankDetails),
     [selected, setSelected] =
@@ -121,6 +126,7 @@ export function ReportWorkspace({
       JSON.stringify(details) !==
       JSON.stringify(project.reportDetails ?? blankDetails);
   useEffect(() => {
+    priceLocales.current = {};
     setDetails(project.reportDetails ?? blankDetails);
     setPrices({});
     setBomPage(0);
@@ -139,16 +145,22 @@ export function ReportWorkspace({
             );
           if (material)
             next[row.id] = {
-              unitPrice: formatEditableNumber(material.unitPrice, locale),
+              unitPrice: formatEditableNumber(
+                material.unitPrice,
+                activeLocale.current,
+              ),
               wastePercent: formatEditableNumber(
                 material.source?.wastePercent ?? "0",
-                locale,
+                activeLocale.current,
               ),
               labourQuantity: formatEditableNumber(
                 labour?.quantity ?? "",
-                locale,
+                activeLocale.current,
               ),
-              labourRate: formatEditableNumber(labour?.unitPrice ?? "", locale),
+              labourRate: formatEditableNumber(
+                labour?.unitPrice ?? "",
+                activeLocale.current,
+              ),
             };
         }
         setPrices(next);
@@ -160,6 +172,34 @@ export function ReportWorkspace({
       alive = false;
     };
   }, [project.id]);
+  useEffect(() => {
+    const oldLocale = previousLocale.current;
+    if (oldLocale === locale) return;
+    previousLocale.current = locale;
+    const next = structuredClone(prices);
+    for (const [id, row] of Object.entries(next))
+      for (const key of Object.keys(row) as Array<keyof BOMPricing[string]>) {
+        const path = `${id}:${key}`;
+        const sourceLocale = priceLocales.current[path] ?? oldLocale;
+        const parsed = parseLocaleNumber(row[key], sourceLocale, {
+          min: 0,
+          allowScientific: false,
+        });
+        row[key] = parsed.ok
+          ? formatEditableNumber(parsed.canonical, locale)
+          : row[key];
+        priceLocales.current[path] = parsed.ok ? locale : sourceLocale;
+      }
+    setPrices(next);
+    const parsed = parseLocaleNumber(contingency, contingencyLocale.current, {
+      min: 0,
+      allowScientific: false,
+    });
+    if (parsed.ok) {
+      setContingency(formatEditableNumber(parsed.canonical, locale));
+      contingencyLocale.current = locale;
+    }
+  }, [locale]);
   useEffect(() => {
     setDetails(project.reportDetails ?? blankDetails);
   }, [project.reportDetails]);
@@ -278,6 +318,7 @@ export function ReportWorkspace({
     field: keyof BOMPricing[string],
     value: string,
   ) {
+    priceLocales.current[`${rowId}:${field}`] = locale;
     setBillPreview(null);
     setPrices((previous) => ({
       ...previous,
@@ -292,9 +333,13 @@ export function ReportWorkspace({
       },
     }));
   }
-  function normalizeDecimal(value: string, places: number): string {
+  function normalizeDecimal(
+    value: string,
+    places: number,
+    sourceLocale: Locale = locale,
+  ): string {
     if (!value.trim()) return "";
-    const parsed = parseLocaleNumber(value, locale, {
+    const parsed = parseLocaleNumber(value, sourceLocale, {
       min: 0,
       allowScientific: false,
       decimalPlaces: places,
@@ -313,12 +358,23 @@ export function ReportWorkspace({
           unitPrice: normalizeDecimal(
             row.unitPrice,
             currencyDigits(project.currency),
+            priceLocales.current[`${id}:unitPrice`] ?? locale,
           ),
-          wastePercent: normalizeDecimal(row.wastePercent, 2) || "0",
-          labourQuantity: normalizeDecimal(row.labourQuantity, 3),
+          wastePercent:
+            normalizeDecimal(
+              row.wastePercent,
+              2,
+              priceLocales.current[`${id}:wastePercent`] ?? locale,
+            ) || "0",
+          labourQuantity: normalizeDecimal(
+            row.labourQuantity,
+            3,
+            priceLocales.current[`${id}:labourQuantity`] ?? locale,
+          ),
           labourRate: normalizeDecimal(
             row.labourRate,
             currencyDigits(project.currency),
+            priceLocales.current[`${id}:labourRate`] ?? locale,
           ),
         };
       const lines = pricedBOMLines(bom, normalized);
@@ -329,7 +385,7 @@ export function ReportWorkspace({
         discountPercent: "0",
       });
       const rate = decimalInteger(
-        normalizeDecimal(contingency, 2) || "0",
+        normalizeDecimal(contingency, 2, contingencyLocale.current) || "0",
         2,
         "Contingency",
       );
@@ -721,6 +777,7 @@ export function ReportWorkspace({
             inputMode="decimal"
             value={contingency}
             onChange={(event) => {
+              contingencyLocale.current = locale;
               setContingency(event.target.value);
               setBillPreview(null);
             }}

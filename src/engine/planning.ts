@@ -44,14 +44,39 @@ export function scheduleEV(
   options: EVOptions | "immediate" | "cheapest" | "solar" = {},
 ): EVPlan {
   const config = typeof options === "string" ? { strategy: options } : options;
-  if (!["immediate", "cheapest", "solar", undefined].includes(config.strategy)) throw new Error("Unsupported EV scheduling strategy.");
-  if (config.strategy === "solar" && (!config.generationKW || config.generationKW.length !== 24 || config.generationKW.some((value) => !Number.isFinite(value) || value < 0))) throw new Error("Solar-following requires 24 entered nonnegative generation kW values.");
+  if (!["immediate", "cheapest", "solar", undefined].includes(config.strategy))
+    throw new Error("Unsupported EV scheduling strategy.");
+  if (
+    config.strategy === "solar" &&
+    (!config.generationKW ||
+      config.generationKW.length !== 24 ||
+      config.generationKW.some((value) => !Number.isFinite(value) || value < 0))
+  )
+    throw new Error(
+      "Solar-following requires 24 entered nonnegative generation kW values.",
+    );
   const minimumKW = session.minimumKW ?? 0;
-  if (!Number.isFinite(minimumKW) || minimumKW < 0) throw new Error("EV minimum charging power must be nonnegative and finite.");
+  if (!Number.isFinite(minimumKW) || minimumKW < 0)
+    throw new Error(
+      "EV minimum charging power must be nonnegative and finite.",
+    );
   let requiredEnergy = session.requiredKWh;
   if (session.energyBasis === "soc") {
-    if (!Number.isFinite(session.usableCapacityKWh) || session.usableCapacityKWh! <= 0 || !Number.isFinite(session.initialSoc) || session.initialSoc! < 0 || session.initialSoc! > 1 || !Number.isFinite(session.targetSoc) || session.targetSoc! < session.initialSoc! || session.targetSoc! > 1) throw new Error("Enter usable battery capacity and valid initial/target SOC.");
-    requiredEnergy = session.usableCapacityKWh! * (session.targetSoc! - session.initialSoc!);
+    if (
+      !Number.isFinite(session.usableCapacityKWh) ||
+      session.usableCapacityKWh! <= 0 ||
+      !Number.isFinite(session.initialSoc) ||
+      session.initialSoc! < 0 ||
+      session.initialSoc! > 1 ||
+      !Number.isFinite(session.targetSoc) ||
+      session.targetSoc! < session.initialSoc! ||
+      session.targetSoc! > 1
+    )
+      throw new Error(
+        "Enter usable battery capacity and valid initial/target SOC.",
+      );
+    requiredEnergy =
+      session.usableCapacityKWh! * (session.targetSoc! - session.initialSoc!);
   }
   if (
     baseKW.length !== 24 ||
@@ -125,15 +150,20 @@ export function scheduleEV(
   }));
   slots.sort(
     config.strategy === "solar"
-      ? (a, b) => Math.max(0, config.generationKW![b.hour] - baseKW[b.hour]) - Math.max(0, config.generationKW![a.hour] - baseKW[a.hour]) || a.rate - b.rate || ((a.hour - session.arrivalHour + 24) % 24) - ((b.hour - session.arrivalHour + 24) % 24)
-      : config.strategy === "cheapest"
       ? (a, b) =>
+          Math.max(0, config.generationKW![b.hour] - baseKW[b.hour]) -
+            Math.max(0, config.generationKW![a.hour] - baseKW[a.hour]) ||
           a.rate - b.rate ||
           ((a.hour - session.arrivalHour + 24) % 24) -
             ((b.hour - session.arrivalHour + 24) % 24)
-      : (a, b) =>
-          ((a.hour - session.arrivalHour + 24) % 24) -
-          ((b.hour - session.arrivalHour + 24) % 24),
+      : config.strategy === "cheapest"
+        ? (a, b) =>
+            a.rate - b.rate ||
+            ((a.hour - session.arrivalHour + 24) % 24) -
+              ((b.hour - session.arrivalHour + 24) % 24)
+        : (a, b) =>
+            ((a.hour - session.arrivalHour + 24) % 24) -
+            ((b.hour - session.arrivalHour + 24) % 24),
   );
   let required = requiredEnergy;
   for (const slot of slots) {
@@ -232,18 +262,24 @@ export function conservativeDemandProfile(
     let spans = resolveSchedule(load, date);
     if (load.schedule?.absoluteWindows) {
       const clock = makeCalendarClock(project.timezone);
-      spans = load.schedule.absoluteWindows.flatMap((window): [number, number][] => {
-        const a = clock(Date.parse(window.start)), b = clock(Date.parse(window.end) - 1);
-        if (!date) return [[0, 24]];
-        if (a.date > date || b.date < date) return [];
-        const left = a.date < date ? 0 : a.hour, right = b.date > date ? 24 : b.hour + 1 / 3600000;
-        // A fold can make wall-clock order ambiguous; a whole-day envelope is conservative.
-        return right < left ? [[0, 24]] : [[left, right]];
-      });
+      spans = load.schedule.absoluteWindows.flatMap(
+        (window): [number, number][] => {
+          const a = clock(Date.parse(window.start)),
+            b = clock(Date.parse(window.end) - 1);
+          if (!date) return [[0, 24]];
+          if (a.date > date || b.date < date) return [];
+          const left = a.date < date ? 0 : a.hour,
+            right = b.date > date ? 24 : b.hour + 1 / 3600000;
+          // A fold can make wall-clock order ambiguous; a whole-day envelope is conservative.
+          return right < left ? [[0, 24]] : [[left, right]];
+        },
+      );
     }
     for (let index = 0; index < count; index++) {
-      const active =
-        spans.some(([left, right]) => Math.min(right, (index + 1) * step) > Math.max(left, index * step));
+      const active = spans.some(
+        ([left, right]) =>
+          Math.min(right, (index + 1) * step) > Math.max(left, index * step),
+      );
       kw[index] += active
         ? Math.max(normalized.operatingKW, standbyKW)
         : standbyKW;

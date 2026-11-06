@@ -51,7 +51,8 @@ function issue(
 export function validateLoad(load: Load): Issue[] {
   const issues: Issue[] = [];
   if (load.schedule !== undefined)
-    for (const message of validateSchedule(load.schedule)) issues.push(issue(load, "schedule", message));
+    for (const message of validateSchedule(load.schedule))
+      issues.push(issue(load, "schedule", message));
   const check = (
     field: keyof Load,
     predicate: (n: number) => boolean,
@@ -258,7 +259,9 @@ export function normalizeLoad(load: Load): NormalizedLoad {
   } else if (load.connection !== "dc")
     phaseCurrents[load.phase] = polar(currentA, angles[load.phase] - angle);
   const standbyKW = (load.standbyW * load.quantity) / 1000;
-  const operatingHours = load.schedule ? resolveSchedule(load).reduce((sum, [a, b]) => sum + b - a, 0) : load.hoursPerDay;
+  const operatingHours = load.schedule
+    ? resolveSchedule(load).reduce((sum, [a, b]) => sum + b - a, 0)
+    : load.hoursPerDay;
   const activeHours = operatingHours * scheduleDuty(load);
   const energyKWh = operatingKW * activeHours + standbyKW * (24 - activeHours);
   if (
@@ -388,7 +391,12 @@ export function dailyProfile(
     for (let c = 0; c < channels.length; c++) channels[c].base += standby[c];
     for (const [start, end] of resolveSchedule(load, date, weekday)) {
       for (let c = 0; c < channels.length; c++)
-        range(channels[c], start, end, (operating[c] - standby[c]) * scheduleDuty(load));
+        range(
+          channels[c],
+          start,
+          end,
+          (operating[c] - standby[c]) * scheduleDuty(load),
+        );
     }
   }
   const running = [0, 0, 0, 0];
@@ -604,8 +612,17 @@ export function calculateProject(project: Project): CalculationResult {
       message:
         "Overview costs are flat-rate 30-day estimates. Use chronological billing for time-of-use rates.",
     });
-  if (project.loads.some((load) => load.schedule) || project.startEvents?.length)
-    issues.push({ id: "calendar-required", severity: "info", assessment: "warning", message: "Overview is a representative recurring day. Dated/seasonal exceptions, absolute operating windows and start events require calendar simulation; absolute windows are excluded from the recurring-day estimate." });
+  if (
+    project.loads.some((load) => load.schedule) ||
+    project.startEvents?.length
+  )
+    issues.push({
+      id: "calendar-required",
+      severity: "info",
+      assessment: "warning",
+      message:
+        "Overview is a representative recurring day. Dated/seasonal exceptions, absolute operating windows and start events require calendar simulation; absolute windows are excluded from the recurring-day estimate.",
+    });
   const complete = issues.every(
     (item) =>
       item.assessment !== "incomplete" && item.assessment !== "unsupported",
