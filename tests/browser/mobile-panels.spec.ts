@@ -90,6 +90,10 @@ for (const width of [360, 768]) {
     await expect(opener).toBeFocused();
     await expect(page.getByRole("main")).toBeVisible();
     await addLoad(page);
+    await page
+      .getByRole("dialog", { name: "Selected object", exact: true })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
     await noPageOverflow(page);
     const tableViewport = page.locator(".load-table").locator("..");
     expect(

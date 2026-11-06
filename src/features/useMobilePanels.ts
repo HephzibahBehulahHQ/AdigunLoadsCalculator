@@ -49,6 +49,7 @@ export function useMobilePanel(
       const target = event.target;
       if (
         target instanceof HTMLElement &&
+        target.tabIndex >= 0 &&
         !ref.current?.contains(target) &&
         !target.closest(".modal") &&
         visible(target)
@@ -63,7 +64,11 @@ export function useMobilePanel(
     if (!active || !panel) return;
     const focused = document.activeElement as HTMLElement | null;
     const opener =
-      focused && !panel.contains(focused) && !focused.closest(".modal")
+      focused &&
+      focused.tabIndex >= 0 &&
+      visible(focused) &&
+      !panel.contains(focused) &&
+      !focused.closest(".modal")
         ? focused
         : lastOutside.current;
     let release: (() => void) | undefined;
