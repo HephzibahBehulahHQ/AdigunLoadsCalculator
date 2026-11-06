@@ -1,5 +1,6 @@
 import { planningMessages } from "./planningMessages";
 import { workspaceMessages } from "./workspaceMessages";
+import { detailMessages } from "./detailMessages";
 import { createContext, useContext } from "react";
 import { uiMessages } from "./uiMessages";
 import { reportMessages } from "./reportMessages";
@@ -16,6 +17,7 @@ export const languages: Record<Locale, string> = {
 };
 export const LanguageContext = createContext<Locale>("en");
 const words: Record<string, [string, string, string]> = {
+  Measurements: ["Messdaten", "Àwọn ìwọ̀n", "Measured data"],
   Overview: ["Übersicht", "Àkótán", "Overview"],
   "Load Schedule": ["Lastenliste", "Àtòjọ ẹrù", "Load Schedule"],
   "Boards & Circuits": [
@@ -1637,6 +1639,7 @@ Object.assign(
   reportMessages,
   workspaceMessages,
   planningMessages,
+  detailMessages,
 );
 const uiTemplates: Array<[string, [string, string, string]]> = [
   ["Value {0}: {1}", ["Wert {0}: {1}", "Iye {0}: {1}", "Value {0}: {1}"]],

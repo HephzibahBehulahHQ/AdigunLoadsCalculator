@@ -10,6 +10,25 @@ import {
 import type { ReactNode, ReactElement } from "react";
 import { X, Info } from "lucide-react";
 import { LanguageContext, numberFormat, useT } from "../i18n";
+
+const modalStack: HTMLElement[] = [];
+const inertOwners = new Map<
+  HTMLElement,
+  { count: number; previous: boolean; previousAria: string | null }
+>();
+const focusableSelector =
+  'button,input:not([type="hidden"]),select,textarea,a[href],summary,[tabindex]';
+function focusableIn(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(focusableSelector),
+  ).filter(
+    (element) =>
+      element.tabIndex >= 0 &&
+      !element.matches(":disabled") &&
+      element.getClientRects().length > 0 &&
+      !element.closest("[inert]"),
+  );
+}
 export function Modal({
   title,
   children,
@@ -22,52 +41,102 @@ export function Modal({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const opener = useRef(document.activeElement as HTMLElement | null);
   const t = useT();
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
-    const old = document.activeElement as HTMLElement | null;
+    const modal = ref.current;
+    if (!modal) return;
+    const old = opener.current;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const firstInput = ref.current?.querySelector<HTMLElement>(
-      'input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])',
-    );
-    (firstInput || ref.current)?.focus();
+    modalStack.push(modal);
+    const focusable = focusableIn(modal);
+    if (!modal.contains(document.activeElement)) {
+      (
+        focusable.find((element) => element.matches("input,select,textarea")) ||
+        modal
+      ).focus();
+    }
+    const background: HTMLElement[] = [];
+    for (
+      let branch: HTMLElement = modal;
+      branch.parentElement;
+      branch = branch.parentElement
+    ) {
+      for (const sibling of Array.from(branch.parentElement.children)) {
+        if (!(sibling instanceof HTMLElement) || sibling === branch) continue;
+        const owner = inertOwners.get(sibling) ?? {
+          count: 0,
+          previous: sibling.inert,
+          previousAria: sibling.getAttribute("aria-hidden"),
+        };
+        owner.count++;
+        inertOwners.set(sibling, owner);
+        sibling.inert = true;
+        sibling.setAttribute("aria-hidden", "true");
+        background.push(sibling);
+      }
+      if (branch.parentElement === document.body) break;
+    }
     function key(e: KeyboardEvent) {
+      if (modalStack.at(-1) !== modal) return;
+      // Workspace shortcuts must not replace an editor and discard its draft.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (e.key === "Escape") {
+        e.preventDefault();
         e.stopPropagation();
         close.current();
       }
       if (e.key === "Tab") {
-        const els = Array.from(
-          ref.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]',
-          ) || [],
-        ).filter(
-          (element) =>
-            element.getClientRects().length > 0 && !element.closest("[inert]"),
-        );
-        if (!els?.length) return;
+        const els = focusableIn(modal);
+        if (!els.length) {
+          e.preventDefault();
+          modal.focus();
+          return;
+        }
         const a = els[0],
           z = els[els.length - 1];
         if (
           e.shiftKey &&
           (document.activeElement === a ||
-            document.activeElement === ref.current)
+            document.activeElement === modal ||
+            !modal.contains(document.activeElement))
         ) {
           e.preventDefault();
           z.focus();
-        } else if (!e.shiftKey && document.activeElement === z) {
+        } else if (
+          !e.shiftKey &&
+          (document.activeElement === z ||
+            !modal.contains(document.activeElement))
+        ) {
           e.preventDefault();
           a.focus();
         }
       }
     }
-    document.addEventListener("keydown", key);
+    document.addEventListener("keydown", key, true);
     return () => {
-      document.removeEventListener("keydown", key);
+      document.removeEventListener("keydown", key, true);
+      modalStack.splice(modalStack.indexOf(modal), 1);
+      for (const element of background) {
+        const owner = inertOwners.get(element)!;
+        if (--owner.count === 0) {
+          element.inert = owner.previous;
+          if (owner.previousAria === null)
+            element.removeAttribute("aria-hidden");
+          else element.setAttribute("aria-hidden", owner.previousAria);
+          inertOwners.delete(element);
+        }
+      }
       document.body.style.overflow = previous;
-      old?.focus();
+      if (old?.isConnected && !old.closest("[inert]")) old.focus();
+      else modalStack.at(-1)?.focus();
     };
   }, []);
   return (
@@ -112,16 +181,26 @@ export function Field({
   hint?: string;
 }) {
   const id = useId();
+  const hintId = `${id}-hint`;
+  const control = isValidElement(children)
+    ? (children as ReactElement<{ id?: string; "aria-describedby"?: string }>)
+    : undefined;
   return (
     <div className="field">
       <label htmlFor={id} className="field-label">
         {label}
         {unit && <span className="unit">{unit}</span>}
       </label>
-      {isValidElement(children)
-        ? cloneElement(children as ReactElement<{ id?: string }>, { id })
+      {control
+        ? cloneElement(control, {
+            id,
+            "aria-describedby":
+              [control.props["aria-describedby"], hint ? hintId : undefined]
+                .filter(Boolean)
+                .join(" ") || undefined,
+          })
         : children}
-      {hint && <small>{hint}</small>}
+      {hint && <small id={hintId}>{hint}</small>}
     </div>
   );
 }
@@ -133,8 +212,11 @@ export function Notice({
   tone?: "info" | "warning" | "success" | "error";
 }) {
   return (
-    <div className={"notice " + tone}>
-      <Info size={16} />
+    <div
+      className={"notice " + tone}
+      role={tone === "error" ? "alert" : undefined}
+    >
+      <Info size={16} aria-hidden="true" />
       <span>{children}</span>
     </div>
   );

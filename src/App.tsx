@@ -106,6 +106,13 @@ import type {
 import { Modal, Field, Notice, ResizeHandle } from "./features/ui";
 import { LoadEditor } from "./features/LoadEditor";
 import {
+  DetailModeControl,
+  LoadCalculationDetails,
+  type DetailMode,
+} from "./features/DetailViews";
+import { UpdateBanner } from "./features/UpdateBanner";
+import { useUpdateGuard } from "./pwa/useUpdateGuard";
+import {
   Overview,
   Loads,
   Boards,
@@ -296,8 +303,10 @@ export default function App() {
   const [inspectorWidth, setInspectorWidth] = useState(() =>
     readPreference("inspectorWidth", 300),
   );
-  const [detailMode, setDetailMode] = useState(() =>
-    readPreference("detailMode", "engineering"),
+  const [detailMode, setDetailMode] = useState<DetailMode>(() =>
+    readPreference<string>("detailMode", "engineering") === "simple"
+      ? "simple"
+      : "engineering",
   );
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>(() =>
     readPreference("collapsedGroups", []),
@@ -382,7 +391,6 @@ export default function App() {
     }));
   const [toolId, setToolId] = useState("");
   const [revisions, setRevisions] = useState<Project[]>([]);
-  const [update, setUpdate] = useState<ServiceWorkerRegistration>();
   const undo = useRef<Project[]>([]),
     redo = useRef<Project[]>([]);
   const [historyTick, setHistoryTick] = useState(0);
@@ -518,12 +526,6 @@ export default function App() {
     window.addEventListener("powerlab-storage-warning", handler);
     return () =>
       window.removeEventListener("powerlab-storage-warning", handler);
-  }, []);
-  useEffect(() => {
-    const fn = (e: Event) =>
-      setUpdate((e as CustomEvent<ServiceWorkerRegistration>).detail);
-    window.addEventListener("powerlab-update", fn);
-    return () => window.removeEventListener("powerlab-update", fn);
   }, []);
   function change(mutator: (draft: Project) => void) {
     const previous = latest.current;
@@ -888,6 +890,8 @@ export default function App() {
         <EquipmentLibrary
           key={project.id}
           project={project}
+          detailMode={detailMode}
+          onDetailModeChange={setDetailMode}
           change={change}
           onAdd={(load) => setEditor({ load })}
         />
@@ -1497,27 +1501,10 @@ export default function App() {
               </button>
             </div>
           )}
-          {update && (
-            <div className="update-banner">
-              {t("Update available")}
-              <button
-                className="button"
-                onClick={async () => {
-                  try {
-                    await persist();
-                    update.waiting?.postMessage("ACTIVATE_UPDATE");
-                    navigator.serviceWorker.addEventListener(
-                      "controllerchange",
-                      () => location.reload(),
-                      { once: true },
-                    );
-                  } catch {}
-                }}
-              >
-                {t("Save and reload")}
-              </button>
-            </div>
-          )}
+          <UpdateBanner
+            save={() => persist()}
+            version={`${project.id}:${project.revision}`}
+          />
           <div
             className={
               "workspace-content " +
@@ -1532,6 +1519,10 @@ export default function App() {
                   </span>
                   <h2>{t(current?.label || "Overview")}</h2>
                 </div>
+                <DetailModeControl
+                  value={detailMode}
+                  onChange={setDetailMode}
+                />
                 {project.referenceCase && (
                   <span className="tag amber">
                     <BookOpen size={13} />
@@ -1539,6 +1530,14 @@ export default function App() {
                   </span>
                 )}
               </div>
+              <p className="detail-help detail-mode-intro">
+                {t(
+                  detailMode === "simple"
+                    ? "Essential inputs and explained results. Your project stays the same."
+                    : "All assumptions and calculation values are shown.",
+                )}{" "}
+                {t("Checks remain visible in both views.")}
+              </p>
               {!loaded ? (
                 <div className="loading">
                   <LoaderCircle className="spin" />
@@ -1550,6 +1549,7 @@ export default function App() {
                     <Overview
                       project={project}
                       result={result}
+                      detailMode={detailMode}
                       onAdd={() => setEditor({})}
                       onReference={() => setDialog("references")}
                       onRoute={go}
@@ -1564,6 +1564,7 @@ export default function App() {
                       <Loads
                         project={project}
                         result={result}
+                        detailMode={detailMode}
                         selected={selected}
                         onAdd={() => setEditor({})}
                         onEdit={(load) => setEditor({ load })}
@@ -1890,7 +1891,9 @@ export default function App() {
                           <Field label={t("Detail level")}>
                             <select
                               value={detailMode}
-                              onChange={(e) => setDetailMode(e.target.value)}
+                              onChange={(e) =>
+                                setDetailMode(e.target.value as DetailMode)
+                              }
                             >
                               <option value="simple">{t("Simple")}</option>
                               <option value="engineering">
@@ -2165,15 +2168,16 @@ export default function App() {
                           <dd>{selectedLoad.phase}</dd>
                           <dt>{t("Power factor")}</dt>
                           <dd>{selectedLoad.pf}</dd>
-                          <dt>{t("Current")}</dt>
-                          <dd>{selectedResult?.currentA.toFixed(3)} A</dd>
-                          <dt>{t("Daily energy")}</dt>
-                          <dd>{selectedResult?.energyKWh.toFixed(3)} kWh</dd>
                           <dt>{t("Operating hours")}</dt>
                           <dd>{selectedLoad.hoursPerDay} h</dd>
                           <dt>{t("Energy duty")}</dt>
                           <dd>{selectedLoad.duty * 100}%</dd>
                         </dl>
+                        <LoadCalculationDetails
+                          load={selectedLoad}
+                          result={selectedResult}
+                          mode={detailMode}
+                        />
                         <button
                           className="button full-width"
                           onClick={() => setEditor({ load: selectedLoad })}
@@ -2262,7 +2266,8 @@ export default function App() {
           <LoadEditor
             load={editor.load}
             project={project}
-            detailMode={detailMode === "simple" ? "simple" : "engineering"}
+            detailMode={detailMode}
+            onDetailModeChange={setDetailMode}
             onSave={saveLoad}
             onClose={() => setEditor(null)}
           />
@@ -2803,12 +2808,15 @@ function ProjectSettings({
   change: (mutator: (p: Project) => void) => void;
 }) {
   const [draft, setDraft] = useState(structuredClone(project));
+  const [unsavedInput, setUnsavedInput] = useState(false);
   const [error, setError] = useState("");
   const locale = useContextLocale();
   const t = (s: string) => translate(s, locale);
+  useUpdateGuard(unsavedInput, t("Project settings"));
   return (
     <form
       className="panel panel-pad"
+      onChangeCapture={() => setUnsavedInput(true)}
       onSubmit={(e) => {
         e.preventDefault();
         const v = validateProjectImport(draft);
@@ -2828,6 +2836,7 @@ function ProjectSettings({
           p.notes = draft.notes;
         });
         setError("");
+        setUnsavedInput(false);
       }}
     >
       <h3>{t("Project settings")}</h3>

@@ -1,5 +1,6 @@
 import { parseBillJson, type BillDocument } from "../import-export/reports";
 import { openPowerLabDatabase } from "./database";
+import { readCommitted } from "./transactions";
 
 export type StoredDraft = { key: string; revision: string; bill: BillDocument };
 export const liveDrafts = new Map<
@@ -9,26 +10,15 @@ export const liveDrafts = new Map<
 
 export async function loadDraft(key: string): Promise<StoredDraft | undefined> {
   const db = await openPowerLabDatabase();
-  return new Promise((resolve, reject) => {
-    const read = db.transaction("bills").objectStore("bills").get(key);
-    read.onsuccess = () => {
-      try {
-        const value = read.result as StoredDraft | undefined;
-        if (value && (value.key !== key || typeof value.revision !== "string"))
-          throw new Error("Invalid billing storage metadata.");
-        resolve(
-          value
-            ? { ...value, bill: parseBillJson(JSON.stringify(value.bill)) }
-            : undefined,
-        );
-      } catch (error) {
-        reject(error);
-      }
-    };
-    read.onerror = () => reject(new Error("storage"));
-  });
+  const value = (await readCommitted(db, "bills", (store) =>
+    store.get(key),
+  )) as StoredDraft | undefined;
+  if (value && (value.key !== key || typeof value.revision !== "string"))
+    throw new Error("Invalid billing storage metadata.");
+  return value
+    ? { ...value, bill: parseBillJson(JSON.stringify(value.bill)) }
+    : undefined;
 }
-
 export async function saveDraft(
   key: string,
   document: BillDocument,

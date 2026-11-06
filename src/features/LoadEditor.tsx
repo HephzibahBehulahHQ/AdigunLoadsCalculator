@@ -1,12 +1,18 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import { Plus, Save } from "lucide-react";
 import type { Load, Project } from "../domain/types";
 import { createLoad } from "../domain/project";
 import { normalizeLoad } from "../engine/electrical";
 import { Modal, Field, Notice } from "./ui";
-import { useT, LanguageContext } from "../i18n";
+import { useT, LanguageContext, numberFormat } from "../i18n";
 import { LocaleNumberInput } from "../i18n/LocaleNumberInput";
 import { parseLocaleNumber, formatEditableNumber } from "../i18n/numbers";
+import {
+  DetailModeControl,
+  LoadCalculationDetails,
+  type DetailMode,
+} from "./DetailViews";
+import { useUpdateGuard } from "../pwa/useUpdateGuard";
 export function LoadEditor({
   load,
   project,
@@ -14,13 +20,15 @@ export function LoadEditor({
   onClose,
   purpose = "load",
   detailMode = "engineering",
+  onDetailModeChange,
 }: {
   load?: Load;
   project: Project;
   onSave: (load: Load) => void;
   onClose: () => void;
   purpose?: "load" | "template";
-  detailMode?: "simple" | "engineering";
+  detailMode?: DetailMode;
+  onDetailModeChange?: (value: DetailMode) => void;
 }) {
   const t = useT();
   const locale = useContext(LanguageContext);
@@ -33,6 +41,41 @@ export function LoadEditor({
     load ? formatEditableNumber(load.rating, locale) : "",
   );
   const [error, setError] = useState("");
+  const initialDraft = useRef(JSON.stringify(draft));
+  const ratingLocale = useRef(locale);
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
+  const [editingNumber, setEditingNumber] = useState<{
+    key: keyof Load;
+    value?: number;
+  }>();
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const parsedRating = parseLocaleNumber(rating, ratingLocale.current, {
+    min: 0,
+  });
+  const previewLoad = {
+    ...draft,
+    rating: parsedRating.ok ? parsedRating.value : NaN,
+  };
+  if (editingNumber?.value !== undefined)
+    previewLoad[editingNumber.key] = editingNumber.value as never;
+  const previewResult = normalizeLoad(previewLoad);
+  useUpdateGuard(
+    JSON.stringify(draft) !== initialDraft.current ||
+      (load
+        ? !parsedRating.ok || parsedRating.value !== load.rating
+        : rating !== "") ||
+      invalidFields.length > 0 ||
+      editingNumber !== undefined,
+    t(purpose === "template" ? "Equipment template" : "Edit load"),
+  );
+  useEffect(() => {
+    if (ratingLocale.current === locale) return;
+    const parsed = parseLocaleNumber(rating, ratingLocale.current, { min: 0 });
+    if (parsed.ok) {
+      setRating(formatEditableNumber(parsed.value, locale));
+      ratingLocale.current = locale;
+    }
+  }, [locale, rating]);
   const set = <K extends keyof Load>(key: K, value: Load[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
   const num = (
@@ -43,20 +86,50 @@ export function LoadEditor({
     max?: number,
     step = "any",
   ) => (
-    <Field label={t(label)} unit={unit}>
+    <Field
+      label={t(label)}
+      unit={unit}
+      hint={
+        detailMode === "simple" && key === "pf"
+          ? t(
+              "Power factor describes how much apparent power becomes real input power. Use the equipment evidence.",
+            )
+          : undefined
+      }
+    >
       <LocaleNumberInput
         min={min}
         max={max}
         step={step}
         value={draft[key] as number}
         onValueChange={(value) => set(key, value as never)}
+        onInput={(event) => {
+          const parsed = parseLocaleNumber(event.currentTarget.value, locale, {
+            min,
+            max,
+          });
+          setEditingNumber({
+            key,
+            value: parsed.ok ? parsed.value : undefined,
+          });
+        }}
+        onBlur={() => setEditingNumber(undefined)}
+        onValidityChange={(valid) => {
+          setInvalidFields((fields) =>
+            valid
+              ? fields.filter((field) => field !== key)
+              : fields.includes(key)
+                ? fields
+                : [...fields, key],
+          );
+          if (!valid) setAssumptionsOpen(true);
+        }}
         required
       />
     </Field>
   );
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const parsedRating = parseLocaleNumber(rating, locale, { min: 0 });
     if (!parsedRating.ok) {
       setError(t(parsedRating.message));
       return;
@@ -89,8 +162,16 @@ export function LoadEditor({
       onClose={onClose}
       wide
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onInvalidCapture={() => setAssumptionsOpen(true)}>
         <div className="modal-body">
+          <div className="load-editor-mode">
+            {onDetailModeChange && (
+              <DetailModeControl
+                value={detailMode}
+                onChange={onDetailModeChange}
+              />
+            )}
+          </div>
           {detailMode === "simple" && (
             <Notice>
               {t(
@@ -108,29 +189,6 @@ export function LoadEditor({
                 maxLength={160}
                 autoFocus
               />
-            </Field>
-            <Field label={t("Category")}>
-              <select
-                value={draft.category}
-                onChange={(e) => set("category", e.target.value)}
-              >
-                {[
-                  "General",
-                  "Lighting",
-                  "Heating",
-                  "HVAC",
-                  "IT & servers",
-                  "Motor",
-                  "Workshop",
-                  "EV",
-                  "Pumps",
-                  "Appliances",
-                ].map((c) => (
-                  <option key={c} value={c}>
-                    {t(c)}
-                  </option>
-                ))}
-              </select>
             </Field>
             <Field label={t("Entry mode")}>
               <select
@@ -161,6 +219,13 @@ export function LoadEditor({
             </Field>
             <Field
               label={t("Rating")}
+              hint={
+                detailMode === "simple"
+                  ? t(
+                      "Rating is per item; quantity is the number of identical items.",
+                    )
+                  : undefined
+              }
               unit={
                 draft.entryMode === "amps"
                   ? "A"
@@ -173,7 +238,10 @@ export function LoadEditor({
                 type="text"
                 inputMode="decimal"
                 value={rating}
-                onChange={(e) => setRating(e.target.value)}
+                onChange={(e) => {
+                  ratingLocale.current = locale;
+                  setRating(e.target.value);
+                }}
                 required
               />
             </Field>
@@ -211,16 +279,6 @@ export function LoadEditor({
             </Field>
             {num("voltage", "Voltage", "V", 0.001)}
             {num("pf", "Power factor", "", 0.001, 1)}
-            <Field label={t("Phase")}>
-              <select
-                value={draft.phase}
-                onChange={(e) => set("phase", e.target.value as Load["phase"])}
-              >
-                {["L1", "L2", "L3"].map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </select>
-            </Field>
             {draft.connection === "line-line" && (
               <Field label={t("Phase pair")}>
                 <select
@@ -238,29 +296,12 @@ export function LoadEditor({
                 </select>
               </Field>
             )}
-            <Field label={t("Reactive power")}>
-              <select
-                value={draft.reactive}
-                onChange={(e) =>
-                  set("reactive", e.target.value as Load["reactive"])
-                }
-              >
-                <option value="lagging">{t("Lagging")}</option>
-                <option value="leading">{t("Leading")}</option>
-              </select>
-            </Field>
             {draft.entryMode === "complex" &&
               num("reactiveKvar", "Reactive power", "kvar", -1000000)}
             {draft.entryMode === "motor" &&
               num("efficiency", "Efficiency", "η", 0.001, 1)}
             {num("hoursPerDay", "Operating hours", "h/day", 0, 24)}
-            {num("startHour", "Start hour", "h", 0, 23.999)}
             {num("duty", "Energy duty", "0–1", 0, 1)}
-            <details open={detailMode === "engineering"}>
-              <summary>{t("Utilization and standby assumptions")}</summary>
-              {num("utilization", "Utilization", "0–1", 0, 1)}
-              {num("standbyW", "Standby power", "W")}
-            </details>
             <Field label={t("Circuit")}>
               <select
                 value={draft.circuitId || ""}
@@ -317,35 +358,155 @@ export function LoadEditor({
               />
             </Field>
           </div>
-          <div className="check-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={draft.critical}
-                onChange={(e) => set("critical", e.target.checked)}
-              />
-              {t("Critical load")}
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={draft.locked}
-                onChange={(e) => set("locked", e.target.checked)}
-              />
-              {t("Lock phase")}
-            </label>
+          <div className="load-assumption-values" aria-label={t("Assumptions")}>
+            <span>
+              {t("Power factor basis")}:{" "}
+              {t(
+                draft.pfKind === "true"
+                  ? "True power factor"
+                  : "Displacement power factor",
+              )}
+            </span>
+            <span>
+              {t("Phase")}:{" "}
+              {draft.connection === "three" ? "L1–L3" : draft.phase}
+            </span>
+            <span>
+              {t("Utilization")}: {numberFormat(draft.utilization, 3, locale)}
+            </span>
+            <span>
+              {t("Standby power")}: {numberFormat(draft.standbyW, 3, locale)} W
+            </span>
+            <span>
+              {t("Start hour")}: {numberFormat(draft.startHour, 3, locale)} h
+            </span>
           </div>
-          <Field label={t("Notes")}>
-            <textarea
-              rows={2}
-              value={draft.notes}
-              onChange={(e) => set("notes", e.target.value)}
-            />
-          </Field>
+          <details
+            className="load-assumptions"
+            open={
+              detailMode === "engineering" ||
+              assumptionsOpen ||
+              invalidFields.length > 0
+            }
+            onToggle={(event) => {
+              if (
+                (detailMode === "engineering" || invalidFields.length > 0) &&
+                !event.currentTarget.open
+              )
+                event.currentTarget.open = true;
+              else if (detailMode === "simple" && !invalidFields.length)
+                setAssumptionsOpen(event.currentTarget.open);
+            }}
+          >
+            <summary>{t("More assumptions")}</summary>
+            <p className="detail-help">
+              {t("These values still apply when this section is closed.")}
+            </p>
+            <div className="form-grid">
+              <Field label={t("Category")}>
+                <select
+                  value={draft.category}
+                  onChange={(e) => set("category", e.target.value)}
+                >
+                  {[
+                    "General",
+                    "Lighting",
+                    "Heating",
+                    "HVAC",
+                    "IT & servers",
+                    "Motor",
+                    "Workshop",
+                    "EV",
+                    "Pumps",
+                    "Appliances",
+                  ].map((c) => (
+                    <option key={c} value={c}>
+                      {t(c)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t("Phase")}>
+                <select
+                  value={draft.phase}
+                  onChange={(e) =>
+                    set("phase", e.target.value as Load["phase"])
+                  }
+                >
+                  {["L1", "L2", "L3"].map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t("Reactive power")}>
+                <select
+                  value={draft.reactive}
+                  onChange={(e) =>
+                    set("reactive", e.target.value as Load["reactive"])
+                  }
+                >
+                  <option value="lagging">{t("Lagging")}</option>
+                  <option value="leading">{t("Leading")}</option>
+                </select>
+              </Field>
+              <Field label={t("Power factor basis")}>
+                <select
+                  value={draft.pfKind ?? "displacement"}
+                  onChange={(event) =>
+                    set("pfKind", event.target.value as Load["pfKind"])
+                  }
+                >
+                  <option value="displacement">
+                    {t("Displacement power factor")}
+                  </option>
+                  <option value="true">{t("True power factor")}</option>
+                </select>
+              </Field>
+              {num("startHour", "Start hour", "h", 0, 23.999)}
+              {num("utilization", "Utilization", "0–1", 0, 1)}
+              {num("standbyW", "Standby power", "W")}
+            </div>
+            <div className="check-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.critical}
+                  onChange={(e) => set("critical", e.target.checked)}
+                />
+                {t("Critical load")}
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.locked}
+                  onChange={(e) => set("locked", e.target.checked)}
+                />
+                {t("Lock phase")}
+              </label>
+            </div>
+            <Field label={t("Notes")}>
+              <textarea
+                rows={2}
+                value={draft.notes}
+                onChange={(e) => set("notes", e.target.value)}
+              />
+            </Field>
+          </details>
           <Notice>
             {t("Energy duty")} → kWh. {t("Current")} → {t("Rating")} ×{" "}
             {t("Utilization")}. {t("All results use entered assumptions.")}
           </Notice>
+          <h3>{t("Input preview")}</h3>
+          <LoadCalculationDetails
+            load={previewLoad}
+            result={previewResult}
+            mode={detailMode}
+            inputValid={
+              parsedRating.ok &&
+              invalidFields.length === 0 &&
+              (editingNumber === undefined || editingNumber.value !== undefined)
+            }
+          />
           {error && (
             <p role="alert" className="error-text">
               {t(error)}
