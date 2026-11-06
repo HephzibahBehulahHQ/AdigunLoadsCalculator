@@ -16,6 +16,10 @@
 .help-search input {
   min-width: 0;
 }
+.help-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .help-filters {
   display: flex;
   flex-wrap: wrap;

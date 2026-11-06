@@ -506,7 +506,7 @@ const workflows: Omit<HelpTopic, "kind" | "category">[] = [
       "A result is useful only when its inputs, method and limits match your installation.",
     steps: [
       "Calculated means the supported arithmetic ran. Incomplete means inputs or evidence are missing; Unsupported means the selected condition is outside the model. Read the issue and Calculation trace before using the result.",
-      "If saving fails, keep the tab open and export a backup before reloading. If another tab saved a newer revision, preserve your work as an export or copy, then reopen the saved project.",
+      "If saving fails, keep the tab open and use Export project to preserve the current engineering work before reloading. If another tab saved a newer revision, preserve your work as an export or copy, then reopen the saved project.",
       "If an import fails, fix the fields listed in its preview. If a calculation fails, check units, required values and model assumptions. Engineering Reference links the supported formulas and sources.",
       "App updates wait while edits or calculations are active. Finish or cancel them before reloading. Help works offline after the app has been cached; external source and GitHub links need an internet connection.",
     ],

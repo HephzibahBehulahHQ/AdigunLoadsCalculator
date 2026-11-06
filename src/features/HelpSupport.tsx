@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useMemo, useState } from "react";
+import { useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, BookOpen, LifeBuoy, Search, X } from "lucide-react";
 import { LanguageContext, useT } from "../i18n";
 import { formatEditableNumber } from "../i18n/numbers";
@@ -20,6 +20,7 @@ export function HelpSupport({
   const locale = useContext(LanguageContext);
   const searchId = useId();
   const headingId = useId();
+  const guideHeading = useRef<HTMLHeadingElement>(null);
   const [query, setQuery] = useState(initialQuery);
   const [filter, setFilter] = useState<GuideFilter>("all");
   const [selectedId, setSelectedId] = useState("");
@@ -128,7 +129,10 @@ export function HelpSupport({
                   (active.id === topic.id ? "active" : "")
                 }
                 aria-current={active.id === topic.id ? "true" : undefined}
-                onClick={() => setSelectedId(topic.id)}
+                onClick={() => {
+                  setSelectedId(topic.id);
+                  requestAnimationFrame(() => guideHeading.current?.focus());
+                }}
               >
                 <span className="help-topic-kind">
                   {topic.toolId ? `${topic.toolId} · ` : ""}
@@ -145,7 +149,9 @@ export function HelpSupport({
                 {active.toolId && (
                   <span className="eyebrow">{active.toolId}</span>
                 )}
-                <h3 id={headingId}>{t(active.title)}</h3>
+                <h3 id={headingId} ref={guideHeading} tabIndex={-1}>
+                  {t(active.title)}
+                </h3>
               </div>
             </div>
             <p className="help-summary">{t(active.summary)}</p>
