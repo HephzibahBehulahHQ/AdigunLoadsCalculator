@@ -4,6 +4,7 @@ import type { CalculationResult, Project } from "../domain/types";
 import { useT, numberFormat, type Locale } from "../i18n";
 import { parseLocaleNumber, formatEditableNumber } from "../i18n/numbers";
 import { Field } from "./ui";
+import { useUpdateGuard } from "../pwa/useUpdateGuard";
 import { downloadFile, safeName } from "../import-export/files";
 import {
   calculateBill,
@@ -125,6 +126,7 @@ export function ReportWorkspace({
     dirtyDetails =
       JSON.stringify(details) !==
       JSON.stringify(project.reportDetails ?? blankDetails);
+  useUpdateGuard(dirtyDetails || busy, t("Report details and sections"));
   useEffect(() => {
     priceLocales.current = {};
     setDetails(project.reportDetails ?? blankDetails);

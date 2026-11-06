@@ -2,6 +2,12 @@
 
 Date: 6 November 2026. Owner: Hephzibah Behulah.
 
+## Active milestone: field usability and recovery
+
+The owner has given standing authorization to continue unfinished project work, merge and deploy each verified milestone, then continue without a new approval request. Work is active on `feat/field-usability` from main `9fe8d479b36075e85c3751644320e209a746602c`.
+
+Current scope: differentiated Simple/Engineering views, keyboard/dialog accessibility, safe application updates, storage failure recovery and deterministic local BOT lifecycle. The first checkpoint contains modal focus/background isolation, accessible field hints and update/draft protection infrastructure. Integration and release gates are pending; no new live release is claimed by this checkpoint.
+
 ## Current continuation
 
 **The Engine 1.1.0 continuation is merged and publicly deployed.** The owner explicitly authorized push, merge into main and public deployment on 6 November 2026. Published branch: `51736e6f17987e113f663662919f6318f37b8a84`; deployed main: `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9`. This delivery checkpoint records release evidence without changing application source.

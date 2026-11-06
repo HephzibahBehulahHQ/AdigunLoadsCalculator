@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { Activity, Download, FolderOpen, RefreshCw, Save } from "lucide-react";
 import { Field, LineChart, Notice } from "./ui";
 import { LanguageContext, numberFormat, useT } from "../i18n";
+import { useUpdateGuard } from "../pwa/useUpdateGuard";
 import {
   parseMeasurementCSV,
   type MeasurementImport,
@@ -51,6 +52,7 @@ export function Measurements({ projectId }: { projectId: string }) {
     [dirty, setDirty] = useState(false),
     [page, setPage] = useState(0),
     [selected, setSelected] = useState<number | undefined>();
+  useUpdateGuard(dirty || busy, t("Measurements"));
   const loadPayload = (
     payload: MeasurementPayload,
     parsed: MeasurementImport | null,
