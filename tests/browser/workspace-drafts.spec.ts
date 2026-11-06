@@ -57,6 +57,31 @@ async function blockers(page: Page) {
   });
 }
 
+async function failProjectWrites(page: Page) {
+  await page.evaluate(() => {
+    const originalPut = IDBObjectStore.prototype.put;
+    (
+      window as unknown as { restoreProjectWrites: () => void }
+    ).restoreProjectWrites = () => {
+      IDBObjectStore.prototype.put = originalPut;
+    };
+    IDBObjectStore.prototype.put = function (
+      value: unknown,
+      key?: IDBValidKey,
+    ) {
+      const request =
+        key === undefined
+          ? originalPut.call(this, value)
+          : originalPut.call(this, value, key);
+      if (this.name === "projects") {
+        const transaction = this.transaction;
+        request.addEventListener("success", () => transaction.abort());
+      }
+      return request;
+    };
+  });
+}
+
 test("report drafts survive route, billing tab, locale and project switches without mutating the model", async ({
   page,
 }) => {
@@ -258,28 +283,7 @@ test("failed report persistence retains a dirty guarded draft even after the in-
   await page
     .getByLabel("Project reference", { exact: true })
     .fill("Report save must retry");
-  await page.evaluate(() => {
-    const originalPut = IDBObjectStore.prototype.put;
-    (
-      window as unknown as { restoreProjectWrites: () => void }
-    ).restoreProjectWrites = () => {
-      IDBObjectStore.prototype.put = originalPut;
-    };
-    IDBObjectStore.prototype.put = function (
-      value: unknown,
-      key?: IDBValidKey,
-    ) {
-      const request =
-        key === undefined
-          ? originalPut.call(this, value)
-          : originalPut.call(this, value, key);
-      if (this.name === "projects") {
-        const transaction = this.transaction;
-        request.addEventListener("success", () => transaction.abort());
-      }
-      return request;
-    };
-  });
+  await failProjectWrites(page);
   await page
     .getByRole("button", { name: "Save report details", exact: true })
     .click();
@@ -324,6 +328,31 @@ test("failed report persistence retains a dirty guarded draft even after the in-
   await expect(
     page.getByLabel("Project reference", { exact: true }),
   ).toHaveValue("Report save must retry");
+  await failProjectWrites(page);
+  await page
+    .getByLabel("Project reference", { exact: true })
+    .fill("Discard rejected details");
+  await page
+    .getByRole("button", { name: "Save report details", exact: true })
+    .click();
+  await expect(page.locator(".save-badge")).toContainText("Save failed");
+  await page.evaluate(() =>
+    (
+      window as unknown as { restoreProjectWrites: () => void }
+    ).restoreProjectWrites(),
+  );
+  await page
+    .getByRole("button", { name: "Discard unsaved draft", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Project reference", { exact: true }),
+  ).toHaveValue("Report save must retry");
+  await expect(page.locator(".save-badge")).toContainText("Saved locally");
+  expect(await blockers(page)).not.toContain("Report details and sections");
+  await page.reload();
+  await expect(
+    page.getByLabel("Project reference", { exact: true }),
+  ).toHaveValue("Report save must retry");
 });
 
 test("measurement drafts retain their CSV, mapping and raw interval across routes and projects until save or discard", async ({
@@ -335,13 +364,11 @@ test("measurement drafts retain their CSV, mapping and raw interval across route
   await expect(panel.locator("input[type=file]")).toBeEnabled();
   const savedCSV =
     "at,reading\n2026-11-06T00:00:00Z,1200\n2026-11-06T01:00:00Z,600";
-  await panel
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "saved-a.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(savedCSV),
-    });
+  await panel.locator("input[type=file]").setInputFiles({
+    name: "saved-a.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(savedCSV),
+  });
   await panel.getByLabel("Power unit", { exact: true }).selectOption("W");
   await panel.getByLabel(/^Declared elapsed interval/).fill("60");
   await panel
@@ -356,13 +383,11 @@ test("measurement drafts retain their CSV, mapping and raw interval across route
   );
   const draftCSV =
     "at,reading\n2026-11-06T00:00:00Z,2400\n2026-11-06T01:00:00Z,1200";
-  await panel
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "draft-a.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(draftCSV),
-    });
+  await panel.locator("input[type=file]").setInputFiles({
+    name: "draft-a.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(draftCSV),
+  });
   await panel.getByLabel("Power unit", { exact: true }).selectOption("W");
   await page
     .getByRole("combobox", { name: "Language", exact: true })
@@ -376,13 +401,11 @@ test("measurement drafts retain their CSV, mapping and raw interval across route
   await route(page, "Schedules & Simulation", "de");
   await expect(panel).not.toContainText("draft-a.csv");
   await expect(panel.locator("input[type=file]")).toBeEnabled();
-  await panel
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "draft-b.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from("timestamp,power\n2026-11-06T00:00:00Z,5"),
-    });
+  await panel.locator("input[type=file]").setInputFiles({
+    name: "draft-b.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("timestamp,power\n2026-11-06T00:00:00Z,5"),
+  });
   await route(page, "Overview", "de");
   await page
     .getByRole("combobox", { name: translate("Language", "de"), exact: true })

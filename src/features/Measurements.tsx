@@ -527,7 +527,11 @@ function ProjectMeasurements({ projectId }: { projectId: string }) {
                 <option value="kW">kW</option>
               </select>
             </Field>
-            <Field label={t("Declared elapsed interval")} unit="min">
+            <Field
+              label={t("Declared elapsed interval")}
+              unit="min"
+              hint={!parsedInterval.ok ? t(parsedInterval.message) : undefined}
+            >
               <input
                 disabled={busy}
                 type="text"
@@ -545,11 +549,6 @@ function ProjectMeasurements({ projectId }: { projectId: string }) {
                   setError("");
                 }}
               />
-              {!parsedInterval.ok && (
-                <small className="error-text" role="alert">
-                  {t(parsedInterval.message)}
-                </small>
-              )}
             </Field>
           </div>
           <p className="measurement-caption">

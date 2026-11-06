@@ -103,6 +103,7 @@ type ReportWorkspaceProps = {
 function newReportDraft(project: Project, locale: Locale): ReportDraft {
   return {
     details: structuredClone(project.reportDetails ?? blankDetails),
+    savedDetails: structuredClone(project.reportDetails ?? blankDetails),
     detailsDirty: false,
     selected: [...initialSections],
     sectionsDirty: false,
@@ -136,7 +137,7 @@ function ProjectReportWorkspace({
     project.id,
     () => newReportDraft(project, locale),
   );
-  const [details, setDetails] = field("details"),
+  const [details] = field("details"),
     [selected] = field("selected"),
     [prices] = field("prices"),
     [contingency] = field("contingency"),
@@ -254,7 +255,11 @@ function ProjectReportWorkspace({
       JSON.stringify(details) !==
         JSON.stringify(project.reportDetails ?? blankDetails)
     )
-      setDetails(structuredClone(project.reportDetails ?? blankDetails));
+      update((previous) => ({
+        ...previous,
+        details: structuredClone(project.reportDetails ?? blankDetails),
+        savedDetails: structuredClone(project.reportDetails ?? blankDetails),
+      }));
   }, [project.reportDetails, draft.detailsDirty]);
   useEffect(() => {
     sequence.current++;
@@ -273,26 +278,49 @@ function ProjectReportWorkspace({
     setError("");
     try {
       await onDetailsChange(saved);
-      reportDrafts.update(project.id, (previous) =>
-        JSON.stringify(previous.details) === JSON.stringify(saved)
-          ? { ...previous, detailsDirty: false }
-          : previous,
-      );
+      reportDrafts.update(project.id, (previous) => ({
+        ...previous,
+        savedDetails: saved,
+        detailsDirty:
+          JSON.stringify(previous.details) !== JSON.stringify(saved),
+      }));
     } catch (cause) {
       if (mounted.current) setError(t((cause as Error).message));
     } finally {
       if (mounted.current) setSavingDetails(false);
     }
   }
-  function discard() {
+  async function discard() {
+    const previous = reportDrafts.get(project.id)!;
+    const baseline = structuredClone(previous.savedDetails);
+    const revertAcceptedDetails =
+      previous.detailsDirty &&
+      JSON.stringify(project.reportDetails ?? blankDetails) !==
+        JSON.stringify(baseline);
     sequence.current++;
-    update(() => newReportDraft(project, locale));
-    setSnapshot(null);
-    setBillPreview(null);
     setError("");
-    setMessage("");
-    setBomPage(0);
-    setReload((value) => value + 1);
+    setSavingDetails(revertAcceptedDetails);
+    try {
+      // A rejected write may already have changed App's in-memory project.
+      // Restore the last accepted details through the same explicit command.
+      if (revertAcceptedDetails) await onDetailsChange(baseline);
+      reportDrafts.update(project.id, (latest) =>
+        latest === previous
+          ? newReportDraft({ ...project, reportDetails: baseline }, locale)
+          : { ...latest, savedDetails: baseline },
+      );
+      if (mounted.current) {
+        setSnapshot(null);
+        setBillPreview(null);
+        setMessage("");
+        setBomPage(0);
+        setReload((value) => value + 1);
+      }
+    } catch (cause) {
+      if (mounted.current) setError(t((cause as Error).message));
+    } finally {
+      if (mounted.current) setSavingDetails(false);
+    }
   }
   const blocks = useMemo(
     () =>
