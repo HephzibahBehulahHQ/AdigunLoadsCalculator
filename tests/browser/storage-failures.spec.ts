@@ -73,9 +73,7 @@ test("opening a saved project remembers the selection before its autosave", asyn
   ).toBe(first.id);
   expect(first.id).not.toBe(second.id);
   await page.reload();
-  await expect(page.locator(".project-select-button")).toContainText(
-    first.name,
-  );
+  await expect(page.locator(".project-switch")).toContainText(first.name);
 });
 
 test("real quota rejection preserves the saved project and exports the current working draft", async ({
