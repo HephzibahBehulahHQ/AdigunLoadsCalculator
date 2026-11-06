@@ -199,6 +199,12 @@ export interface BatteryStepInput {
   battery: BatterySettings;
   gridAvailable?: boolean;
   islandCapable?: boolean;
+  minimumStoredKWh?: number;
+  dischargeLimitKW?: number;
+  gridChargeKW?: number;
+  importLimitKW?: number;
+  exportLimitKW?: number;
+  islandOutputLimitKW?: number;
 }
 export interface BatteryStep {
   storedKWh: number;
@@ -211,6 +217,7 @@ export interface BatteryStep {
   curtailedKWh: number;
   directKWh: number;
   balanceErrorKWh: number;
+  gridChargeKWh: number;
 }
 export function validateBattery(battery: BatterySettings): void {
   finite(battery.capacityKWh, "Battery capacity", 0);
@@ -239,6 +246,9 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
   finite(input.loadKW, "Load", 0);
   const minimum = battery.capacityKWh * battery.minSoc;
   const maximum = battery.capacityKWh * battery.maxSoc;
+  for (const key of ["minimumStoredKWh", "dischargeLimitKW", "gridChargeKW", "importLimitKW", "exportLimitKW", "islandOutputLimitKW"] as const) if (input[key] !== undefined) finite(input[key]!, key, 0);
+  const dischargeFloor = Math.max(minimum, input.minimumStoredKWh ?? minimum);
+  if (dischargeFloor > maximum) fail("Battery reserve cannot exceed the upper stored-energy bound.");
   finite(input.storedKWh, "Stored energy", minimum - 1e-9, maximum + 1e-9);
   const gridAvailable = input.gridAvailable !== false;
   const islandCapable = input.islandCapable ?? battery.islandCapable;
@@ -246,7 +256,8 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
     !gridAvailable && !islandCapable ? input.generationKW * hours : 0;
   const generation = input.generationKW * hours - unavailableGeneration;
   const demand = input.loadKW * hours;
-  const directKWh = Math.min(generation, demand);
+  const outputEnergy = gridAvailable ? Infinity : (input.islandOutputLimitKW ?? Infinity) * hours;
+  const directKWh = Math.min(generation, demand, outputEnergy);
   let surplus = generation - directKWh;
   let deficit = demand - directKWh;
   let storedKWh = Math.min(maximum, Math.max(minimum, input.storedKWh));
@@ -263,20 +274,27 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
     storedKWh += chargeKWh * battery.chargeEfficiency;
     lossesKWh = chargeKWh * (1 - battery.chargeEfficiency);
     surplus -= chargeKWh;
-  } else if (deficit > 0 && usableInverter) {
+  } else if (deficit > 0 && usableInverter && !(gridAvailable && (input.gridChargeKW ?? 0) > 0)) {
     dischargeKWh = Math.min(
       deficit,
       battery.dischargeKW * hours,
-      Math.max(0, storedKWh - minimum) * battery.dischargeEfficiency,
+      (input.dischargeLimitKW ?? Infinity) * hours,
+      Math.max(0, outputEnergy - directKWh),
+      Math.max(0, storedKWh - dischargeFloor) * battery.dischargeEfficiency,
     );
     storedKWh -= dischargeKWh / battery.dischargeEfficiency;
     lossesKWh = dischargeKWh * (1 / battery.dischargeEfficiency - 1);
     deficit -= dischargeKWh;
   }
-  const importKWh = gridAvailable ? deficit : 0;
-  const exportKWh = gridAvailable ? surplus : 0;
-  const unservedKWh = gridAvailable ? 0 : deficit;
-  const curtailedKWh = (gridAvailable ? 0 : surplus) + unavailableGeneration;
+  let importKWh = gridAvailable ? Math.min(deficit, (input.importLimitKW ?? Infinity) * hours) : 0;
+  const unservedKWh = Math.max(0, deficit - importKWh);
+  let gridChargeKWh = 0;
+  if (gridAvailable && dischargeKWh === 0 && (input.gridChargeKW ?? 0) > 0) {
+    gridChargeKWh = Math.min(input.gridChargeKW! * hours, Math.max(0, battery.chargeKW * hours - chargeKWh), Math.max(0, maximum - storedKWh) / battery.chargeEfficiency, Math.max(0, (input.importLimitKW ?? Infinity) * hours - importKWh));
+    importKWh += gridChargeKWh; chargeKWh += gridChargeKWh; storedKWh += gridChargeKWh * battery.chargeEfficiency; lossesKWh += gridChargeKWh * (1 - battery.chargeEfficiency);
+  }
+  const exportKWh = gridAvailable ? Math.min(surplus, (input.exportLimitKW ?? Infinity) * hours) : 0;
+  const curtailedKWh = surplus - exportKWh + unavailableGeneration;
   const balanceErrorKWh =
     input.generationKW * hours +
     importKWh +
@@ -293,6 +311,7 @@ export function batteryStep(input: BatteryStepInput): BatteryStep {
     curtailedKWh,
     directKWh,
     balanceErrorKWh,
+    gridChargeKWh,
   };
 }
 

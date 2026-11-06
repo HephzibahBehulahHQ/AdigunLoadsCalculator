@@ -3101,6 +3101,10 @@ details p {
   body.engineering-report-print-mode .workspace,
   body.engineering-report-print-mode .content-scroll { display: block !important; width: auto !important; height: auto !important; overflow: visible !important; margin: 0 !important; }
   body.engineering-report-print-mode #engineering-report-preview { display: block !important; position: static; background: white; color: black; width: 100%; }
+  body.engineering-report-print-mode #engineering-report-preview header { display: block !important; }
+  body.engineering-report-print-mode .report-workspace > :not(#engineering-report-preview) { display: none !important; }
+  body.engineering-report-print-mode #engineering-report-preview .table-wrap { overflow: visible !important; }
+  body.engineering-report-print-mode #engineering-report-preview table { min-width: 0; width: 100%; }
   body.engineering-report-print-mode #engineering-report-preview table { break-inside: auto; }
   body.engineering-report-print-mode #engineering-report-preview tr { break-inside: avoid; }
 }

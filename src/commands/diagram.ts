@@ -14,6 +14,8 @@ export interface DiagramNode {
   y: number;
   width: number;
   height: number;
+  planning?: boolean;
+  symbol?: string;
 }
 export interface DiagramSnapshot {
   projectName: string;
@@ -58,8 +60,10 @@ function graph(project: Project, result?: CalculationResult) {
     label = "",
   ) => {
     const id = `${kind}:${objectId}`;
-    nodes.push({ id, objectId, kind, name, detail, width: 240, height: 76 });
+    const node: Omit<DiagramNode, "x" | "y"> = { id, objectId, kind, name, detail, width: 240, height: 76 };
+    nodes.push(node);
     if (from) edges.push({ from, to: id, label });
+    return node;
   };
   add(
     "source",
@@ -67,6 +71,12 @@ function graph(project: Project, result?: CalculationResult) {
     "Grid / supply",
     `${project.supply.voltageLN}/${project.supply.voltageLL} V · ${project.supply.frequency} Hz · ${project.supply.limitA} A`,
   );
+  for (const equipment of project.sources ?? []) {
+    const node = add("source", equipment.id, equipment.name, `Planning ${equipment.type} · ${equipment.continuousKW}/${equipment.continuousKVA} kW/kVA · no active feed`);
+    node.id = `source:equipment:${equipment.id}`;
+    node.planning = true;
+    node.symbol = { grid: "~", transformer: "T", generator: "G", inverter: "I", ups: "U" }[equipment.type];
+  }
   for (const board of project.boards)
     add(
       "board",
@@ -191,6 +201,7 @@ export function buildDiagramSnapshot(
       )?.parentId;
     }
   }
+  if (options.isolateBoardId) for (const equipment of project.sources ?? []) if (equipment.boardId && included.has(`board:${equipment.boardId}`)) included.add(`source:equipment:${equipment.id}`);
   const visible = nodes.filter((node) => included.has(node.id));
   const offsetX =
     40 -
@@ -288,7 +299,7 @@ export function diagramSVG(snapshot: DiagramSnapshot): string {
   }
   for (const node of snapshot.nodes) {
     lines.push(
-      `<g><title>${escape(`${node.kind}: ${node.name}; ${node.detail}`)}</title><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="5" fill="#f3f7fb" stroke="#466379"/><circle cx="${node.x + 22}" cy="${node.y + 24}" r="12" fill="#e0f3f8" stroke="#466379"/><text x="${node.x + 22}" y="${node.y + 28}" text-anchor="middle" font-size="12">${{ source: "~", board: "B", circuit: "S", load: "L" }[node.kind]}</text>`,
+      `<g><title>${escape(`${node.kind}: ${node.name}; ${node.detail}`)}</title><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="5" fill="#f3f7fb" stroke="#466379"/><circle cx="${node.x + 22}" cy="${node.y + 24}" r="12" fill="#e0f3f8" stroke="#466379"/><text x="${node.x + 22}" y="${node.y + 28}" text-anchor="middle" font-size="12">${node.symbol ?? { source: "~", board: "B", circuit: "S", load: "L" }[node.kind]}</text>`,
     );
     const name = snapshot.showLabels ? node.name : node.kind;
     lines.push(

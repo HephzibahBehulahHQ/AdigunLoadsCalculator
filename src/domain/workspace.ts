@@ -34,6 +34,9 @@ const settings = [
   "notes",
   "diagram",
   "equipmentLibrary",
+  "sources",
+  "zones",
+  "reportDetails",
 ] as const;
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -151,7 +154,7 @@ export function applyInputDifferences(
       if (field === "$record") {
         if (!same(rows[index], before))
           throw new Error("The compared object has changed.");
-        if (after === undefined) rows.splice(index, 1);
+        if (after === undefined) { if (index < 0) throw new Error("The compared object is missing."); rows.splice(index, 1); }
         else if (index < 0)
           rows.push(structuredClone(after) as Record<string, unknown>);
         else rows[index] = structuredClone(after) as Record<string, unknown>;

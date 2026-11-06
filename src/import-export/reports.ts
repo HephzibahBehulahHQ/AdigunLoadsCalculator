@@ -1291,7 +1291,7 @@ export async function createEngineeringPdf(
     appendDiagramPages(
       doc,
       snapshot.context.diagram ?? buildDiagramSnapshot(project, result),
-      { locale },
+      { locale, showTileFooter: false },
     );
   }
   const count = doc.getNumberOfPages();

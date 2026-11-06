@@ -7,7 +7,11 @@ import { translate } from "../i18n";
 export function appendDiagramPages(
   doc: jsPDF,
   snapshot: DiagramSnapshot,
-  options: { locale?: ReportLocale; firstPage?: boolean } = {},
+  options: {
+    locale?: ReportLocale;
+    firstPage?: boolean;
+    showTileFooter?: boolean;
+  } = {},
 ): void {
   const t = (key: string) => translate(key, options.locale ?? "en");
   if (
@@ -174,13 +178,14 @@ export function appendDiagramPages(
       doc.rect(margin, top, viewW, viewH);
       doc.setFontSize(7);
       doc.setTextColor(80, 95, 110);
-      doc.text(
-        t(
-          "Overlapping vector tiles preserve readable labels. Full connection details and notes follow.",
-        ),
-        margin,
-        pageH - 11,
-      );
+      if (options.showTileFooter !== false)
+        doc.text(
+          t(
+            "Overlapping vector tiles preserve readable labels. Full connection details and notes follow.",
+          ),
+          margin,
+          pageH - 11,
+        );
     }
   doc.addPage();
   let y = 18;

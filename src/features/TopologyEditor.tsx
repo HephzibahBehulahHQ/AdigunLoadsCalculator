@@ -435,7 +435,7 @@ export function TopologyEditor({
                   data-node-id={item.id}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${item.kind}: ${item.name}`}
+                  aria-label={`${item.planning ? "Planning source" : item.kind}: ${item.name}`}
                   aria-pressed={selected === item.id}
                   className={
                     "topology-node " +
@@ -488,7 +488,7 @@ export function TopologyEditor({
                     fill="#102d3c"
                     stroke="#22d3ee"
                   />
-                  {item.kind === "source" ? (
+                  {item.symbol ? <text x="23" y="29" textAnchor="middle" fill="#67e8f9" fontSize="12">{item.symbol}</text> : item.kind === "source" ? (
                     <path
                       d="M14 25Q18 11 23 25T32 25"
                       fill="none"
@@ -769,6 +769,10 @@ function ObjectEditor({
     correctionFactors: circuit?.cable?.correctionFactors?.join(", ") ?? "",
     source: circuit?.cable?.source ?? "",
   });
+  if (node.planning) {
+    const equipment = project.sources?.find((item) => item.id === node.objectId);
+    return <aside className="panel panel-pad topology-inspector" aria-label={t("Topology object inspector")}><span className="eyebrow">{t("Planning source equipment")}</span><h3>{node.name}</h3><Notice>{t("This record is an entered planning source, not an active additional feed. Board association does not create an electrical connection or establish safe source paralleling.")}</Notice>{equipment && <dl className="detail-list"><dt>{t("Type")}</dt><dd>{equipment.type}</dd><dt>{t("Entered rating")}</dt><dd>{equipment.continuousKW} kW / {equipment.continuousKVA} kVA</dd><dt>{t("Voltage")}</dt><dd>{equipment.voltageV} V · {equipment.connection}</dd><dt>{t("Associated board")}</dt><dd>{project.boards.find((item) => item.id === equipment.boardId)?.name ?? t("Unassigned")}</dd><dt>{t("Source reference")}</dt><dd>{equipment.source.reference}</dd></dl>}<p>{t("Edit this record in the source equipment register. Core circuit calculations retain the declared single-source radial model.")}</p><details><summary>{t("Manual position")}</summary><form onSubmit={(e) => { e.preventDefault(); saveView({ ...settings, positions: { ...settings.positions, [node.id]: { x: Number(x), y: Number(y) } } }); }}><Field label={t("Diagram X")}><input type="number" required min="-100000" max="100000" value={x} onChange={(e) => setX(e.target.value)} /></Field><Field label={t("Diagram Y")}><input type="number" required min="-100000" max="100000" value={y} onChange={(e) => setY(e.target.value)} /></Field><button className="button">{t("Save position")}</button></form></details></aside>;
+  }
   function save() {
     if (node.kind === "source")
       return review({ kind: "supply.patch", patch: supply });

@@ -140,19 +140,23 @@ export function DifferenceTable({
 export function RevisionComparison({
   project,
   revisions,
+  change,
 }: {
   project: Project;
   revisions: Project[];
+  change?: (mutator: (draft:Project) => void) => boolean | void;
 }) {
   const t = useT();
   const [revision, setRevision] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [error, setError] = useState("");
   const baseline = revisions.find((item) => String(item.revision) === revision);
-  const differences = baseline ? compareProjectInputs(baseline, project) : [];
+  const differences = baseline ? compareProjectInputs(project, baseline) : [];
   return (
     <section className="panel panel-pad">
       <h3>{t("Compare revisions")}</h3>
       <Field label={t("Earlier revision")}>
-        <select value={revision} onChange={(e) => setRevision(e.target.value)}>
+        <select value={revision} onChange={(e) => {setRevision(e.target.value);setSelected([]);setError("");}}>
           <option value="">{t("Select a revision")}</option>
           {revisions
             .filter((item) => item.revision !== project.revision)
@@ -168,7 +172,10 @@ export function RevisionComparison({
           <p>
             {differences.length} {t("changed fields")}
           </p>
-          <DifferenceTable differences={differences} />
+          <p className="small muted">{t("Compare current inputs with a saved revision. Select fields to restore; dependent objects must be restored together.")}</p>
+          <DifferenceTable differences={differences} selected={selected} onSelection={change ? setSelected : undefined}/>
+          {change && <button className="button" disabled={!selected.length} onClick={() => {try {const next=applyInputDifferences(project,project.revision,differences,selected);if(change(p=>{for(const key of Object.keys(p))delete (p as unknown as Record<string,unknown>)[key];Object.assign(p,next);})!==false){setSelected([]);setError("");}}catch(e){setError((e as Error).message);}}}>{t("Restore selected fields")}</button>}
+          {error && <Notice tone="error">{error}</Notice>}
           <button
             className="button"
             onClick={() =>
@@ -177,8 +184,8 @@ export function RevisionComparison({
                 JSON.stringify(
                   {
                     projectId: project.id,
-                    fromRevision: baseline.revision,
-                    toRevision: project.revision,
+                    fromRevision: project.revision,
+                    toRevision: baseline.revision,
                     differences,
                   },
                   null,

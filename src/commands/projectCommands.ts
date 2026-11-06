@@ -545,6 +545,7 @@ export function previewProjectCommand(
     preview.command = structuredClone(command);
     const next = structuredClone(project);
     mutate(next, preview.command);
+    for (const item of [...next.loads, ...next.boards, ...next.circuits]) if (typeof item.name !== "string" || !item.name.trim()) preview.errors.push("Every load, board and circuit needs a nonempty name.");
     const validation = validateProjectImport(next);
     if (!validation.valid) preview.errors.push(...validation.errors);
     for (const load of next.loads)

@@ -84,6 +84,7 @@ import {
   safeName,
 } from "./import-export/files";
 import type { ImportPreview } from "./import-export/files";
+import { mergeProjectObjects, replaceProjectContents } from "./import-export/projectDestination";
 import {
   LanguageContext,
   languages,
@@ -118,6 +119,7 @@ import { LoadOperations } from "./features/LoadOperations";
 import { TopologyEditor } from "./features/TopologyEditor";
 import { AdvancedPlanning } from "./features/AdvancedPlanning";
 import { FeederAssessment } from "./features/FeederAssessment";
+import { SourceRegistry, ProjectOrganization } from "./features/SourceRegistry";
 import { ReportWorkspace } from "./features/ReportWorkspace";
 import type { ReportContext } from "./import-export/reportSnapshot";
 import type { CalendarResult, RangeOptions } from "./engine/simulation";
@@ -275,6 +277,8 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importBusy, setImportBusy] = useState(false);
+  const [importMode, setImportMode] = useState<"new"|"merge"|"replace">("new");
+  const [importTarget, setImportTarget] = useState<{id:string;revision:number}>();
   const [botOpen, setBotOpen] = useState(false);
   const [reportTab, setReportTab] = useState<"engineering" | "billing">(
     "engineering",
@@ -298,6 +302,10 @@ export default function App() {
   const result = useMemo(() => calculateProject(project), [project]);
   const selectedLoad = project.loads.find((l) => l.id === selected);
   const selectedResult = result.loads.find((l) => l.id === selected);
+  const selectedBoard = project.boards.find(row => row.id === selected);
+  const selectedCircuit = project.circuits.find(row => row.id === selected);
+  const selectedSource = project.sources?.find(row => row.id === selected);
+  const selectedObject = selectedLoad ?? selectedBoard ?? selectedCircuit ?? selectedSource;
   const refreshRecords = useCallback(async () => {
     try {
       setRecords(await listProjects(true));
@@ -635,7 +643,10 @@ export default function App() {
     setError("");
     try {
       const next = await previewImport(file);
+      if(next.kind !== "project") {next.project = {...createProject(file.name.replace(/\.[^.]+$/, "")), loads: next.loads};}
       setPreview(next);
+      setImportMode(next.kind === "project" ? "new" : "merge");
+      setImportTarget({id:latest.current.id,revision:latest.current.revision});
       setDialog("import");
     } catch (e) {
       setError((e as Error).message);
@@ -645,17 +656,20 @@ export default function App() {
     }
   }
   async function applyImport() {
-    if (!preview || preview.errors.length) return;
-    if (preview.kind === "project" && preview.project) {
-      const next = duplicateProject(
-        preview.project,
-        preview.project.name + " · imported",
-      );
-      await createAndOpen(next);
-    } else change((p) => p.loads.push(...preview.loads));
-    setDialog(null);
-    setPreview(null);
-    go("loads");
+    if (!preview?.project || preview.errors.length) return;
+    setError("");
+    try {
+      if(importMode !== "new" && (latest.current.id !== importTarget?.id || latest.current.revision !== importTarget?.revision)) throw new Error(t("Project changed. Preview the import again before applying."));
+      if(importMode === "new") {
+        const next = duplicateProject(preview.project, preview.project.name + " · imported");
+        await createAndOpen(next);
+        if(latest.current.id !== next.id) return;
+      } else {
+        const next = importMode === "merge" ? mergeProjectObjects(latest.current,preview.project) : replaceProjectContents(latest.current,preview.project);
+        if(!change(p => {for(const key of Object.keys(p)) delete (p as unknown as Record<string,unknown>)[key];Object.assign(p,next);})) return;
+      }
+      setDialog(null);setPreview(null);go("loads");
+    } catch(error) {setError((error as Error).message);}
   }
   function libraryPage() {
     return (
@@ -1265,7 +1279,7 @@ export default function App() {
           <div
             className={
               "workspace-content " +
-              (selectedLoad || showTrace ? "with-inspector" : "")
+              (selectedObject || showTrace ? "with-inspector" : "")
             }
           >
             <main id="workspace" className="main-content">
@@ -1337,12 +1351,12 @@ export default function App() {
                     </>
                   )}
                   {route === "boards" && (
-                    <Boards
+                    <><ProjectOrganization project={project} change={change}/><Boards
                       project={project}
                       result={result}
                       change={change}
                       onSelect={setSelected}
-                    />
+                    /></>
                   )}
                   {route === "diagram" && (
                     <TopologyEditor
@@ -1368,6 +1382,7 @@ export default function App() {
                       </Suspense>
                     </>
                   )}
+                  {route === "motors" && <SourceRegistry project={project} change={change} onSelect={setSelected}/>}
                   {route === "cables" && <FeederAssessment project={project} onChange={change} />}
                   {["cables", "motors", "quality", "tools"].includes(route) && (
                     <Toolbox
@@ -1589,7 +1604,7 @@ export default function App() {
                 </>
               )}
             </main>
-            {(selectedLoad || showTrace) && (
+            {(selectedObject || showTrace) && (
               <aside className="inspector">
                 <div className="inspector-head">
                   <span>
@@ -1640,6 +1655,8 @@ export default function App() {
                       ))}
                     </div>
                   </>
+                ) : selectedObject && !selectedLoad ? (
+                  <div className="inspector-section"><span className="tag">{t(selectedBoard ? "Board" : selectedCircuit ? "Circuit" : "Source equipment")}</span><h3>{selectedObject.name}</h3><dl className="detail-list">{Object.entries(selectedObject).filter(([key]) => key !== "id" && key !== "name").map(([key,value]) => <div key={key}><dt>{t(key)}</dt><dd>{typeof value === "object" ? <details><summary>{t("Show details")}</summary><pre className="comparison-value">{JSON.stringify(value,null,2)}</pre></details> : String(value ?? "—")}</dd></div>)}</dl><button className="button" onClick={() => go(selectedSource ? "motors" : "boards")}>{t("Edit selected object")}</button><button className="text-button" onClick={() => setShowTrace(true)}>{t("Calculation trace")}</button></div>
                 ) : (
                   selectedLoad && (
                     <>
@@ -1991,10 +2008,11 @@ export default function App() {
                   {e}
                 </p>
               ))}
-              <p>
-                {preview.kind === "project" ? t("New project") : t("Add load")}{" "}
-                → {preview.project?.name || project.name}
-              </p>
+              <Field label={t("Import destination")}><select value={importMode} onChange={e => setImportMode(e.target.value as typeof importMode)}><option value="new">{t("New project")}</option><option value="merge">{t("Merge into current project")}</option><option value="replace">{t("Replace current project contents")}</option></select></Field>
+              <p>{importMode === "new" ? preview.project?.name : project.name} · {t("Revision")} {importTarget?.revision}</p>
+              <Notice tone={importMode === "replace" ? "warning" : "info"}>{t(importMode === "merge" ? "Imports objects with new IDs and their dependencies. Current supply, tariff, energy, baseline and diagram settings are retained." : importMode === "replace" ? "Replaces the current project contents. The prior state remains available through Undo and saved history." : "Creates a separate project. Imported object IDs and evidence are preserved.")}</Notice>
+              <p className="small muted">{preview.project?.boards.length ?? 0} {t("Boards")} · {preview.project?.circuits.length ?? 0} {t("Circuits")} · {preview.project?.loads.length ?? 0} {t("Loads")}</p>
+              {error && <Notice tone="error">{error}</Notice>}
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -2099,6 +2117,7 @@ export default function App() {
                         <ChevronRight size={14} />
                       </button>
                     ))}
+                {!!query && [...project.boards.map(row => ({...row,route:"boards"})),...project.circuits.map(row => ({...row,route:"boards"})),...(project.sources??[]).map(row => ({...row,route:"motors"})),...(project.equipmentLibrary??[]).map(row => ({...row,route:"library"}))].filter(row => row.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())).slice(0,12).map(row => <button key={row.id} onClick={() => {setSelected(row.id);go(row.route);}}><Network size={17}/>{row.name}<ChevronRight size={14}/></button>)}
               </div>
             </div>
           </Modal>

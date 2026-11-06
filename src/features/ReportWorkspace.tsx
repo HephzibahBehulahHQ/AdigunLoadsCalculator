@@ -38,7 +38,7 @@ import {
 } from "../import-export/scenarioExports";
 import { loadBillingDocument, saveBillingDocument } from "../storage/billing";
 import { readMeasurements } from "../storage/measurements";
-import { buildDiagramSnapshot } from "../commands/diagram";
+import { buildDiagramSnapshot, diagramSVG } from "../commands/diagram";
 
 const blankDetails = {
   reference: "",
@@ -588,6 +588,36 @@ export function ReportWorkspace({
               {group.blocks.map((block, index) => (
                 <Block key={index} block={block} />
               ))}
+              {group.section === "diagram" && snapshot.context.diagram && (
+                <figure>
+                  <img
+                    style={{ width: "100%", height: "auto" }}
+                    src={
+                      "data:image/svg+xml;charset=utf-8," +
+                      encodeURIComponent(diagramSVG(snapshot.context.diagram))
+                    }
+                    alt={t(
+                      "Model topology overview; the exported PDF includes readable vector tiles and the full object legend.",
+                    )}
+                  />
+                  <figcaption>
+                    {t(
+                      "Model topology overview; the exported PDF includes readable vector tiles and the full object legend.",
+                    )}
+                  </figcaption>
+                  <Block
+                    block={{
+                      kind: "table",
+                      headers: [t("Object"), t("Name"), t("Entered details")],
+                      rows: snapshot.context.diagram.nodes.map((node) => [
+                        node.id,
+                        node.name,
+                        node.detail,
+                      ]),
+                    }}
+                  />
+                </figure>
+              )}
             </section>
           ))}
         </article>

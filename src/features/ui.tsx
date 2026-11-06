@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useState,
   useRef,
   useContext,
   useId,
@@ -177,6 +178,8 @@ export function LineChart({
 }) {
   const locale = useContext(LanguageContext);
   const t = useT();
+  const [tablePage, setTablePage] = useState(0);
+  const min = Math.min(0,...points.map(p=>p.y),...(secondary?.map(p=>p.y)??[]));
   const max =
     Math.max(
       1,
@@ -190,7 +193,7 @@ export function LineChart({
     padB = 30;
   const n = Math.max(1, points.length - 1);
   const x = (i: number) => padL + (i / n) * (width - padL - padR);
-  const y = (v: number) => height - padB - (v / max) * (height - padT - padB);
+  const y = (v: number) => height - padB - ((v - min) / (max - min)) * (height - padT - padB);
   const path = (list: { x: number; y: number }[]) =>
     list.map((p, i) => (i ? "L" : "M") + x(i) + "," + y(p.y)).join(" ");
   const id = useRef("chart-" + Math.random().toString(36).slice(2)).current;
@@ -208,7 +211,7 @@ export function LineChart({
           </linearGradient>
         </defs>
         {Array.from({ length: 5 }, (_, i) => {
-          const v = (max * i) / 4;
+          const v = min + ((max - min) * i) / 4;
           return (
             <g key={i}>
               <line
@@ -307,6 +310,8 @@ export function LineChart({
             </rect>
           ))}
       </svg>
+      {onSelect && points.length > 0 && <input className="chart-keyboard" type="range" min={0} max={points.length-1} step={1} value={Math.min(selected??0,points.length-1)} aria-label={t("Chart cursor")} onChange={e=>onSelect(Number(e.target.value))}/>}
+      <details className="chart-data"><summary>{t("Chart data table")}</summary><div className="table-wrap"><table><thead><tr><th>{t("Position")}</th><th>{label}</th>{secondary&&<th>{t("Comparison")} ({label})</th>}</tr></thead><tbody>{points.slice(Math.min(tablePage,Math.max(0,Math.ceil(points.length/50)-1))*50,Math.min(tablePage,Math.max(0,Math.ceil(points.length/50)-1))*50+50).map((point,i)=><tr key={i}><td>{numberFormat(point.x,3,locale)}</td><td>{numberFormat(point.y,6,locale)}</td>{secondary&&<td>{secondary[Math.min(tablePage,Math.max(0,Math.ceil(points.length/50)-1))*50+i] ? numberFormat(secondary[Math.min(tablePage,Math.max(0,Math.ceil(points.length/50)-1))*50+i].y,6,locale):"—"}</td>}</tr>)}</tbody></table></div>{points.length>50&&<div className="button-row"><button type="button" className="button" disabled={tablePage===0} onClick={()=>setTablePage(p=>Math.max(0,p-1))}>{t("Previous")}</button><button type="button" className="button" disabled={(tablePage+1)*50>=points.length} onClick={()=>setTablePage(p=>p+1)}>{t("Next")}</button></div>}</details>
     </div>
   );
 }
