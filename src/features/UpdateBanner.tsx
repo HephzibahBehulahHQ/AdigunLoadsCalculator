@@ -61,6 +61,8 @@ export function UpdateBanner({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const current = useRef(version);
+  const activated = useRef(false);
+  const waitingWorker = useRef<ServiceWorker | null>(null);
   current.current = version;
   useReloadProtection();
   useEffect(
@@ -79,7 +81,13 @@ export function UpdateBanner({
     navigator.serviceWorker.ready
       .then((ready) => {
         if (alive)
-          cleanup = observeUpdates(ready, (next) => setRegistration(next));
+          cleanup = observeUpdates(ready, (next) => {
+            if (waitingWorker.current !== next.waiting) {
+              waitingWorker.current = next.waiting;
+              activated.current = false;
+            }
+            setRegistration(next);
+          });
       })
       .catch(() => {});
     return () => {
@@ -110,7 +118,19 @@ export function UpdateBanner({
         setError(u.changed);
         return;
       }
-      await activateWaitingWorker(registration!, navigator.serviceWorker);
+      if (!activated.current) {
+        await activateWaitingWorker(registration!, navigator.serviceWorker);
+        activated.current = true;
+      }
+      const lateDrafts = updateBlockers();
+      if (lateDrafts.length) {
+        setError(`${u.finish} ${lateDrafts.join(", ")}`);
+        return;
+      }
+      if (current.current !== beforeSave) {
+        setError(u.changed);
+        return;
+      }
       location.reload();
     } catch {
       setError(u.retry);

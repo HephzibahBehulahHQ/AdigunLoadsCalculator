@@ -1,4 +1,5 @@
 import { openPowerLabDatabase as db } from "./database";
+import { readCommitted } from "./transactions";
 import {
   parseMeasurementCSV,
   type MeasurementImport,
@@ -67,14 +68,9 @@ export async function readMeasurements(
   projectId: string,
 ): Promise<{ saved: SavedMeasurements; parsed: MeasurementImport } | null> {
   const database = await db();
-  const raw = await new Promise<unknown>((resolve, reject) => {
-    const request = database
-      .transaction("measurements")
-      .objectStore("measurements")
-      .get(projectId);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  const raw = await readCommitted(database, "measurements", (store) =>
+    store.get(projectId),
+  );
   if (raw === undefined) return null;
   if (
     !object(raw) ||

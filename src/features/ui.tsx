@@ -14,7 +14,7 @@ import { LanguageContext, numberFormat, useT } from "../i18n";
 const modalStack: HTMLElement[] = [];
 const inertOwners = new Map<
   HTMLElement,
-  { count: number; previous: boolean }
+  { count: number; previous: boolean; previousAria: string | null }
 >();
 const focusableSelector =
   'button,input:not([type="hidden"]),select,textarea,a[href],summary,[tabindex]';
@@ -41,16 +41,24 @@ export function Modal({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const opener = useRef(document.activeElement as HTMLElement | null);
   const t = useT();
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
     const modal = ref.current;
     if (!modal) return;
-    const old = document.activeElement as HTMLElement | null;
+    const old = opener.current;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     modalStack.push(modal);
+    const focusable = focusableIn(modal);
+    if (!modal.contains(document.activeElement)) {
+      (
+        focusable.find((element) => element.matches("input,select,textarea")) ||
+        modal
+      ).focus();
+    }
     const background: HTMLElement[] = [];
     for (
       let branch: HTMLElement = modal;
@@ -62,19 +70,16 @@ export function Modal({
         const owner = inertOwners.get(sibling) ?? {
           count: 0,
           previous: sibling.inert,
+          previousAria: sibling.getAttribute("aria-hidden"),
         };
         owner.count++;
         inertOwners.set(sibling, owner);
         sibling.inert = true;
+        sibling.setAttribute("aria-hidden", "true");
         background.push(sibling);
       }
       if (branch.parentElement === document.body) break;
     }
-    const focusable = focusableIn(modal);
-    (
-      focusable.find((element) => element.matches("input,select,textarea")) ||
-      modal
-    ).focus();
     function key(e: KeyboardEvent) {
       if (modalStack.at(-1) !== modal) return;
       // Workspace shortcuts must not replace an editor and discard its draft.
@@ -123,6 +128,9 @@ export function Modal({
         const owner = inertOwners.get(element)!;
         if (--owner.count === 0) {
           element.inert = owner.previous;
+          if (owner.previousAria === null)
+            element.removeAttribute("aria-hidden");
+          else element.setAttribute("aria-hidden", owner.previousAria);
           inertOwners.delete(element);
         }
       }

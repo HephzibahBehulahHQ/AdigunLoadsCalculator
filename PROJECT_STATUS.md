@@ -6,7 +6,9 @@ Date: 6 November 2026. Owner: Hephzibah Behulah.
 
 The owner has given standing authorization to continue unfinished project work, merge and deploy each verified milestone, then continue without a new approval request. Work is active on `feat/field-usability` from main `9fe8d479b36075e85c3751644320e209a746602c`.
 
-Current scope: differentiated Simple/Engineering views, keyboard/dialog accessibility, safe application updates, storage failure recovery and deterministic local BOT lifecycle. The first checkpoint contains modal focus/background isolation, accessible field hints and update/draft protection infrastructure. Integration and release gates are pending; no new live release is claimed by this checkpoint.
+Current scope: differentiated Simple/Engineering views, keyboard/dialog accessibility, safe application updates and storage transaction recovery. Meaningful detail views, preserved drafts, visible incomplete/failed checks, scoped previous-build asset fallback and read/trash transaction-abort handling are implemented. Eight update regressions, 13 storage regressions and translation/type checks passed. Integrated development/production browser, cache-update and release gates are in progress; no new live release is claimed by this checkpoint.
+
+The next recovery acceptance milestone is already active in an isolated checkout, covering quota failures, blocked database upgrades, malformed migration and interrupted archive restore. Deterministic local BOT lifecycle review continues separately. These are continued work, not reasons to pause for publication approval.
 
 ## Current continuation
 

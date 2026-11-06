@@ -1,6 +1,7 @@
 import type { Project } from "../domain/types";
 import { validateProjectImport } from "../domain/project";
 import { openPowerLabDatabase as db } from "./database";
+import { readCommitted } from "./transactions";
 const reported = new Set<string>();
 function safeRecords(items: unknown[]): ProjectRecord[] {
   return items.flatMap((item) => {
@@ -40,16 +41,10 @@ export async function listProjects(
   includeDeleted = false,
 ): Promise<ProjectRecord[]> {
   const d = await db();
-  return new Promise((resolve, reject) => {
-    const r = d.transaction("projects").objectStore("projects").getAll();
-    r.onsuccess = () =>
-      resolve(
-        safeRecords(r.result)
-          .filter((p) => includeDeleted || !p.deleted)
-          .sort((a, b) => b.savedAt.localeCompare(a.savedAt)),
-      );
-    r.onerror = () => reject(r.error);
-  });
+  const records = await readCommitted(d, "projects", (store) => store.getAll());
+  return safeRecords(records)
+    .filter((p) => includeDeleted || !p.deleted)
+    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 export async function saveProject(
   project: Project,
@@ -120,26 +115,28 @@ export async function setTrashed(id: string, deleted: boolean): Promise<void> {
         });
     };
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () =>
+      reject(tx.error || new Error("The trash change could not be saved."));
+    tx.onabort = () =>
+      reject(
+        tx.error ||
+          new Error(
+            "The trash change was interrupted. Your saved project has not been changed.",
+          ),
+      );
   });
 }
 export async function projectHistory(id: string): Promise<Project[]> {
   const d = await db();
-  return new Promise((resolve, reject) => {
-    const r = d.transaction("history").objectStore("history").getAll();
-    r.onsuccess = () =>
-      resolve(
-        r.result
-          .filter(
-            (r: { id: string; project: Project }) =>
-              r.id === id && validateProjectImport(r.project).valid,
-          )
-          .map((r: { project: Project }) => r.project)
-          .sort((a: Project, b: Project) => b.revision - a.revision)
-          .slice(0, 50),
-      );
-    r.onerror = () => reject(r.error);
-  });
+  const records = await readCommitted(d, "history", (store) => store.getAll());
+  return records
+    .filter(
+      (record: { id: string; project: Project }) =>
+        record.id === id && validateProjectImport(record.project).valid,
+    )
+    .map((record: { project: Project }) => record.project)
+    .sort((a: Project, b: Project) => b.revision - a.revision)
+    .slice(0, 50);
 }
 export function readPreference<T>(key: string, fallback: T): T {
   try {

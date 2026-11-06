@@ -23,6 +23,7 @@ export function DetailModeControl({
     <label className="detail-mode-control">
       <span>{t("Detail level")}</span>
       <select
+        aria-label={t("Detail level")}
         value={value}
         onChange={(event) => onChange(event.target.value as DetailMode)}
       >
