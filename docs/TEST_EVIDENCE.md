@@ -2,7 +2,7 @@
 
 ## Current continuation: 6 November 2026
 
-Source candidate: `93d5e46b484ac787c0b57249e2eaea10dd179ef8` on local `feat/verified-workflows`. This recovers the continuation based on remote `0905f574216a36207698454501a6b8f6147d76c9`, repairs feeder/circuit evidence and exact tariff boundaries, and updates report capacity visibility and no-op circuit controls. It is not published.
+Locally verified source: `93d5e46b484ac787c0b57249e2eaea10dd179ef8`. This recovers the continuation based on remote `0905f574216a36207698454501a6b8f6147d76c9`, repairs feeder/circuit evidence and exact tariff boundaries, and updates report capacity visibility and no-op circuit controls. Published branch `51736e6f17987e113f663662919f6318f37b8a84` includes the final documentation checkpoint; merged and deployed main is `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9`.
 
 ### Numerical and rendered-output checks
 
@@ -24,7 +24,14 @@ Source candidate: `93d5e46b484ac787c0b57249e2eaea10dd179ef8` on local `feat/veri
 
 ### Publication and limits
 
-The initial public push was rejected for missing explicit publication authorization. The owner subsequently gave full approval to push, merge into main and deploy publicly on 6 November 2026. The block is resolved; remote heads are being inspected and actual repository validation/publication gates are in progress. No remote result is claimed until observed.
+The initial public push was rejected for missing explicit publication authorization. The owner subsequently gave full approval to push, merge into main and deploy publicly on 6 November 2026. The approved publication then completed through [PR #2](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/2).
+
+- Remote branch validation [42168975954](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42168975954) and PR validation [42168980729](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42168980729) both succeeded. Clean installation, lint, unit tests, build, browser tests, root offline and repository-subpath offline checks all passed.
+- Uploaded branch and merged main match verified tree `d3c925aece07c5b56ae5011a338eb18abb93a5d0` exactly.
+- Pages workflow [42169441584](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42169441584) successfully built and deployed exact main revision `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9`. See `DEPLOYMENT.md` for the public URL and release receipts.
+- Post-merge validation [42169342041](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42169342041) also completed successfully for that exact revision.
+- Public interactive checks passed: Engine 1.1.0; 2.3 kW / 230 V → 10 A and 18.4 kWh; 50% duty → 9.2 kWh with 10 A unchanged; saved reload; frozen report/BOM with matching exported revision 4; analytical bill total €53.53 and a real one-page PDF download. PDF signature, trailer, document reference and total were independently checked. Exact values and export fingerprints are in `continuation-verification.json`.
+- The first terminal-browser attempt lacked its expected executable; the next launched Chromium but received `ERR_EMPTY_RESPONSE` before any app assertions. Those environment failures are preserved as failures, and the live checks above were completed using the supported cloud browser.
 
 No physical hardware, licensed standards/manufacturer dataset, connected AI, cloud ownership/security, professional language review, full independent accessibility audit or exhaustive original-spec acceptance is claimed. Historical browser performance below belongs to the earlier release.
 

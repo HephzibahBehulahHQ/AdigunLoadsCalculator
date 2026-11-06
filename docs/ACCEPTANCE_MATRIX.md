@@ -6,7 +6,7 @@ Audit date: 6 November 2026. Scope: original specification sections 01–33, fix
 
 **The complete original specification is not fully accepted.** The current local continuation adds substantial working behavior and closes the implementation gaps listed below; external datasets/services and exhaustive acceptance remain separate. This is not a claim that the new candidate is public.
 
-Verification source candidate: `93d5e46`. The numerical gate passed **331 tests across 21 files**, and the production build passed. **32/32 browser cases passed** in the independent checkout. Offline root/subpath and clean-checkout gates passed; exact command/revision evidence is in `TEST_EVIDENCE.md`. The owner has now explicitly authorized push, merge and public deployment; remote release gates are in progress. The previously deployed main revision remains `a33b1ed8f7479db6f1031dfef0addf806ede316f`.
+Verification source candidate: `93d5e46`. The numerical gate passed **331 tests across 21 files**, and the production build passed. **32/32 browser cases passed** in the independent checkout. Offline root/subpath and clean-checkout gates passed; exact command/revision evidence is in `TEST_EVIDENCE.md`. Following explicit owner authorization, the continuation passed complete GitHub validation, merged through PR #2 and deployed main revision `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9` through successful Pages run `42169441584`.
 
 The E/S/P/U/B1/B2/R/I/L/N/O evidence codes below include historical initial-release evidence. Continuation files and new regression evidence are specified in the current section table; historical performance figures must not be presented as a new candidate measurement.
 
@@ -67,8 +67,8 @@ The E/S/P/U/B1/B2/R/I/L/N/O evidence codes below include historical initial-rele
 | 28 Numerical fixtures | Verified within declared models | F01–F19 supported arithmetic/state cases and F20 partial integration evidence below | Independent fixtures validate implemented equations, not universal physical-model or regulatory correctness |
 | 29 Full acceptance verification | Partial; candidate gates recorded separately | 331 current numerical tests, production build, focused current/report regressions and rendered PDF review | Current browser/offline/clean-checkout gate results are in `TEST_EVIDENCE.md`; exhaustive full-spec matrix remains open |
 | 30 Milestones | Partial | Usable workflows across milestones 1–5; implemented-scope release gates | Milestone 6 full original-spec acceptance remains open |
-| 31 Continuation/checkpoints | Local checkpoints; authorized publication in progress | Recovered source and correctness fixes are committed on `feat/verified-workflows`; original checkout preserved | Explicit owner approval received; verify remote synchronization, CI and deployment receipts before claiming publication |
-| 32 Deliverables | Local candidate prepared; publication pending | Source/lockfile/assets/instructions/docs/cases/tests and reviewed report samples | Full original-scope acceptance remains partial; authorized remote delivery is in progress |
+| 31 Continuation/checkpoints | Synchronized, verified, integrated and deployed | Published branch `51736e6`; PR #2 merged main `92d5c43`; GitHub validation and Pages deployment succeeded; original checkout preserved | Release evidence is recorded separately from remaining original-spec acceptance |
+| 32 Deliverables | Current continuation delivered | Source/lockfile/assets/instructions/docs/cases/tests and reviewed report samples; live Pages release | Full original-scope acceptance remains partial; see the remaining work below |
 | 33 Definition of done | **Not fully accepted** | Implemented local workflow is usable and tested as described | Full listed original definition remains broader than the accepted initial implementation |
 
 ## Independent fixtures F01–F20
@@ -158,7 +158,7 @@ All rows are **implemented and example-verified within the stated method scope**
 
 ## Remaining work, ordered by impact
 
-1. Finish and record the candidate release gates, then complete the explicitly authorized publication. Keep local verification, remote synchronization, integration and deployment distinct.
+1. Continue recording distinct source, validation and deployment receipts for future releases; the current continuation is published.
 2. Extend full-spec acceptance: every action/failure path, all four languages, Simple/Engineering detail modes, independent accessibility review, storage quota and update-interruption scenarios.
 3. Obtain actual licensed jurisdiction/manufacturer data and independent engineering validation before enabling automatic standards recommendations, coordination or dynamic equipment claims.
 4. Review the German/Yorùbá/Pidgin technical narratives professionally; existing catalogue and browser checks establish implementation coverage only.

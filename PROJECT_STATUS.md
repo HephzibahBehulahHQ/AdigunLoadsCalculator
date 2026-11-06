@@ -4,7 +4,7 @@ Date: 6 November 2026. Owner: Hephzibah Behulah.
 
 ## Current continuation
 
-**The continuation candidate is implemented and locally verified. The owner explicitly authorized push, merge into main and public deployment on 6 November 2026. Remote validation and publication are in progress.** Verified source: `93d5e46b484ac787c0b57249e2eaea10dd179ef8` on `feat/verified-workflows`. The final documentation checkpoint records evidence without changing application source.
+**The Engine 1.1.0 continuation is merged and publicly deployed.** The owner explicitly authorized push, merge into main and public deployment on 6 November 2026. Published branch: `51736e6f17987e113f663662919f6318f37b8a84`; deployed main: `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9`. This delivery checkpoint records release evidence without changing application source.
 
 This branch starts from remote `feat/complete-workflows` commit `0905f574216a36207698454501a6b8f6147d76c9` and recovers 28 unfinished tracked files in local commit `43fe0f9`. The previous working checkout was preserved.
 
@@ -31,9 +31,13 @@ Commands and boundaries are in `docs/TEST_EVIDENCE.md`; machine-readable results
 
 ## Synchronization and publication
 
-The previous public-push approval block is resolved by the owner’s explicit instruction: “I GIVE YOU FULL APPROVAL , MERGER , PUSH , DEPLOY AND MALKE IT LIVE”. The implementation candidate remains locally verified while the integration owner checks remote heads, synchronizes the branch, verifies GitHub CI and runs the repository deployment. No new live deployment is claimed until those steps succeed.
+The owner explicitly approved publication and resolved the earlier approval-review block. The published branch and merged main both match verified tree `d3c925aece07c5b56ae5011a338eb18abb93a5d0`. Existing remote work was preserved; no force push was used.
 
-Last verified remote `main`: `a33b1ed8f7479db6f1031dfef0addf806ede316f`. GitHub reports successful validation `42126110407` and public deployment `42140197134` for that earlier release. No new integration, remote CI or deployment is claimed.
+- [PR #2](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/2) merged the continuation into main at `92d5c437f7b48f2f6ea65ae55c5aa3d2992aefa9`.
+- GitHub branch and PR validation runs [42168975954](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42168975954) and [42168980729](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42168980729) succeeded, including browser and offline gates.
+- [Pages deployment 42169441584](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42169441584) succeeded for that exact main revision.
+- Post-merge validation [42169342041](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42169342041) also succeeded. Public browser checks verified Engine 1.1.0, 10 A / 18.4 kWh, half-duty 9.2 kWh, saved reload, frozen report/BOM export and an actual customer PDF with the expected €53.53 total.
+- Public application: [AdigunPowerLab](https://hephzibahbehulahhq.github.io/AdigunPowerLab/). Release receipts are in `docs/DEPLOYMENT.md` and `docs/continuation-verification.json`.
 
 ## Remaining scope
 
@@ -41,4 +45,4 @@ Full original-spec acceptance remains partial. Connected AI, cloud identity/sync
 
 ## Next action
 
-Push the authorized tested branch, verify GitHub CI, integrate it into main and publish through the repository workflow. Inspect current remote heads before synchronization; preserve concurrent work, use no force push and require green remote validation before deployment.
+The authorized release is complete. Continue the remaining acceptance work listed above. This documentation receipt follows the deployed revision and does not change application assets.
