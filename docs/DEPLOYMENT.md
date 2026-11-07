@@ -1,14 +1,14 @@
 # Public deployment
 
-The owner explicitly authorized pushing, merging and public deployment on 6 November 2026. The public application is [AdigunPowerLab](https://hephzibahbehulahhq.github.io/AdigunPowerLab/). Current implementation and acceptance status remain in `PROJECT_STATUS.md`; this document records publication mechanics and receipts.
+The owner explicitly authorized pushing, merging and public deployment on 6 and 7 November 2026. The configured custom domain is `adigunpowerlab.hephzibahbehulah.com`; its final HTTPS and release verification is recorded in [PR #6](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/6). The previous GitHub Pages URL is [AdigunPowerLab](https://hephzibahbehulahhq.github.io/AdigunPowerLab/). Current implementation and acceptance status remain in `PROJECT_STATUS.md`; this document records publication mechanics and receipts.
 
 ## Verified publication workflow
 
 `.github/workflows/deploy.yml` publishes automatically after a successful **Validate PowerLab** push run on `main`. Pull-request runs, feature branches, failed validation and foreign repository artifacts cannot publish. The workflow checks the actual `ci.yml` workflow ID, successful completed run, source repository, current main SHA and the artifact's originating run/SHA before preparing Pages.
 
-Publication downloads the immutable `AdigunPowerLab` artifact produced by that exact successful CI run. It does not rebuild or execute downloaded application content in the privileged workflow. The full lint, numerical, browser, update and offline gates therefore apply to the published bundle. Relative asset URLs preserve the existing `/AdigunPowerLab/` hosting path.
+Publication downloads the immutable `AdigunPowerLab` artifact produced by that exact successful CI run. It does not rebuild or execute downloaded application content in the privileged workflow. The full lint, numerical, browser, update and offline gates therefore apply to the published bundle. Relative asset URLs support both the custom-domain root and `/AdigunPowerLab/` hosting path.
 
-The existing `github-pages` environment, public domain and Pages concurrency group remain unchanged. Write permissions and the OIDC token are limited to the deployment job. Main and the validation result are checked again immediately before `actions/deploy-pages`; a superseded revision must wait for the newer main validation. This is a stale-head guard, not an atomic lock against unrelated main pushes during GitHub's publication operation.
+The existing `github-pages` environment and Pages concurrency group remain unchanged. Preparation also reads the Pages configuration and requires `build_type: workflow`; select **Settings → Pages → Build and deployment → Source → GitHub Actions** if this check fails, preserving the configured custom domain. Branch publication must not build this application source through Jekyll. The root CNAME is retained as owner configuration; Actions deployment does not use that file to configure DNS or TLS. Write permissions and the OIDC token are limited to the deployment job. Main and the validation result are checked again immediately before `actions/deploy-pages`; a superseded revision must wait for the newer main validation. This is a stale-head guard, not an atomic lock against unrelated main pushes during GitHub's publication operation.
 
 **Manual retry:** run **Publish PowerLab to GitHub Pages** on `main`. It resolves a successful main-push validation for that exact current revision and uses the same artifact checks. Missing, expired or ambiguous artifacts stop publication; rerun the main validation to produce a new verified artifact, then retry. A manual run cannot waive CI or publish an old revision.
 
@@ -16,7 +16,13 @@ The workflow writes the selected source SHA, validation URL and artifact ID to i
 
 References: [GitHub workflow-run events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run), [artifact download inputs](https://github.com/actions/download-artifact/blob/v4/action.yml), [Pages deployment action](https://github.com/actions/deploy-pages/tree/v4).
 
-## Latest verified deployment receipt before this update
+## Custom-domain continuation: 7 November 2026
+
+Main `18f7a04` added the owner-selected custom domain. Validation [42286471020](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42286471020) and tested-artifact publication [42287072522](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42287072522) succeeded. A competing dynamic [Jekyll run](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42286470908) exposed the branch-publishing configuration.
+
+The authenticated Pages settings confirmed **Deploy from a branch**. The source was restored to **GitHub Actions**, with the custom domain preserved; GitHub confirmed the saved setting. The certificate subsequently became available, the application loaded at `https://adigunpowerlab.hephzibahbehulah.com/`, and Enforce HTTPS was enabled. Final candidate checks, merge, deployment and live functional verification belong in [PR #6](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/6). Do not infer public reachability from a successful Actions run alone.
+
+## Historical verified deployment receipt before PR #5
 
 - Deployed source: `main` revision `f45d7369a7f4955e6c3d43b3ea5c03ded0c41821` (field usability, recovery and local BOT lifecycle work).
 - Complete main validation: [42176699140](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176699140), completed successfully.

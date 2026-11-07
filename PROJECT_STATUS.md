@@ -1,39 +1,40 @@
 # AdigunPowerLab — current status
 
-Date: 6 November 2026. Owner: Hephzibah Behulah.
+Date: 7 November 2026. Owner: Hephzibah Behulah.
 
-## Release continuation: searchable help and verified publication
+## Active continuation: localized toolbox search and custom-domain publication
 
-The owner authorized continuation, commits, merge into main and public deployment. The completed implementation is on `feat/continuation-release`, based on main `f45d7369a7f4955e6c3d43b3ea5c03ded0c41821`. Frozen application source: `4112b88891b0c549152fc3c70e2d797810c41ecc`, verified at the remote head on 6 November 2026 at approximately 14:35 Europe/Berlin.
+The owner authorized continuation, commits, merge into main and public deployment. The integration branch is `feat/continuation-2026-11-07`, based on main `18f7a04ebc33697dd0c3f011dce9ba4f4000e3f2`. The original local checkout contained older uncommitted translations and was preserved; implementation continues in a separate worktree.
 
-**Current integration, validation and production receipts are recorded in [PR #5](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/5).** That release record carries the final candidate, merged revision, successful workflow runs, deployment and live verification without a self-referential documentation commit. A source checkpoint alone is not a deployment receipt.
+**The current candidate, integration, validation, deployment and live receipts belong in [PR #6](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/6).** A checkpoint is a backup, not a release receipt. Full original-spec acceptance remains partial.
 
-## Completed implementation
+## Changes in this continuation
 
-- Visible Help & Support on every workspace, with 20 workflow guides and guides for all 51 actual engineering worksheets.
-- English, German, Yoruba and Nigerian Pidgin explanations, searchable in the selected language and English, including actual save-error messages and accent-insensitive matching.
-- Real catalogue input names, units, conditions and worked examples; direct workspace/tool navigation; help in the existing command palette.
-- Protected unfinished form edits, keyboard focus restoration across palette/help handoffs, and reliable repeated requests for the same tool.
-- Automatic Pages publication after complete validation of the exact current main revision, reusing its tested artifact with repository, workflow, artifact and stale-head guards. Manual publication requires the same evidence.
+- Engineering Toolbox searches displayed tool titles, categories and descriptions in the selected language as well as English. Search ignores case, accents and punctuation, and continues to match tool IDs.
+- Localized result announcements and an empty-state Clear search action support keyboard recovery without changing worksheet inputs or calculated results.
+- Production browser checks include the localized toolbox search flows.
+- Pages preparation rejects branch publication. Existing exact-revision validation, artifact provenance and stale-main guards remain required.
 
-## Verification and recovery evidence
+## Observed deployment repair
 
-A fresh checkout of `4112b88` reproduced clean dependency installation, lint/type checks, **371 passing unit/reference tests across 25 files**, and the production build. The 24 help-search/localization checks include every displayed guide's translation coverage. Desktop (1440 px) and mobile (360 px) help layouts were inspected with no page errors or horizontal page overflow.
+The owner's custom-domain commit added `adigunpowerlab.hephzibahbehulah.com` and changed Pages Source to **Deploy from a branch**. Main validation [42286471020](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42286471020) and validated publication [42287072522](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42287072522) succeeded, but a second [Jekyll publisher](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42286470908) also built repository source.
 
-Focused production tests verified actual 230 V / 23 Ω = 10 A calculations, repeated help and command-palette selection, and unchanged project JSON through navigation and reload. Keyboard, localized search and unfinished-settings protection passed focused browser checks. One initial development-server calculation check failed while translation files were changing; it passed unchanged on the frozen production bundle. The cause was not established, so the final complete suites are required before publication.
+Pages Source was restored to **GitHub Actions** on 7 November while preserving the configured custom domain. GitHub confirmed the setting. The custom-domain application subsequently loaded over HTTPS and Enforce HTTPS was enabled. This continuation's final publication and live functional checks are recorded in PR #6 when observed. The root CNAME is retained; relative asset, manifest and service-worker URLs support both root and repository-subpath hosting.
 
-Complete development/production browser, root/subpath offline and service-worker update gates are enforced by the repository CI. Their final exact-revision results, clean-checkout completion and publication checks are recorded in PR #5 and `docs/TEST_EVIDENCE.md`.
+## Verification
 
-## Previous release receipts
+Focused verification passed 15 localized search unit cases, TypeScript checking, two browser flows, YAML parsing and 10 publication-guard cases. Browser checks cover all four languages, English fallback, German categories/descriptions, Yoruba accents, preserved 230 V / 23 Ω calculation exports, and keyboard recovery.
 
-Field usability, storage recovery and BOT lifecycle work already merged through PRs #3 and #4. The previous status file's in-progress descriptions were stale.
+Complete candidate gates, clean-checkout recovery and final publication remain pending at this source checkpoint; PR #6 records their actual conclusions. No unrun check is counted as passed.
 
-- Main validation [42176699140](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176699140): successful for `f45d7369a7f4955e6c3d43b3ea5c03ded0c41821`.
-- Pages deployment [42176946887](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/actions/runs/42176946887): successful for the same revision.
-- Public application: [AdigunPowerLab](https://hephzibahbehulahhq.github.io/AdigunPowerLab/).
+## Previously completed release
 
-## Remaining scope and continuation
+[PR #5](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/5) merged searchable Help & Support with 71 guides in four languages and tested-artifact automatic publication. Its exact main revision, successful full validation, Pages deployment and live calculation receipts are retained in that PR. Do not repeat the accepted help, field-usability or recovery work as unfinished implementation.
 
-Full original-spec acceptance remains partial. Connected AI, account-backed cloud synchronization, OCR/resource feeds, physical telemetry/control, licensed jurisdiction/manufacturer datasets, professional translation review and an independent accessibility audit remain external or unverified. See `docs/KNOWN_LIMITATIONS.md` and `docs/ACCEPTANCE_MATRIX.md`.
+## Remaining original-spec scope
 
-Complete PR #5's required release receipts before treating this continuation as published. Future implementation should use the recorded final main revision and address a concrete remaining acceptance item; do not repeat already accepted field-usability or recovery work.
+Connected AI, account-backed cloud synchronization, OCR/resource feeds, physical telemetry/control, licensed jurisdiction/manufacturer datasets, professional translation review and an independent accessibility audit remain external or unverified. See `docs/KNOWN_LIMITATIONS.md` and `docs/ACCEPTANCE_MATRIX.md`. This continuation changes no engineering formula, storage schema, dependency or configured external integration.
+
+## Next action
+
+Complete PR #6's candidate gates and fresh-checkout recovery, merge the exact validated revision, verify Pages publication and the custom-domain interface, and record the observed release receipts in PR #6.

@@ -8,6 +8,7 @@ export default defineConfig({
     "accessibility.spec.ts",
     "update-guards.spec.ts",
     "help-support.spec.ts",
+    "toolbox-search.spec.ts",
   ],
   timeout: 45000,
   expect: { timeout: 10000 },
@@ -17,6 +18,12 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4176",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? {
+          executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+          args: ["--no-sandbox", "--no-zygote", "--single-process"],
+        }
+      : undefined,
   },
   webServer: {
     command: "npm run preview -- --host 127.0.0.1 --port 4176 --strictPort",

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { tools } from "../tools";
 import type { EngineeringTool } from "../tools";
+import { searchTools } from "../tools/search";
 import { Field, Notice } from "./ui";
 import { useT, LanguageContext, numberFormat } from "../i18n";
 import { parseLocaleNumber, formatEditableNumber } from "../i18n/numbers";
@@ -32,6 +33,7 @@ export function Toolbox({
   const t = useT();
   const locale = useContext(LanguageContext);
   const previousLocale = useRef(locale);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [calculatedInputs, setCalculatedInputs] = useState<
     Record<string, number | string>
   >({});
@@ -45,17 +47,16 @@ export function Toolbox({
   const [copied, setCopied] = useState(false);
   const filtered = useMemo(
     () =>
-      tools.filter(
-        (tool) =>
-          (!category ||
-            new RegExp(category, "i").test(tool.category + " " + tool.title)) &&
-          (!query ||
-            [tool.title, tool.id, tool.category, tool.description]
-              .join(" ")
-              .toLowerCase()
-              .includes(query.toLowerCase())),
+      searchTools(
+        tools.filter(
+          (tool) =>
+            !category ||
+            new RegExp(category, "i").test(tool.category + " " + tool.title),
+        ),
+        query,
+        locale,
       ),
-    [query, category],
+    [query, category, locale],
   );
   const tool = tools.find((tool) => tool.id === selected);
   useEffect(() => {
@@ -124,12 +125,16 @@ export function Toolbox({
         <div className="search-field">
           <Search size={17} />
           <input
+            ref={searchInput}
+            type="search"
             aria-label={t("Search tools")}
             placeholder={t("Search tools")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <span>{filtered.length}</span>
+          <span role="status" aria-live="polite" aria-atomic="true">
+            {filtered.length} {t("matching tools")}
+          </span>
         </div>
         <div className="tool-list">
           {filtered.map((tool) => (
@@ -146,6 +151,26 @@ export function Toolbox({
               <ArrowRight size={14} />
             </button>
           ))}
+          {filtered.length === 0 && (
+            <div className="panel-pad" style={{ gridColumn: "1 / -1" }}>
+              <h3>{t("No matching tools.")}</h3>
+              <p className="muted small">
+                {t(
+                  "Search by name, category, description or tool ID in your language or English.",
+                )}
+              </p>
+              <button
+                className="button"
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  searchInput.current?.focus();
+                }}
+              >
+                {t("Clear search")}
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div className="tool-workspace">

@@ -28,7 +28,7 @@ Set operating hours, starting hour, energy duty, utilization and standby power. 
 | Cables & Protection | Use the relevant validated toolbox worksheets with your supplied cable/device evidence |
 | Motors & Supply | Calculate motor, transformer, generator, inverter and UPS planning quantities within each worksheet's stated model |
 | Power Quality | Inspect power-factor correction, capacitor sizing and supplied harmonic data |
-| Engineering Toolbox | Search all 51 worksheets, enter inputs, calculate, open a labelled worked example, reset, copy or export the actual result |
+| Engineering Toolbox | Search all 51 worksheets by ID, displayed name, category or description in your selected language or English; accents and case are optional. Clear an empty search to recover the list without losing worksheet inputs/results. Enter inputs, calculate, open a labelled worked example, reset, copy or export the actual result |
 | Renewables & Storage | Enter PV/storage assumptions and an explicit hourly generation profile; simulate dispatch and an optional outage |
 | EV & Flexible Loads | Enter charging sessions, requirements and limits; inspect delivered/unmet energy and deadline feasibility |
 | Scenarios & Optimization | Create a separate scenario project and compare its metrics with the baseline |

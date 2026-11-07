@@ -1,5 +1,11 @@
 # Test evidence
 
+## Localized toolbox continuation: 7 November 2026
+
+Based on main `18f7a04`; first source checkpoint `b792614`. Focused checks passed 15 search unit cases, TypeScript, two real browser flows, YAML parsing and 10 Pages/provenance guard cases. Search coverage includes all four displayed languages, English fallback, German category/description matching, accented and unaccented Yoruba, whitespace/ID matching and no-result recovery. Browser evidence preserves the calculated worksheet JSON through search and language changes and restores keyboard focus after clearing an empty search.
+
+`npm ci` passed in the separate continuation worktree. Complete lint/unit/build/browser/production/update/offline gates, fresh-checkout recovery, exact candidate/main revisions and deployed live checks are recorded in [PR #6](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/6) as they complete. No pending gate is counted as passed. Existing electrical, billing, storage and help acceptance below remains historical evidence, not a new measurement.
+
 ## Searchable-help continuation: 6 November 2026
 
 Frozen application checkpoint: `4112b88891b0c549152fc3c70e2d797810c41ecc`. Release/integration receipts, including the final exact candidate and all workflow conclusions, are maintained in [PR #5](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/5). Subsequent release-documentation changes do not substitute for the full exact-revision repository workflow.

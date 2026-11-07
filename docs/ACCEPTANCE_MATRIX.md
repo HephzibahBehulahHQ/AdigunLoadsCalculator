@@ -2,6 +2,12 @@
 
 Audit date: 6 November 2026. Scope: original specification sections 01–33, fixtures F01–F20 and tools T01–T51, plus the recovered continuation.
 
+## Localized toolbox search and custom-domain continuation
+
+The 7 November continuation closes a specific section 25 usability defect: the Toolbox displayed translated titles but searched English metadata only. `src/tools/search.ts` now indexes displayed and English titles, categories, descriptions and tool IDs with case/accent/punctuation normalization. The real workspace adds localized live result counts and no-result keyboard recovery, preserving worksheet inputs and results. `tests/tools-search.test.ts` and `tests/browser/toolbox-search.spec.ts` supply focused evidence; the browser flows also run against the production bundle.
+
+The Pages source was restored from branch publication to GitHub Actions after the custom-domain change exposed a competing Jekyll publisher. `deploy.yml` now rejects that configuration before preparing the exact validated artifact. This is a publication-configuration check, not DNS/TLS verification. Final release evidence belongs in [PR #6](https://github.com/HephzibahBehulahHQ/AdigunPowerLab/pull/6); professional language review and independent accessibility acceptance remain open.
+
 ## Searchable help and publication continuation
 
 The next bounded continuation implements 20 workflow guides and guides for all 51 existing tools. `src/help/content.ts` connects searchable instructions to actual workspaces and tool metadata. `HelpSupport.tsx` provides local, responsive help with four-language content, keyboard access, real catalogue examples and an explicit GitHub support link. The existing command palette indexes the same content. Form drafts are protected from guide navigation, repeated external tool requests select the requested worksheet, and closing a help handoff restores the original keyboard focus.
