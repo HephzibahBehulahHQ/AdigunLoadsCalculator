@@ -1686,9 +1686,16 @@ tfoot td {
   flex-direction: column;
 }
 .tool-catalog .search-field {
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr);
+  gap: 0 8px;
   margin: 12px;
   border-radius: 6px;
   flex-shrink: 0;
+}
+.tool-catalog .search-field > [role="status"] {
+  grid-column: 1 / -1;
+  padding: 0 0 6px;
 }
 .tool-list {
   overflow: auto;
