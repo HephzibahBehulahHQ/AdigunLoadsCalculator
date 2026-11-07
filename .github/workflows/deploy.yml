@@ -31,6 +31,10 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const repository = `${owner}/${repo}`;
+            const { data: pages } = await github.rest.repos.getPages({ owner, repo });
+            if (pages.build_type !== 'workflow') {
+              throw new Error('GitHub Pages must publish through GitHub Actions. In repository Settings > Pages > Build and deployment, set Source to GitHub Actions and keep the existing custom domain. Branch publication can serve uncompiled source.');
+            }
             const { data: workflow } = await github.rest.actions.getWorkflow({
               owner, repo, workflow_id: 'ci.yml'
             });

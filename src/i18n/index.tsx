@@ -329,6 +329,22 @@ const words: Record<string, [string, string, string]> = {
   Result: ["Ergebnis", "Èsì", "Result"],
   Sources: ["Quellen", "Àwọn orísun", "Sources"],
   "Search tools": ["Werkzeuge suchen", "Wá irinṣẹ́", "Find tools"],
+  "matching tools": [
+    "passende Werkzeuge",
+    "irinṣẹ́ tó bá àwárí mu",
+    "matching tools",
+  ],
+  "No matching tools.": [
+    "Keine passenden Werkzeuge.",
+    "Kò sí irinṣẹ́ tó bá àwárí mu.",
+    "No tool match this search.",
+  ],
+  "Search by name, category, description or tool ID in your language or English.":
+    [
+      "Suchen Sie nach Namen, Kategorie, Beschreibung oder Werkzeug-ID in Ihrer Sprache oder auf Englisch.",
+      "Wá pẹ̀lú orúkọ, ẹ̀ka, àpèjúwe tàbí ID irinṣẹ́ ní èdè rẹ tàbí Gẹ̀ẹ́sì.",
+      "Search with name, category, description or tool ID for your language or English.",
+    ],
   "All tools": ["Alle Werkzeuge", "Gbogbo irinṣẹ́", "All tools"],
   "PV capacity": ["PV-Leistung", "Agbára oòrùn", "PV capacity"],
   "Peak sun hours": [
